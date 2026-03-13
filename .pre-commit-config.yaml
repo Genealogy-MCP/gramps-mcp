@@ -1,0 +1,36 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.5.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [pydantic, httpx, types-requests]
+        args: [--ignore-missing-imports]
+        files: ^src/
+
+  - repo: local
+    hooks:
+      - id: check-file-length
+        name: Check file length (max 500 lines)
+        entry: python scripts/check_file_length.py
+        language: system
+        files: \.py$
+        exclude: ^tests/
+        pass_filenames: true
+      - id: check-no-emojis
+        name: Check no emojis in files
+        entry: python scripts/check_no_emojis.py
+        language: system
+        pass_filenames: true
+      - id: check-copyright-header
+        name: Check AGPL copyright header
+        entry: python scripts/check_copyright_header.py
+        language: system
+        files: ^(src|scripts)/.*\.py$
+        pass_filenames: true
