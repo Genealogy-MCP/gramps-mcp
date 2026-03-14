@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `.github/dependabot.yml`: monthly Dependabot updates for `pip`, `github-actions`,
+  and `docker` ecosystems
+
+## [1.1.1] - 2026-03-13
+
+### Fixed
+- `upsert_media`: `file_location` parameter added to `MediaSaveParams` so it appears in
+  the MCP schema and is discoverable by LLM clients — previously invisible, causing
+  "file_location is required to create new media" errors when clients used `description`
+  or `path` as the upload source
+- `upsert_media`: Remove duplicate `description` field from `MediaSaveParams`; use `desc`
+  (the Gramps-native field) consistently
+- `delete_tool`: Replace manual `arguments.get()` extraction with `DeleteParams` Pydantic
+  validation; remove defensive enum normalization that Pydantic already handles
+- `upsert_repository_tool`: Remove pre-Pydantic manual checks that returned bare
+  `TextContent` errors; validation errors now route through `raise_tool_error` consistently
+
+### Tests
+- Add `TestMediaSaveParams` unit tests (no network) for schema shape
+- Add `TestCreateMediaToolValidation` integration tests: missing `file_location`, bad path,
+  update without `file_location`
+
 ## 2026-03-13
 
 ### Changed

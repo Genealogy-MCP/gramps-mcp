@@ -38,6 +38,7 @@ from ..models.parameters.note_params import NoteSaveParams
 from ..models.parameters.people_params import PersonData
 from ..models.parameters.place_params import PlaceSaveParams
 from ..models.parameters.repository_params import RepositoryData
+from ..models.parameters.simple_params import DeleteParams
 from ..models.parameters.source_params import SourceSaveParams
 from ._errors import raise_tool_error
 from .search_basic import FORMATTER_DISPATCH
@@ -267,12 +268,8 @@ async def upsert_media_tool(arguments: Dict) -> List[TextContent]:
     import os
 
     try:
-        # Extract file_location separately (not part of MediaSaveParams)
-        file_location = arguments.get("file_location")
-
-        # All other arguments are for metadata
-        media_params = {k: v for k, v in arguments.items() if k != "file_location"}
-        params = MediaSaveParams(**media_params) if media_params else None
+        params = MediaSaveParams(**arguments) if arguments else None
+        file_location = params.file_location if params else None
 
         settings = get_settings()
         tree_id = settings.gramps_tree_id
@@ -322,7 +319,9 @@ async def upsert_media_tool(arguments: Dict) -> List[TextContent]:
                 # 2. Merge initial object with metadata and update via PUT
                 final_media_data = initial_media_object.copy()
                 if params:
-                    final_media_data.update(params.model_dump(exclude_none=True))
+                    final_media_data.update(
+                        params.model_dump(exclude={"file_location"}, exclude_none=True)
+                    )
 
                 result = await client.make_api_call(
                     api_call=ApiCalls.PUT_MEDIA_ITEM,
@@ -373,38 +372,33 @@ async def delete_tool(arguments: Dict) -> List[TextContent]:
     Returns:
         List of TextContent with success or error message.
     """
-    entity_type = arguments.get("type", "")
-    handle = arguments.get("handle")
-
-    # Normalize enum value to string
-    entity_type_str: str = (
-        entity_type.value if hasattr(entity_type, "value") else str(entity_type)
-    )
-
-    api_call = DELETE_API_CALLS.get(entity_type_str)
-    if not api_call:
-        return [
-            TextContent(
-                type="text",
-                text=f"Error: Delete not supported for type '{entity_type}'",
-            )
-        ]
-
     try:
+        params = DeleteParams(**arguments)
+        entity_type_str = params.type.value
+
+        api_call = DELETE_API_CALLS.get(entity_type_str)
+        if not api_call:
+            return [
+                TextContent(
+                    type="text",
+                    text=f"Error: Delete not supported for type '{entity_type_str}'",
+                )
+            ]
+
         settings = get_settings()
         tree_id = settings.gramps_tree_id
 
         client = GrampsWebAPIClient()
         try:
             await client.make_api_call(
-                api_call=api_call, tree_id=tree_id, handle=handle
+                api_call=api_call, tree_id=tree_id, handle=params.handle
             )
             return [
                 TextContent(
                     type="text",
                     text=(
                         f"Successfully deleted {entity_type_str} "
-                        f"with handle `{handle}`."
+                        f"with handle `{params.handle}`."
                     ),
                 )
             ]
@@ -412,7 +406,7 @@ async def delete_tool(arguments: Dict) -> List[TextContent]:
             await client.close()
 
     except Exception as e:
-        raise_tool_error(e, f"{entity_type_str} delete")
+        raise_tool_error(e, "delete")
 
 
 async def upsert_repository_tool(arguments: Dict) -> List[TextContent]:
@@ -420,25 +414,6 @@ async def upsert_repository_tool(arguments: Dict) -> List[TextContent]:
     Create or update repository information.
     """
     try:
-        # Let Pydantic model handle parameter validation
-
-        # Assert required parameters
-        if not arguments.get("name"):
-            return [
-                TextContent(
-                    type="text",
-                    text="Error: 'name' parameter is required for repository",
-                )
-            ]
-        if not arguments.get("type"):
-            return [
-                TextContent(
-                    type="text",
-                    text="Error: 'type' parameter is required for repository",
-                )
-            ]
-
-        # Validate parameters
         params = RepositoryData(**arguments)
 
         # Get tree_id from settings
