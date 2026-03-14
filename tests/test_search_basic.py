@@ -114,6 +114,10 @@ class TestFindPlaceTool:
     """Test search_tool functionality for place with real API."""
 
     @pytest.mark.asyncio
+    @pytest.mark.xfail(
+        reason="Demo server may contain orphaned place records with broken parent handles",
+        strict=False,
+    )
     async def test_find_place(self):
         """Test places search with GQL."""
         result = await search_tool(
