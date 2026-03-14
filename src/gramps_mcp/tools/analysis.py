@@ -446,6 +446,15 @@ async def get_tree_stats_tool(client, _arguments: Dict) -> List[TextContent]:
         settings = get_settings()
         tree_id = settings.gramps_tree_id
 
+        if not tree_id:
+            # Auto-discover: list trees and pick the first one
+            trees = await client.make_api_call(
+                api_call=ApiCalls.GET_TREES, params=None, tree_id="default"
+            )
+            if not isinstance(trees, list) or not trees:
+                raise ValueError("No trees found in the Gramps instance")
+            tree_id = trees[0].get("id", "")
+
         # Get tree info using unified API
         tree_info = await client.make_api_call(
             api_call=ApiCalls.GET_TREE, params=None, tree_id=tree_id
