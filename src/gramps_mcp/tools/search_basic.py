@@ -157,19 +157,15 @@ async def _search_entities(
         List of TextContent with formatted search results
     """
     try:
-        # Validate parameters
         params = params_class(**arguments)
 
-        # Get tree_id from settings
         settings = get_settings()
         tree_id = settings.gramps_tree_id
 
-        # Search using unified API client
         response = await client.make_api_call(
             api_call=api_call, params=params, tree_id=tree_id
         )
 
-        # Extract results and count from response
         if isinstance(response, list):
             results = response
             total_count = len(results)
@@ -177,7 +173,6 @@ async def _search_entities(
             results = response.get("data", [])
             total_count = response.get("total_count", len(results))
 
-        # Format results
         if not results:
             formatted_results = f"No {entity_type} found"
         else:
@@ -206,10 +201,7 @@ async def _search_entities(
             # Header is built after formatting so it reflects what was actually shown
             shown = len(formatted_items)
             if actual_total > shown:
-                header = (
-                    f"Found {actual_total} {entity_type} "
-                    f"(showing {shown}):\n\n"
-                )
+                header = f"Found {actual_total} {entity_type} (showing {shown}):\n\n"
             else:
                 header = f"Found {shown} {entity_type}:\n\n"
 
@@ -219,11 +211,6 @@ async def _search_entities(
 
     except Exception as e:
         raise_tool_error(e, f"{entity_type} search")
-
-
-# ============================================================================
-# Basic Search Tools
-# ============================================================================
 
 
 @with_client
@@ -455,14 +442,11 @@ async def search_text_tool(client, arguments: Dict) -> List[TextContent]:
     Full-text search across all entity types.
     """
     try:
-        # Validate parameters
         params = SearchParams(**arguments)
 
-        # Get tree_id from settings
         settings = get_settings()
         tree_id = settings.gramps_tree_id
 
-        # Search using unified API client with headers for total count
         response, headers = await client.make_api_call(
             api_call=ApiCalls.GET_SEARCH,
             params=params,
@@ -470,7 +454,6 @@ async def search_text_tool(client, arguments: Dict) -> List[TextContent]:
             with_headers=True,
         )
 
-        # Extract results and count from response and headers
         if isinstance(response, list):
             results = response
         else:
@@ -494,7 +477,6 @@ async def search_text_tool(client, arguments: Dict) -> List[TextContent]:
 
             formatted_results = header
 
-            # Process each result with type-specific handler
             results_to_display = (
                 results[: params.pagesize] if params.pagesize else results
             )

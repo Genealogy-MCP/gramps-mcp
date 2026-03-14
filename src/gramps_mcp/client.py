@@ -273,7 +273,6 @@ class GrampsWebAPIClient:
 
         # For PUT operations, preserve existing data by merging with changes
         if api_call.method == "PUT" and json_data:
-
             handle = url_params.get("handle") or json_data.get("handle")
             if handle:
                 # Use same endpoint for GET (remove method-specific parts if any)

@@ -73,19 +73,14 @@ async def _handle_crud_operation(
 ) -> List[TextContent]:
     """Common helper for create/update operations."""
     try:
-        # Validate parameters
         validated_params = param_class(**params)
 
-        # Get tree_id from settings
         settings = get_settings()
         tree_id = settings.gramps_tree_id
 
-        # Create client and make unified API call
         client = GrampsWebAPIClient()
         try:
-            # Choose API call based on whether handle is provided (update vs create)
             if hasattr(validated_params, "handle") and validated_params.handle:
-                # Update existing entity
                 result = await client.make_api_call(
                     api_call=put_api_call,
                     params=validated_params,
@@ -94,13 +89,11 @@ async def _handle_crud_operation(
                 )
                 operation = "updated"
             else:
-                # Create new entity
                 result = await client.make_api_call(
                     api_call=post_api_call, params=validated_params, tree_id=tree_id
                 )
                 operation = "created"
 
-            # Extract entity data from API response
             entity_data = _extract_entity_data(result, entity_type)
             formatted_response = await _format_save_response(
                 client, entity_data, entity_type, operation, tree_id
@@ -147,11 +140,6 @@ async def _format_save_response(
         return result
 
 
-# ============================================================================
-# Data Management Tools
-# ============================================================================
-
-
 async def upsert_person_tool(arguments: Dict) -> List[TextContent]:
     """
     Create or update person information including family links and event associations.
@@ -166,19 +154,14 @@ async def upsert_family_tool(arguments: Dict) -> List[TextContent]:
     Create or update family unit including member relationships.
     """
     try:
-        # Validate parameters
         params = FamilySaveParams(**arguments)
 
-        # Get tree_id from settings
         settings = get_settings()
         tree_id = settings.gramps_tree_id
 
-        # Create client and make unified API call
         client = GrampsWebAPIClient()
         try:
-            # Choose API call based on whether handle is provided (update vs create)
             if params.handle:
-                # Update existing family
                 result = await client.make_api_call(
                     api_call=ApiCalls.PUT_FAMILY,
                     params=params,
@@ -187,13 +170,12 @@ async def upsert_family_tool(arguments: Dict) -> List[TextContent]:
                 )
                 operation = "updated"
             else:
-                # Create new family
                 result = await client.make_api_call(
                     api_call=ApiCalls.POST_FAMILIES, params=params, tree_id=tree_id
                 )
                 operation = "created"
 
-            # Extract entity data from API response (handles family special case)
+            # family creation response is a list; extract the Family entry
             entity_data = _extract_entity_data(result, "family")
             formatted_response = await _format_save_response(
                 client, entity_data, "family", operation, tree_id
@@ -344,10 +326,6 @@ async def upsert_media_tool(arguments: Dict) -> List[TextContent]:
         raise_tool_error(e, "media save")
 
 
-# ============================================================================
-# Delete Tool
-# ============================================================================
-
 DELETE_API_CALLS = {
     "person": ApiCalls.DELETE_PERSON,
     "family": ApiCalls.DELETE_FAMILY,
@@ -416,16 +394,12 @@ async def upsert_repository_tool(arguments: Dict) -> List[TextContent]:
     try:
         params = RepositoryData(**arguments)
 
-        # Get tree_id from settings
         settings = get_settings()
         tree_id = settings.gramps_tree_id
 
-        # Create client and make unified API call
         client = GrampsWebAPIClient()
         try:
-            # Choose API call based on whether handle is provided (update vs create)
             if params.handle:
-                # Update existing repository
                 result = await client.make_api_call(
                     api_call=ApiCalls.PUT_REPOSITORY,
                     params=params,
@@ -434,13 +408,11 @@ async def upsert_repository_tool(arguments: Dict) -> List[TextContent]:
                 )
                 operation = "updated"
             else:
-                # Create new repository
                 result = await client.make_api_call(
                     api_call=ApiCalls.POST_REPOSITORIES, params=params, tree_id=tree_id
                 )
                 operation = "created"
 
-            # Extract entity data from API response
             entity_data = _extract_entity_data(result)
             formatted_response = await _format_save_response(
                 client, entity_data, "repository", operation, tree_id
@@ -452,11 +424,6 @@ async def upsert_repository_tool(arguments: Dict) -> List[TextContent]:
 
     except Exception as e:
         raise_tool_error(e, "repository save")
-
-
-# ============================================================================
-# Tag Management Tools
-# ============================================================================
 
 
 async def upsert_tag_tool(arguments: Dict) -> List[TextContent]:
