@@ -23,7 +23,7 @@ families, events, places, sources, citations, notes, media, and tags.
 """
 
 import logging
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from mcp.types import TextContent
 
@@ -45,7 +45,7 @@ from .search_basic import FORMATTER_DISPATCH
 logger = logging.getLogger(__name__)
 
 
-def _extract_entity_data(result, entity_type: str | None = None):
+def _extract_entity_data(result: Any, entity_type: str | None = None) -> Any:
     """Extract entity data from API response, handling different formats."""
     if not result:
         return None
@@ -115,7 +115,7 @@ async def _handle_crud_operation(
 
 async def _format_save_response(
     client: GrampsWebAPIClient,
-    entity_data: Dict,
+    entity_data: Any,
     entity_type: str,
     operation: str,
     tree_id: str,

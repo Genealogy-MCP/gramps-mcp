@@ -138,7 +138,7 @@ class AuthManager:
             response.raise_for_status()
 
             data = response.json()
-            self._access_token = data["access_token"]
+            self._access_token = str(data["access_token"])
 
             # Set expiration time
             try:
@@ -161,6 +161,7 @@ class AuthManager:
                 )
 
             logger.info("Successfully authenticated with Gramps Web API")
+            assert self._access_token is not None
             return self._access_token
 
         except httpx.HTTPStatusError as e:

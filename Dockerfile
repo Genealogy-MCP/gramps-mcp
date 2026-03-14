@@ -1,4 +1,15 @@
-FROM python:3.11-slim
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS builder
+
+WORKDIR /app
+
+COPY pyproject.toml uv.lock ./
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
+COPY src/ src/
+
+FROM python:3.11-slim-bookworm
 
 # Add OCI labels
 LABEL org.opencontainers.image.title="Gramps MCP"
@@ -11,32 +22,17 @@ LABEL org.opencontainers.image.vendor="Genealogy-MCP"
 
 WORKDIR /app
 
-# Install system dependencies including uv
-RUN apt-get update && apt-get install -y \
-    curl \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir uv
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/src /app/src
 
-# Copy dependency files first for better caching
-COPY pyproject.toml uv.lock ./
+ENV PATH="/app/.venv/bin:$PATH"
 
-# Install dependencies in a single layer
-RUN uv sync --frozen --no-dev
-
-# Copy the application code
-COPY src/ src/
-
-# Create a non-root user
 RUN useradd -m -u 1000 gramps && chown -R gramps:gramps /app
 USER gramps
 
-# Expose the port
 EXPOSE 8000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-# Run the MCP server
-CMD ["uv", "run", "python", "-m", "src.gramps_mcp.server"]
+CMD ["python", "-m", "src.gramps_mcp.server"]

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 2026-03-13
+
+### Changed
+
+- `Dockerfile` converted to multi-stage build: `ghcr.io/astral-sh/uv:python3.11-bookworm-slim` builder + `python:3.11-slim-bookworm` runtime; build artefacts (`curl`, `ca-certificates`, `uv`) no longer present in the runtime layer
+- `HEALTHCHECK` replaced `curl -f http://localhost:8000/health` with a Python `urllib.request` one-liner — eliminates curl from the runtime image
+- `mypy` replaced by `pyright` (standard mode) as the type checker; `mypy` removed from dev dependencies, `pyright>=1.1.0` added; `[tool.pyright]` section added to `pyproject.toml`
+- `typecheck` Makefile target now runs `uv run pyright src/`; CI lint job updated to match
+- `mirrors-mypy` pre-commit hook removed (no official pyright pre-commit mirror; type-checking is CI+Makefile only)
+- `requires-python` lowered from `>=3.11` to `>=3.10`; CI test matrix extended to `["3.10", "3.11", "3.12", "3.13"]`
+- Fixed 9 latent "possibly unbound" bugs in `search_details.py` and 2 in `analysis.py` — handle/gramps_id extraction moved before `try` blocks so error-handler clauses always have a bound variable
+- Added `-> Any:` return type to `client._make_request` and `data_management._extract_entity_data` to satisfy pyright's union inference (runtime behaviour unchanged)
+- `auth.py`: `data["access_token"]` now explicitly cast to `str`; added `assert is not None` guard before return
+
 ## 2026-03-12 (AGPL Copyright Headers + CI Enforcement)
 
 ### Added

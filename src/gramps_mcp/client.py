@@ -24,7 +24,7 @@ for all Gramps Web API operations through the make_api_call method.
 
 import logging
 import re
-from typing import Dict, Optional, Union
+from typing import Any, Dict, Optional, Union
 from urllib.parse import urljoin
 
 import httpx
@@ -84,7 +84,7 @@ class GrampsWebAPIClient:
         json_data: Optional[Dict] = None,
         retry_auth: bool = True,
         return_headers: bool = False,
-    ):
+    ) -> Any:
         """Make HTTP request with error handling and auth retry."""
         try:
             headers = await self._get_headers()

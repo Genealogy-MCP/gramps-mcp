@@ -183,9 +183,8 @@ async def get_descendants_tool(client, arguments: Dict) -> List[TextContent]:
     """
     Find all descendants of a person.
     """
+    gramps_id = arguments.get("gramps_id")
     try:
-        # Extract arguments directly
-        gramps_id = arguments.get("gramps_id")
         max_generations = arguments.get("max_generations")
 
         if not gramps_id:
@@ -281,9 +280,8 @@ async def get_ancestors_tool(client, arguments: Dict) -> List[TextContent]:
     """
     Find all ancestors of a person.
     """
+    gramps_id = arguments.get("gramps_id")
     try:
-        # Extract arguments directly
-        gramps_id = arguments.get("gramps_id")
         max_generations = arguments.get("max_generations")
 
         if not gramps_id:

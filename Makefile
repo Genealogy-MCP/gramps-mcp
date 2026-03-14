@@ -17,8 +17,8 @@ format: ## Auto-format source code
 	uv run ruff format src/
 	uv run ruff check --fix src/
 
-typecheck: ## Run mypy type checker
-	uv run mypy src/ --ignore-missing-imports
+typecheck: ## Run pyright type checker
+	uv run pyright src/
 
 test: ## Run tests with coverage
 	uv run pytest

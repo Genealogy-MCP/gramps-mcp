@@ -48,9 +48,8 @@ async def get_person_tool(client, arguments: Dict) -> List[TextContent]:
     """
     Get comprehensive person information using direct API calls.
     """
+    handle = arguments.get("person_handle")
     try:
-        # Extract handle from arguments
-        handle = arguments.get("person_handle")
         if not handle:
             raise ValueError("person_handle is required")
 
@@ -76,9 +75,8 @@ async def get_family_tool(client, arguments: Dict) -> List[TextContent]:
     """
     Get detailed family information using direct API calls.
     """
+    handle = arguments.get("family_handle")
     try:
-        # Extract handle from arguments
-        handle = arguments.get("family_handle")
         if not handle:
             raise ValueError("family_handle is required")
 
@@ -102,8 +100,8 @@ async def get_family_tool(client, arguments: Dict) -> List[TextContent]:
 @with_client
 async def get_event_tool(client, arguments: Dict) -> List[TextContent]:
     """Get event details by handle."""
+    handle = arguments.get("handle")
     try:
-        handle = arguments.get("handle")
         if not handle:
             raise ValueError("handle is required")
         settings = get_settings()
@@ -118,8 +116,8 @@ async def get_event_tool(client, arguments: Dict) -> List[TextContent]:
 @with_client
 async def get_place_tool(client, arguments: Dict) -> List[TextContent]:
     """Get place details by handle."""
+    handle = arguments.get("handle")
     try:
-        handle = arguments.get("handle")
         if not handle:
             raise ValueError("handle is required")
         settings = get_settings()
@@ -134,8 +132,8 @@ async def get_place_tool(client, arguments: Dict) -> List[TextContent]:
 @with_client
 async def get_source_tool(client, arguments: Dict) -> List[TextContent]:
     """Get source details by handle."""
+    handle = arguments.get("handle")
     try:
-        handle = arguments.get("handle")
         if not handle:
             raise ValueError("handle is required")
         settings = get_settings()
@@ -150,8 +148,8 @@ async def get_source_tool(client, arguments: Dict) -> List[TextContent]:
 @with_client
 async def get_citation_tool(client, arguments: Dict) -> List[TextContent]:
     """Get citation details by handle."""
+    handle = arguments.get("handle")
     try:
-        handle = arguments.get("handle")
         if not handle:
             raise ValueError("handle is required")
         settings = get_settings()
@@ -166,8 +164,8 @@ async def get_citation_tool(client, arguments: Dict) -> List[TextContent]:
 @with_client
 async def get_note_tool(client, arguments: Dict) -> List[TextContent]:
     """Get note details by handle."""
+    handle = arguments.get("handle")
     try:
-        handle = arguments.get("handle")
         if not handle:
             raise ValueError("handle is required")
         settings = get_settings()
@@ -182,8 +180,8 @@ async def get_note_tool(client, arguments: Dict) -> List[TextContent]:
 @with_client
 async def get_media_tool(client, arguments: Dict) -> List[TextContent]:
     """Get media details by handle."""
+    handle = arguments.get("handle")
     try:
-        handle = arguments.get("handle")
         if not handle:
             raise ValueError("handle is required")
         settings = get_settings()
@@ -198,8 +196,8 @@ async def get_media_tool(client, arguments: Dict) -> List[TextContent]:
 @with_client
 async def get_repository_tool(client, arguments: Dict) -> List[TextContent]:
     """Get repository details by handle."""
+    handle = arguments.get("handle")
     try:
-        handle = arguments.get("handle")
         if not handle:
             raise ValueError("handle is required")
         settings = get_settings()

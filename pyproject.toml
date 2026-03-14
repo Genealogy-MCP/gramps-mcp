@@ -2,7 +2,7 @@
 name = "gramps-mcp"
 version = "1.1.0"
 description = "AI-Powered Genealogy Research & Management - MCP server for Gramps Web API"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.100.0",
     "httpx>=0.25.0",
@@ -31,9 +31,9 @@ select = ["E", "F", "I"]
 [dependency-groups]
 dev = [
     "black>=23.0.0",
-    "mypy>=1.5.0",
     "pip-audit>=2.6.0",
     "pre-commit>=4.3.0",
+    "pyright>=1.1.0",
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
@@ -41,6 +41,11 @@ dev = [
     "ruff>=0.1.0",
     "tdd-guard-pytest>=0.1.2",
 ]
+
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "standard"
+include = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
