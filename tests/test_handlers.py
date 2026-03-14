@@ -579,7 +579,7 @@ class TestFormatPlace:
                     "title": "Boston, MA, USA",
                     "place_type": "City",
                     "urls": [
-                        {"path": "https://boston.gov", "description": "City site"}
+                        {"path": "https://boston.gov", "desc": "City site"}
                     ],
                     "name": {},
                     "placeref_list": [],

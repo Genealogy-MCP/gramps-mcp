@@ -72,7 +72,7 @@ async def format_place(client, tree_id: str, handle: str, inline: bool = False) 
         for url in urls:
             if isinstance(url, dict):
                 url_path = url.get("path", "")
-                url_desc = url.get("description", "")
+                url_desc = url.get("desc", "")
                 if url_path:
                     url_line = url_path
                     if url_desc:

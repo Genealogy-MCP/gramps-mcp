@@ -286,3 +286,90 @@ class TestClientMergeLogic:
             assert set(put_data["note_list"]) == {"note1", "note2"}
 
         await client.close()
+
+
+class TestClientPostBodies:
+    """Test that POST bodies do not contain client-internal fields."""
+
+    def _make_client(self) -> GrampsWebAPIClient:
+        client = GrampsWebAPIClient()
+        client.auth_manager = MagicMock()
+        client.auth_manager.get_token = AsyncMock()
+        client.auth_manager.get_headers = MagicMock(
+            return_value={"Authorization": "Bearer test"}
+        )
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.close = AsyncMock()
+        return client
+
+    @pytest.mark.asyncio
+    async def test_list_mode_not_sent_in_post_body(self):
+        """list_mode must be stripped from POST bodies sent to the Gramps API."""
+        client = self._make_client()
+
+        post_params = {
+            "name": {"value": "Boston"},
+            "place_type": "City",
+            "list_mode": "merge",
+        }
+
+        with patch.object(
+            client, "_make_request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.return_value = {"handle": "abc123", "gramps_id": "P0001"}
+
+            await client.make_api_call(
+                api_call=ApiCalls.POST_PLACES,
+                params=post_params,
+                tree_id="test_tree",
+            )
+
+            assert mock_request.call_count == 1
+            call_kwargs = mock_request.call_args.kwargs
+            post_body = call_kwargs.get("json_data") or mock_request.call_args[1].get(
+                "json_data"
+            )
+            assert post_body is not None
+            assert "list_mode" not in post_body, (
+                "list_mode must never be sent to the Gramps API"
+            )
+
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_url_description_normalised_to_desc(self):
+        """'description' key in urls must be renamed to 'desc' before POST."""
+        client = self._make_client()
+
+        post_params = {
+            "name": "National Archives",
+            "type": "Archive",
+            "urls": [{"path": "https://archives.gov", "description": "Main site"}],
+        }
+
+        with patch.object(
+            client, "_make_request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.return_value = {"handle": "def456", "gramps_id": "R0001"}
+
+            await client.make_api_call(
+                api_call=ApiCalls.POST_REPOSITORIES,
+                params=post_params,
+                tree_id="test_tree",
+            )
+
+            assert mock_request.call_count == 1
+            call_kwargs = mock_request.call_args.kwargs
+            post_body = call_kwargs.get("json_data") or mock_request.call_args[1].get(
+                "json_data"
+            )
+            assert post_body is not None
+            urls = post_body.get("urls", [])
+            assert len(urls) == 1
+            assert "desc" in urls[0], "URL description must be stored as 'desc'"
+            assert urls[0]["desc"] == "Main site"
+            assert "description" not in urls[0], (
+                "'description' key must not reach the API"
+            )
+
+        await client.close()
