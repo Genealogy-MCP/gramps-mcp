@@ -13,6 +13,7 @@ from src.gramps_mcp.models.parameters.base_params import (
     BaseGetMultipleParams,
     BaseGetSingleParams,
 )
+from src.gramps_mcp.models.parameters.media_params import MediaSaveParams
 from src.gramps_mcp.models.parameters.repository_params import (
     RepositoriesParams,
     RepositoryParams,
@@ -204,3 +205,32 @@ class TestRepositoryParamsValidators:
         with pytest.raises(ValidationError) as exc_info:
             RepositoryParams(extend="citation_list")
         assert "Invalid extend choice" in str(exc_info.value)
+
+
+class TestMediaSaveParams:
+    """Unit tests for MediaSaveParams schema shape — no network required."""
+
+    def test_file_location_field_exists(self):
+        assert "file_location" in MediaSaveParams.model_fields
+
+    def test_file_location_is_optional(self):
+        field = MediaSaveParams.model_fields["file_location"]
+        assert not field.is_required()
+
+    def test_description_field_absent(self):
+        # description is a no-op duplicate of desc — it must not appear
+        assert "description" not in MediaSaveParams.model_fields
+
+    def test_desc_is_required(self):
+        field = MediaSaveParams.model_fields["desc"]
+        assert field.is_required()
+
+    def test_instantiation_without_file_location_succeeds(self):
+        # Update path: only metadata, no file upload
+        params = MediaSaveParams(handle="abc123", desc="A photo")
+        assert params.file_location is None
+
+    def test_instantiation_with_file_location_succeeds(self):
+        # Create path: file upload
+        params = MediaSaveParams(desc="A photo", file_location="/tmp/photo.jpg")
+        assert params.file_location == "/tmp/photo.jpg"

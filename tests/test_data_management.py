@@ -16,6 +16,7 @@ import pytest
 
 from src.gramps_mcp.tools._errors import McpToolError
 from src.gramps_mcp.tools.data_management import (
+    delete_tool,
     upsert_citation_tool,
     upsert_event_tool,
     upsert_family_tool,
@@ -26,7 +27,6 @@ from src.gramps_mcp.tools.data_management import (
     upsert_repository_tool,
     upsert_source_tool,
     upsert_tag_tool,
-    delete_tool,
 )
 from src.gramps_mcp.tools.search_basic import list_tags_tool
 
@@ -79,6 +79,53 @@ class TestCreateNoteTool:
 
         test_note_handle = _extract_handle(text)
         cleanup_registry.track("note", test_note_handle)
+
+
+class TestCreateMediaToolValidation:
+    """Unit-style integration tests for upsert_media_tool input validation."""
+
+    @pytest.mark.asyncio
+    async def test_create_without_file_location_raises_error(self):
+        """Creating media without file_location raises McpToolError."""
+        with pytest.raises(McpToolError) as exc_info:
+            await upsert_media_tool({"desc": "No file provided"})
+        assert "file_location is required" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_create_with_nonexistent_file_raises_error(self):
+        """A non-existent file_location raises McpToolError with 'File not found'."""
+        with pytest.raises(McpToolError) as exc_info:
+            await upsert_media_tool(
+                {"desc": "Missing file", "file_location": "/nonexistent/path/photo.jpg"}
+            )
+        assert "File not found" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_update_media_without_file_location(self, cleanup_registry):
+        """Updating an existing media record omitting file_location must succeed."""
+        global test_media_handle
+
+        # First create a media record to get a handle
+        create_result = await upsert_media_tool(
+            {
+                "file_location": "tests/sample/33SQ-GP8N-NLK.jpg",
+                "desc": f"{TEST_PREFIX}Validation update test",
+            }
+        )
+        create_text = create_result[0].text
+        assert "successfully" in create_text.lower(), (
+            f"Create failed: {create_text}"
+        )
+        handle = _extract_handle(create_text)
+        cleanup_registry.track("media", handle)
+
+        # Now update with only desc — no file_location
+        update_result = await upsert_media_tool(
+            {"handle": handle, "desc": f"{TEST_PREFIX}Validation update test (updated)"}
+        )
+        update_text = update_result[0].text
+        assert "Error:" not in update_text, f"Update failed: {update_text}"
+        assert "successfully" in update_text.lower()
 
 
 class TestCreateMediaTool:

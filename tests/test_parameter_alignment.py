@@ -483,7 +483,7 @@ class TestParameterAlignment:
             "path",
         }  # path is optional since file provided via upload
         media_specific_fields = {
-            "description",
+            "file_location",
             "mime",
             "citation_list",
             "list_mode",

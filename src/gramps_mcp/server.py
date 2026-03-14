@@ -207,7 +207,14 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
         "annotations": _WRITE_ANNOTATIONS,
     },
     "upsert_media": {
-        "description": "Create or update media files including object associations",
+        "description": (
+            "Create or update a media record (photo, document, etc.) and its metadata. "
+            "When creating (no handle): provide file_location as an absolute local "
+            "file path — the file is uploaded and a new record is created. "
+            "When updating (provide handle): omit file_location; only metadata fields "
+            "(desc, date, mime, etc.) are changed. "
+            "Note: path is the Gramps-relative storage path, not the upload source."
+        ),
         "schema": MediaSaveParams,
         "handler": upsert_media_tool,
         "annotations": _WRITE_ANNOTATIONS,

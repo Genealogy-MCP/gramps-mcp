@@ -56,12 +56,38 @@ class MediaFileParams(BaseModel):
 class MediaSaveParams(BaseDataModel):
     """Parameters for creating or updating a media item."""
 
-    desc: str = Field(..., description="Media description")
-    path: Optional[str] = Field(
-        None, min_length=1, description="File path or URL to media"
+    desc: str = Field(
+        ...,
+        description=(
+            "Human-readable label for this media record "
+            "(e.g. 'Birth certificate 1878')"
+        ),
     )
-    description: Optional[str] = Field(None, description="Media description")
-    mime: Optional[str] = Field(None, description="MIME type of the media file")
+    file_location: Optional[str] = Field(
+        None,
+        description=(
+            "Absolute local file path to upload (e.g. '/home/user/photo.jpg'). "
+            "Required when creating new media (no handle provided). "
+            "Omit when updating an existing media record. "
+            "This is the upload source, not the Gramps-relative storage path."
+        ),
+    )
+    path: Optional[str] = Field(
+        None,
+        min_length=1,
+        description=(
+            "Gramps-relative storage path assigned after upload "
+            "(e.g. 'photos/photo.jpg'). Leave unset when creating — "
+            "Gramps assigns this automatically."
+        ),
+    )
+    mime: Optional[str] = Field(
+        None,
+        description=(
+            "MIME type of the media file (e.g. 'image/jpeg'). "
+            "Auto-detected from file_location when omitted."
+        ),
+    )
     citation_list: Optional[List[str]] = Field(
         None, description="List of citation handles"
     )
