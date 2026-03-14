@@ -83,10 +83,7 @@ async def format_place(client, tree_id: str, handle: str, inline: bool = False) 
 
     except Exception as e:
         logger.warning(f"Failed to format place {handle}: {e}")
-        if inline:
-            return ""
-        else:
-            return f"• **Place {handle}**\n  Error formatting place: {str(e)}\n\n"
+        return ""
 
 
 async def _build_place_hierarchy(client, tree_id: str, place_data: dict) -> str:

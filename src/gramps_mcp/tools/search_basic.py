@@ -182,22 +182,14 @@ async def _search_entities(
             formatted_results = f"No {entity_type} found"
         else:
             actual_total = total_count if total_count is not None else len(results)
-            displayed_count = len(results)
 
-            if actual_total > displayed_count:
-                header = (
-                    f"Found {actual_total} {entity_type} "
-                    f"(showing {displayed_count}):\n\n"
-                )
-            else:
-                header = f"Found {actual_total} {entity_type}:\n\n"
-
-            formatted_results = header
-
-            # Process each result with the appropriate handler
+            # Apply pagesize ceiling before formatting
             results_to_display = (
                 results[: params.pagesize] if params.pagesize else results
             )
+
+            # Collect non-empty formatted items (empty = handler signalled skip)
+            formatted_items = []
             for item in results_to_display:
                 if not isinstance(item, dict):
                     continue
@@ -208,7 +200,20 @@ async def _search_entities(
 
                 if handle:
                     item_formatted = await format_handler(client, tree_id, handle)
-                    formatted_results += item_formatted
+                    if item_formatted:
+                        formatted_items.append(item_formatted)
+
+            # Header is built after formatting so it reflects what was actually shown
+            shown = len(formatted_items)
+            if actual_total > shown:
+                header = (
+                    f"Found {actual_total} {entity_type} "
+                    f"(showing {shown}):\n\n"
+                )
+            else:
+                header = f"Found {shown} {entity_type}:\n\n"
+
+            formatted_results = header + "".join(formatted_items)
 
         return [TextContent(type="text", text=formatted_results)]
 

@@ -627,7 +627,16 @@ class TestFormatPlace:
         client = AsyncMock()
         client.make_api_call = AsyncMock(side_effect=Exception("error"))
         result = await format_place(client, TREE_ID, "handle123", inline=False)
-        assert "Error formatting place" in result
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_place_format_error_non_inline_returns_empty(self):
+        """Broken place record (e.g. orphaned parent handle) returns empty string."""
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=Exception("Record not found"))
+        result = await format_place(client, TREE_ID, "broken_handle", inline=False)
+        assert result == ""
+        assert "error" not in result.lower()
 
 
 # ============================================================
