@@ -59,8 +59,7 @@ class MediaSaveParams(BaseDataModel):
     desc: str = Field(
         ...,
         description=(
-            "Human-readable label for this media record "
-            "(e.g. 'Birth certificate 1878')"
+            "Human-readable label for this media record (e.g. 'Birth certificate 1878')"
         ),
     )
     file_location: Optional[str] = Field(
