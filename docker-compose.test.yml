@@ -19,12 +19,12 @@ services:
       GRAMPSWEB_CELERY_CONFIG__result_backend: "redis://grampsweb_redis:6379/0"
       GRAMPSWEB_RATELIMIT_STORAGE_URI: "redis://grampsweb_redis:6379/1"
     command: celery -A gramps_webapi.celery worker --loglevel=INFO --concurrency=2
-    volumes: &grampsweb_volumes
-      - gramps_users:/app/users
-      - gramps_indexdir:/app/indexdir
-      - gramps_cache:/app/cache
-      - gramps_media:/app/media
-      - gramps_data:/root/.gramps
+    tmpfs: &grampsweb_tmpfs
+      - /app/users
+      - /app/indexdir
+      - /app/cache
+      - /app/media
+      - /root/.gramps
     healthcheck:
       disable: true
 
@@ -36,7 +36,7 @@ services:
     ports:
       - "127.0.0.1:5055:5000"
     environment: *grampsweb_env
-    volumes: *grampsweb_volumes
+    tmpfs: *grampsweb_tmpfs
     healthcheck:
       test:
         [
@@ -50,9 +50,3 @@ services:
       retries: 15
       start_period: 15s
 
-volumes:
-  gramps_users:
-  gramps_indexdir:
-  gramps_cache:
-  gramps_media:
-  gramps_data:
