@@ -95,25 +95,25 @@ jobs:
       - name: Diagnose import capability
         if: always()
         run: |
-          echo "=== Gramps Web API version ==="
+          echo "=== Test import_as_dict directly ==="
+          docker compose -f docker-compose.test.yml cp tests/fixtures/seed.gramps grampsweb:/tmp/seed.gramps
           docker compose -f docker-compose.test.yml exec -T grampsweb python3 -c "
-          import gramps_webapi; print(f'gramps_webapi: {gramps_webapi.__version__}')
-          " 2>&1 || echo "Version check failed"
-          echo "=== dry_run_import source ==="
-          docker compose -f docker-compose.test.yml exec -T grampsweb python3 -c "
-          import inspect
-          from gramps_webapi.api.resources.util import dry_run_import
-          print(inspect.getsource(dry_run_import))
-          " 2>&1 || echo "Source inspect failed"
-          echo "=== import_file task source ==="
-          docker compose -f docker-compose.test.yml exec -T grampsweb python3 -c "
-          import inspect
-          from gramps_webapi.api.tasks import import_file
-          print(inspect.getsource(import_file))
-          " 2>&1 || echo "Task source inspect failed"
-          echo "=== Checking export_cache directory ==="
-          docker compose -f docker-compose.test.yml exec -T grampsweb ls -la /app/export_cache/ 2>&1 || echo "/app/export_cache not found"
-          docker compose -f docker-compose.test.yml exec -T grampsweb_celery ls -la /app/export_cache/ 2>&1 || echo "/app/export_cache not found on celery"
+          import traceback
+          try:
+              from gramps.gen.user import User
+              from gramps.gen.utils.grampslocale import GrampsLocale
+              GrampsLocale(lang='en_US.UTF-8')
+              from gramps.gen.db.utils import import_as_dict
+              print('import_as_dict loaded OK')
+              result = import_as_dict('/tmp/seed.gramps', User())
+              print(f'Result type: {type(result)}')
+              if result is None:
+                  print('IMPORT RETURNED NONE')
+              else:
+                  print(f'People: {result.get_number_of_people()}')
+          except Exception:
+              traceback.print_exc()
+          " 2>&1
 
       - name: Seed test database
         run: uv run python scripts/seed_test_db.py
