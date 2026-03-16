@@ -97,6 +97,10 @@ jobs:
       - name: Run tests
         run: uv run pytest
 
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.test.yml logs --tail=50
+
       - name: Save Docker images to cache
         if: always()
         run: |
