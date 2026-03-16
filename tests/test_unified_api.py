@@ -81,6 +81,7 @@ class TestApiMapping:
             validate_api_call_params(ApiCalls.DELETE_PERSON, {"page": 1})
 
 
+@pytest.mark.integration
 class TestUnifiedApiCall:
     """Test the unified API call functionality with real API integration."""
 

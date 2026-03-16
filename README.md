@@ -213,6 +213,46 @@ For any other MCP client, use the HTTP transport endpoint:
 }
 ```
 
+## Development
+
+### Prerequisites
+
+- Python 3.10+ and [uv](https://docs.astral.sh/uv/)
+- Docker and Docker Compose (for integration tests)
+
+### Setup
+
+```bash
+git clone https://github.com/Genealogy-MCP/gramps-mcp.git
+cd gramps-mcp
+make install
+```
+
+### Running Tests
+
+```bash
+# Unit tests only (no Docker needed, fast)
+make test-unit
+
+# Full integration tests (starts Docker, seeds data, runs all tests, tears down)
+make test-integration
+
+# Full CI pipeline (lint + typecheck + test + audit)
+make ci
+```
+
+Integration tests use an ephemeral local Gramps Web instance via Docker Compose.
+The test fixture (`tests/fixtures/seed.gramps`) contains 2,157 people from the
+Gramps project's example dataset. Run `make help` to see all available targets.
+
+### Manual Docker Control
+
+```bash
+make docker-up     # Start test containers
+make docker-seed   # Seed with fixture data
+make docker-down   # Stop and remove containers
+```
+
 ## Architecture
 
 ### Core Components

@@ -1,0 +1,58 @@
+services:
+  grampsweb_redis:
+    image: redis:7.4-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  grampsweb_celery:
+    image: ghcr.io/gramps-project/grampsweb:v25.3.0
+    depends_on:
+      grampsweb_redis:
+        condition: service_healthy
+    environment: &grampsweb_env
+      GRAMPSWEB_TREE: "Test Tree"
+      GRAMPSWEB_SECRET_KEY: "test-only-secret-key-do-not-use-in-production"
+      GRAMPSWEB_CELERY_CONFIG__broker_url: "redis://grampsweb_redis:6379/0"
+      GRAMPSWEB_CELERY_CONFIG__result_backend: "redis://grampsweb_redis:6379/0"
+      GRAMPSWEB_RATELIMIT_STORAGE_URI: "redis://grampsweb_redis:6379/1"
+    command: celery -A gramps_webapi.celery worker --loglevel=INFO --concurrency=2
+    volumes: &grampsweb_volumes
+      - gramps_users:/app/users
+      - gramps_indexdir:/app/indexdir
+      - gramps_cache:/app/cache
+      - gramps_media:/app/media
+      - gramps_data:/root/.gramps
+    healthcheck:
+      disable: true
+
+  grampsweb:
+    image: ghcr.io/gramps-project/grampsweb:v25.3.0
+    depends_on:
+      grampsweb_redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:5055:5000"
+    environment: *grampsweb_env
+    volumes: *grampsweb_volumes
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:5000/')",
+        ]
+      interval: 3s
+      timeout: 5s
+      retries: 15
+      start_period: 15s
+
+volumes:
+  gramps_users:
+  gramps_indexdir:
+  gramps_cache:
+  gramps_media:
+  gramps_data:

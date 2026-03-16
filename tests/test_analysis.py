@@ -20,6 +20,8 @@ from src.gramps_mcp.tools.analysis import (
 # Load environment variables from .env file
 load_dotenv()
 
+pytestmark = pytest.mark.integration
+
 # Test constants
 TEST_PAGESIZE = 3
 TEST_MAX_GENERATIONS = 2
@@ -54,7 +56,6 @@ class TestGetDescendantsTool:
     """Test get_descendants_tool functionality."""
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Demo API may timeout or return unexpected data", strict=False)
     async def test_get_descendants_real_api(self):
         """Test get_descendants_tool with real API."""
 

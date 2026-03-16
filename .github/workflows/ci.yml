@@ -52,6 +52,13 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
 
+    env:
+      COMPOSE_PROJECT_NAME: gramps-test-py${{ matrix.python-version }}
+      REQUIRE_INTEGRATION: "1"
+      GRAMPS_API_URL: http://localhost:5055
+      GRAMPS_USERNAME: owner
+      GRAMPS_PASSWORD: owner
+
     steps:
       - uses: actions/checkout@v4
 
@@ -63,15 +70,39 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Cache Docker images
+        uses: actions/cache@v4
+        with:
+          path: /tmp/docker-cache
+          key: docker-grampsweb-${{ hashFiles('docker-compose.test.yml') }}
+
+      - name: Load cached Docker images
+        run: |
+          if [ -f /tmp/docker-cache/images.tar ]; then
+            docker load -i /tmp/docker-cache/images.tar
+          fi
+
       - name: Install dependencies
         run: uv sync
 
-      - name: Test
-        env:
-          GRAMPS_API_URL: https://demo.grampsweb.org
-          GRAMPS_USERNAME: owner
-          GRAMPS_PASSWORD: owner
+      - name: Start Gramps Web test instance
+        run: |
+          docker compose -f docker-compose.test.yml up -d --wait
+          uv run python scripts/seed_test_db.py
+
+      - name: Run tests
         run: uv run pytest
+
+      - name: Save Docker images to cache
+        if: always()
+        run: |
+          mkdir -p /tmp/docker-cache
+          docker save $(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E 'grampsweb|redis') \
+            > /tmp/docker-cache/images.tar 2>/dev/null || true
+
+      - name: Stop test instance
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
 
   security:
     name: security audit

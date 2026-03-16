@@ -7,6 +7,8 @@ import pytest
 from src.gramps_mcp.auth import AuthManager
 from src.gramps_mcp.config import get_settings
 
+pytestmark = pytest.mark.integration
+
 
 class TestConfigIntegration:
     """Test configuration loading from actual .env file."""

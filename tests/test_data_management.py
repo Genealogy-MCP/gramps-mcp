@@ -15,6 +15,8 @@ import re
 import pytest
 
 from src.gramps_mcp.tools._errors import McpToolError
+
+pytestmark = pytest.mark.integration
 from src.gramps_mcp.tools.data_management import (
     delete_tool,
     upsert_citation_tool,
@@ -702,7 +704,6 @@ class TestListModeReplace:
     """Test list_mode='replace' behavior on update operations."""
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Demo API state may not support this operation", strict=False)
     async def test_replace_note_list_on_event(self, cleanup_registry):
         """Test that list_mode='replace' overwrites note_list instead of merging."""
         # Create two notes
@@ -804,7 +805,6 @@ class TestCreateTagTool:
     """Test upsert_tag_tool and list_tags_tool functionality."""
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Demo API state may conflict with existing tags", strict=False)
     async def test_create_tag_success(self, cleanup_registry):
         """Test successful tag creation with name and color."""
         result = await upsert_tag_tool(

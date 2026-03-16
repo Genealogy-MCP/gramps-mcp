@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.gramps_mcp.client import GrampsWebAPIClient
+
+pytestmark = pytest.mark.integration
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.models.api_calls import ApiCalls
 from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
