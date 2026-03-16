@@ -213,7 +213,7 @@ def import_data(base_url: str, token: str, seed_file: Path, timeout: float) -> N
         headers=headers,
         timeout=30,
     )
-    if resp.status_code not in (200, 201):
+    if resp.status_code not in (200, 201, 202):
         print(
             f"Import request failed ({resp.status_code}): {resp.text}", file=sys.stderr
         )
@@ -242,7 +242,7 @@ def rebuild_search_index(base_url: str, token: str, timeout: float) -> None:
     print("Rebuilding search index...")
     index_url = f"{base_url}/api/search/index/"
     resp = httpx.post(index_url, headers=headers, timeout=10)
-    if resp.status_code not in (200, 201):
+    if resp.status_code not in (200, 201, 202):
         print(
             f"Index rebuild failed ({resp.status_code}): {resp.text}", file=sys.stderr
         )
