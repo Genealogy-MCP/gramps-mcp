@@ -95,14 +95,22 @@ jobs:
       - name: Diagnose import capability
         if: always()
         run: |
-          echo "=== Checking Gramps import plugins ==="
+          echo "=== Gramps Web API version ==="
           docker compose -f docker-compose.test.yml exec -T grampsweb python3 -c "
-          from gramps.gen.plug._manager import BasePluginManager
-          pm = BasePluginManager.get_instance()
-          plugins = pm.get_import_plugins()
-          for p in plugins:
-              print(f'  {p.get_extension()} -> {p.get_name()}')
-          " || echo "Plugin check failed"
+          import gramps_webapi; print(f'gramps_webapi: {gramps_webapi.__version__}')
+          " 2>&1 || echo "Version check failed"
+          echo "=== dry_run_import source ==="
+          docker compose -f docker-compose.test.yml exec -T grampsweb python3 -c "
+          import inspect
+          from gramps_webapi.api.resources.util import dry_run_import
+          print(inspect.getsource(dry_run_import))
+          " 2>&1 || echo "Source inspect failed"
+          echo "=== import_file task source ==="
+          docker compose -f docker-compose.test.yml exec -T grampsweb python3 -c "
+          import inspect
+          from gramps_webapi.api.tasks import import_file
+          print(inspect.getsource(import_file))
+          " 2>&1 || echo "Task source inspect failed"
           echo "=== Checking export_cache directory ==="
           docker compose -f docker-compose.test.yml exec -T grampsweb ls -la /app/export_cache/ 2>&1 || echo "/app/export_cache not found"
           docker compose -f docker-compose.test.yml exec -T grampsweb_celery ls -la /app/export_cache/ 2>&1 || echo "/app/export_cache not found on celery"
