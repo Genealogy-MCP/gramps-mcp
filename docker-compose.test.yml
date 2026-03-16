@@ -26,7 +26,11 @@ services:
       - /app/media
       - /root/.gramps
     healthcheck:
-      disable: true
+      test: ["CMD-SHELL", "celery -A gramps_webapi.celery inspect ping --timeout 5 2>/dev/null"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 15s
 
   grampsweb:
     image: ghcr.io/gramps-project/grampsweb:v25.3.0
