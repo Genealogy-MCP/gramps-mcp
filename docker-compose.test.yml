@@ -24,6 +24,7 @@ services:
       - gramps_indexdir:/app/indexdir
       - gramps_cache:/app/cache
       - gramps_media:/app/media
+      - gramps_export:/app/export_cache
       - gramps_data:/root/.gramps
     healthcheck:
       test: ["CMD-SHELL", "celery -A gramps_webapi.celery inspect ping --timeout 5 2>/dev/null"]
@@ -59,4 +60,5 @@ volumes:
   gramps_indexdir:
   gramps_cache:
   gramps_media:
+  gramps_export:
   gramps_data:
