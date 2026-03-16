@@ -287,6 +287,24 @@ def rebuild_search_index(base_url: str, token: str, timeout: float) -> None:
         print("  Index rebuild completed (synchronous)")
 
 
+def ensure_tree_exists(base_url: str, token: str) -> None:
+    """
+    Access the people endpoint to trigger tree creation in the web process.
+
+    Gramps Web creates the tree database lazily on the first request that
+    accesses it. This must happen before any Celery task tries to open
+    the tree via get_db_outside_request().
+
+    Args:
+        base_url: Gramps Web base URL.
+        token: JWT access token.
+    """
+    headers = {"Authorization": f"Bearer {token}"}
+    print("Ensuring tree exists...")
+    resp = httpx.get(f"{base_url}/api/people/?pagesize=1", headers=headers, timeout=15)
+    print(f"  Tree access: HTTP {resp.status_code}")
+
+
 def verify_data(base_url: str, token: str) -> None:
     """
     Verify the seed data is queryable by fetching person I0001.
@@ -350,6 +368,15 @@ def main() -> None:
     wait_for_healthy(args.base_url, timeout=args.timeout)
     create_owner(args.compose_file, args.username, args.password)
     token = authenticate(args.base_url, args.username, args.password)
+
+    # Warm up: ensure tree exists in the web process, then trigger a Celery
+    # task that calls get_db_outside_request() → do_reg_plugins(). This loads
+    # ALL Gramps plugins (including the .gramps XML importer) into the
+    # BasePluginManager singleton. With --pool=solo the import task shares
+    # the same process and inherits the loaded plugins.
+    ensure_tree_exists(args.base_url, token)
+    rebuild_search_index(args.base_url, token, timeout=60)
+
     import_data(
         args.compose_file, args.base_url, token, SEED_FILE, timeout=args.timeout
     )
