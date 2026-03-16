@@ -150,7 +150,13 @@ def authenticate(base_url: str, username: str, password: str) -> str:
     return token
 
 
-def poll_task(base_url: str, token: str, task_id: str, timeout: float) -> None:
+def poll_task(
+    base_url: str,
+    token: str,
+    task_id: str,
+    timeout: float,
+    compose_file: str = "",
+) -> None:
     """
     Poll a Celery task until it reaches a terminal state.
 
@@ -159,6 +165,7 @@ def poll_task(base_url: str, token: str, task_id: str, timeout: float) -> None:
         token: JWT access token.
         task_id: Celery task ID to poll.
         timeout: Maximum seconds to wait.
+        compose_file: Docker compose file for log dumping on failure.
 
     Raises:
         SystemExit: If the task fails or times out.
@@ -180,19 +187,37 @@ def poll_task(base_url: str, token: str, task_id: str, timeout: float) -> None:
             return
         if state in ("FAILURE", "REVOKED"):
             print(f"  Task {task_id[:8]}... failed: {data}", file=sys.stderr)
+            if compose_file:
+                print("  --- Celery worker logs ---", file=sys.stderr)
+                subprocess.run(
+                    [
+                        "docker",
+                        "compose",
+                        "-f",
+                        compose_file,
+                        "logs",
+                        "--tail=30",
+                        "grampsweb_celery",
+                    ],
+                    timeout=10,
+                )
             sys.exit(1)
         time.sleep(1)
     print(f"Task {task_id[:8]}... timed out after {timeout}s", file=sys.stderr)
     sys.exit(1)
 
 
-def import_data(base_url: str, token: str, seed_file: Path, timeout: float) -> None:
+def import_data(
+    compose_file: str, base_url: str, token: str, seed_file: Path, timeout: float
+) -> None:
     """
-    Import the seed Gramps XML file via raw binary upload.
+    Import the seed Gramps XML file via the Gramps Web API.
 
-    The Gramps Web import API reads request.stream directly (not multipart).
+    Uploads the gzip-compressed seed file as raw binary to the import
+    endpoint, then polls the Celery task until completion.
 
     Args:
+        compose_file: Path to docker-compose file.
         base_url: Gramps Web base URL.
         token: JWT access token.
         seed_file: Path to the .gramps seed file.
@@ -207,6 +232,7 @@ def import_data(base_url: str, token: str, seed_file: Path, timeout: float) -> N
     }
     file_bytes = seed_file.read_bytes()
     print(f"Importing {seed_file.name} ({len(file_bytes)} bytes)...")
+
     resp = httpx.post(
         f"{base_url}/api/importers/gramps/file",
         content=file_bytes,
@@ -217,11 +243,17 @@ def import_data(base_url: str, token: str, seed_file: Path, timeout: float) -> N
         print(
             f"Import request failed ({resp.status_code}): {resp.text}", file=sys.stderr
         )
+        # Dump celery logs for debugging
+        subprocess.run(
+            ["docker", "compose", "-f", compose_file, "logs", "grampsweb_celery"],
+            timeout=10,
+        )
         sys.exit(1)
+
     data = resp.json()
     task_id = data.get("task", {}).get("id") or data.get("task_id")
     if task_id:
-        poll_task(base_url, token, task_id, timeout)
+        poll_task(base_url, token, task_id, timeout, compose_file)
     else:
         print("  Import completed (synchronous)")
 
@@ -318,7 +350,9 @@ def main() -> None:
     wait_for_healthy(args.base_url, timeout=args.timeout)
     create_owner(args.compose_file, args.username, args.password)
     token = authenticate(args.base_url, args.username, args.password)
-    import_data(args.base_url, token, SEED_FILE, timeout=args.timeout)
+    import_data(
+        args.compose_file, args.base_url, token, SEED_FILE, timeout=args.timeout
+    )
     rebuild_search_index(args.base_url, token, timeout=60)
     verify_data(args.base_url, token)
 

@@ -90,16 +90,32 @@ jobs:
         run: uv sync
 
       - name: Start Gramps Web test instance
+        run: docker compose -f docker-compose.test.yml up -d --wait
+
+      - name: Diagnose import capability
+        if: always()
         run: |
-          docker compose -f docker-compose.test.yml up -d --wait
-          uv run python scripts/seed_test_db.py
+          echo "=== Checking Gramps import plugins ==="
+          docker compose -f docker-compose.test.yml exec -T grampsweb python3 -c "
+          from gramps.gen.plug._manager import BasePluginManager
+          pm = BasePluginManager.get_instance()
+          plugins = pm.get_import_plugins()
+          for p in plugins:
+              print(f'  {p.get_extension()} -> {p.get_name()}')
+          " || echo "Plugin check failed"
+          echo "=== Checking export_cache directory ==="
+          docker compose -f docker-compose.test.yml exec -T grampsweb ls -la /app/export_cache/ 2>&1 || echo "/app/export_cache not found"
+          docker compose -f docker-compose.test.yml exec -T grampsweb_celery ls -la /app/export_cache/ 2>&1 || echo "/app/export_cache not found on celery"
+
+      - name: Seed test database
+        run: uv run python scripts/seed_test_db.py
 
       - name: Run tests
         run: uv run pytest
 
       - name: Dump container logs on failure
         if: failure()
-        run: docker compose -f docker-compose.test.yml logs --tail=50
+        run: docker compose -f docker-compose.test.yml logs --tail=100
 
       - name: Save Docker images to cache
         if: always()
