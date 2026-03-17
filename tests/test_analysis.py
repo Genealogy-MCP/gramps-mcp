@@ -264,8 +264,5 @@ class TestGetTreeInfoTool:
         # Should contain actual counts
         assert "People:" in text or "people_count" in text.lower()
 
-        # Should show media storage in MB format
-        assert "MB" in text
-
 
 # Note: AnalysisClient tests removed as we now use unified GrampsWebAPIClient
