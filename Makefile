@@ -8,6 +8,7 @@ help: ## Show this help
 
 install: ## Install all dependencies (including dev)
 	uv sync --group dev
+	uv run pre-commit install
 
 lint: ## Run linter and format check
 	uv run ruff check src/

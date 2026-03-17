@@ -44,6 +44,21 @@ class GrampsAPIError(Exception):
     pass
 
 
+def _normalise_url_keys(json_data: dict) -> None:
+    """
+    Remap 'description' to 'desc' in any urls list, in-place.
+
+    Gramps Web API stores URL description as 'desc'; callers historically pass
+    'description'. This normalises both to 'desc' before the request is sent.
+    """
+    urls = json_data.get("urls")
+    if not urls:
+        return
+    for url in urls:
+        if isinstance(url, dict) and "description" in url and "desc" not in url:
+            url["desc"] = url.pop("description")
+
+
 class GrampsWebAPIClient:
     """Unified async HTTP client for all Gramps Web API operations."""
 
@@ -249,11 +264,15 @@ class GrampsWebAPIClient:
             else:
                 request_params = params_dict
 
+        # Pop list_mode before sending to API (Gramps doesn't know this field).
+        # Must happen unconditionally — POST bodies must not carry it either.
+        list_mode = "merge"
+        if json_data:
+            list_mode = json_data.pop("list_mode", "merge")
+            _normalise_url_keys(json_data)
+
         # For PUT operations, preserve existing data by merging with changes
         if api_call.method == "PUT" and json_data:
-            # Pop list_mode before sending to API (Gramps doesn't know this field)
-            list_mode = json_data.pop("list_mode", "merge")
-
             handle = url_params.get("handle") or json_data.get("handle")
             if handle:
                 # Use same endpoint for GET (remove method-specific parts if any)
