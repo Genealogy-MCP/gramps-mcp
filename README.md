@@ -61,8 +61,8 @@ No more manual data entry, no context switching between apps, no generic genealo
 - **upsert_note** - Create or update textual notes
 - **upsert_media** - Create or update media files
 - **upsert_repository** - Create or update repository records
-- **upsert_tag** - Create or update tags
-- **delete** - Delete any entity type by handle
+- **upsert_tag** - Create tags (tags are immutable after creation in API 3.x; updates are not supported)
+- **delete** - Delete any entity type by handle (tag deletion uses the bulk operations endpoint)
 
 #### Analysis Tools (4 tools)
 - **get_tree_stats** - Get tree statistics and information
@@ -74,9 +74,11 @@ No more manual data entry, no context switching between apps, no generic genealo
 
 ### Requirements
 
-- **Gramps Web server** with your family tree data - [Setup Guide](https://www.grampsweb.org/install_setup/setup/)
+- **Gramps Web API 3.x** (shipped with Gramps Web 26.x / Gramps 6.0 or later) - [Setup Guide](https://www.grampsweb.org/install_setup/setup/)
 - Docker and Docker Compose
 - MCP-compatible AI assistant (Claude Desktop, Cursor, etc.)
+
+> **Compatibility:** Gramps Web 25.x and earlier (API 2.x / Gramps 5.2) are not supported. If you are running an older version, upgrade to Gramps Web 26.x before using this server.
 
 ### Quick Start
 

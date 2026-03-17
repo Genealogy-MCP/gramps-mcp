@@ -18,18 +18,17 @@ from src.gramps_mcp.tools._errors import McpToolError
 
 pytestmark = pytest.mark.integration
 from src.gramps_mcp.tools.data_management import (
-    delete_tool,
     upsert_citation_tool,
     upsert_event_tool,
     upsert_family_tool,
-    upsert_media_tool,
     upsert_note_tool,
     upsert_person_tool,
     upsert_place_tool,
     upsert_repository_tool,
     upsert_source_tool,
-    upsert_tag_tool,
 )
+from src.gramps_mcp.tools.data_management_delete import delete_tool, upsert_tag_tool
+from src.gramps_mcp.tools.data_management_media import upsert_media_tool
 from src.gramps_mcp.tools.search_basic import list_tags_tool
 
 from .conftest import TEST_PREFIX
@@ -115,9 +114,7 @@ class TestCreateMediaToolValidation:
             }
         )
         create_text = create_result[0].text
-        assert "successfully" in create_text.lower(), (
-            f"Create failed: {create_text}"
-        )
+        assert "successfully" in create_text.lower(), f"Create failed: {create_text}"
         handle = _extract_handle(create_text)
         cleanup_registry.track("media", handle)
 
@@ -450,7 +447,9 @@ class TestCreatePersonTool:
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}John",
-                    "surname_list": [{"surname": f"{TEST_PREFIX}Smith", "primary": True}],
+                    "surname_list": [
+                        {"surname": f"{TEST_PREFIX}Smith", "primary": True}
+                    ],
                 },
                 "gender": 1,  # Male
                 "event_ref_list": [{"ref": test_event_handle, "role": "Primary"}]
@@ -503,7 +502,9 @@ class TestCreatePersonTool:
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}Update",
-                    "surname_list": [{"surname": f"{TEST_PREFIX}Issue9", "primary": True}],
+                    "surname_list": [
+                        {"surname": f"{TEST_PREFIX}Issue9", "primary": True}
+                    ],
                 },
                 "gender": 1,  # Male
             }
@@ -552,7 +553,9 @@ class TestCreatePersonTool:
                 "handle": person_handle,
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}Update",
-                    "surname_list": [{"surname": f"{TEST_PREFIX}Issue9", "primary": True}],
+                    "surname_list": [
+                        {"surname": f"{TEST_PREFIX}Issue9", "primary": True}
+                    ],
                 },
                 "gender": 1,
                 "event_ref_list": [{"ref": birth_event_handle, "role": "Primary"}],
@@ -578,7 +581,9 @@ class TestCreatePersonTool:
                 "handle": person_handle,
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}Update",
-                    "surname_list": [{"surname": f"{TEST_PREFIX}Issue9", "primary": True}],
+                    "surname_list": [
+                        {"surname": f"{TEST_PREFIX}Issue9", "primary": True}
+                    ],
                 },
                 "gender": 1,
                 "event_ref_list": [
@@ -607,7 +612,9 @@ class TestCreatePersonTool:
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}Mary",
-                    "surname_list": [{"surname": f"{TEST_PREFIX}Johnson", "primary": True}],
+                    "surname_list": [
+                        {"surname": f"{TEST_PREFIX}Johnson", "primary": True}
+                    ],
                 },
                 "gender": 0,  # Female
                 "media_list": [{"ref": test_media_handle}] if test_media_handle else [],
@@ -760,13 +767,29 @@ class TestListModeReplace:
         assert "Error:" not in replace_text
         assert "updated" in replace_text.lower()
 
-        # Verify: the first note should NOT be present (replaced, not merged)
-        from src.gramps_mcp.tools.search_details import get_tool
+        # Verify via raw API: note_list should contain only note2
+        from src.gramps_mcp.client import GrampsWebAPIClient
+        from src.gramps_mcp.config import get_settings
+        from src.gramps_mcp.models.api_calls import ApiCalls
 
-        get_result = await get_tool({"type": "event", "handle": event_handle})
-        get_text = get_result[0].text
-
-        assert f"{TEST_PREFIX}Second note for list_mode test" in get_text or note2_handle in get_text
+        client = GrampsWebAPIClient()
+        try:
+            settings = get_settings()
+            event_data = await client.make_api_call(
+                api_call=ApiCalls.GET_EVENT,
+                tree_id=settings.gramps_tree_id,
+                handle=event_handle,
+            )
+            note_list = event_data.get("note_list", [])
+            assert note2_handle in note_list, (
+                f"Expected note2 ({note2_handle}) in note_list, "
+                f"got: {note_list}"
+            )
+            assert note1_handle not in note_list, (
+                f"note1 ({note1_handle}) should have been replaced"
+            )
+        finally:
+            await client.close()
 
 
 class TestDeleteTypeTool:
@@ -796,9 +819,7 @@ class TestDeleteTypeTool:
     async def test_delete_invalid_handle(self):
         """Test delete with invalid handle raises McpToolError."""
         with pytest.raises(McpToolError):
-            await delete_tool(
-                {"type": "note", "handle": "nonexistent_handle_xyz"}
-            )
+            await delete_tool({"type": "note", "handle": "nonexistent_handle_xyz"})
 
 
 class TestCreateTagTool:
@@ -821,15 +842,15 @@ class TestCreateTagTool:
         tag_handle = _extract_handle(text)
         cleanup_registry.track("tag", tag_handle)
 
-        # Test update
-        update_result = await upsert_tag_tool(
-            {"handle": tag_handle, "name": f"{TEST_PREFIX}Tag Updated", "color": "#00FF00"}
-        )
-        update_text = update_result[0].text
-
-        assert "Error:" not in update_text
-        assert "updated" in update_text.lower()
-        assert f"{TEST_PREFIX}Tag Updated" in update_text
+        # Update should raise error (API 3.x doesn't support tag PUT)
+        with pytest.raises(McpToolError):
+            await upsert_tag_tool(
+                {
+                    "handle": tag_handle,
+                    "name": f"{TEST_PREFIX}Tag Updated",
+                    "color": "#00FF00",
+                }
+            )
 
     @pytest.mark.asyncio
     async def test_find_tags(self):
