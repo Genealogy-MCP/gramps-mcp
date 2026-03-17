@@ -10,6 +10,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `.github/dependabot.yml`: monthly Dependabot updates for `pip`, `github-actions`,
   and `docker` ecosystems
+- API version validation: server verifies Gramps Web API >= 3.x on first connection
+  and raises a clear error for unsupported API 2.x instances
+
+### Changed
+- Upgraded test Docker image from `grampsweb:v25.3.0` (Gramps 5.2) to `26.2.0`
+  (Gramps 6.0) — fixes seed import failure caused by XML 1.7.2 version mismatch
+- **Breaking**: Now requires Gramps Web API 3.x (Gramps Web 26.x or later);
+  API 2.x (Gramps Web 25.x) is no longer supported
+- Pagination changed from 0-based to 1-based to match API 3.x (`page=1` is now
+  the first page)
+- Tag deletion now uses bulk `POST /objects/delete/` endpoint (API 3.x removed
+  `DELETE /tags/{handle}`)
+- Tree stats formatting no longer shows media storage in MB (field removed in
+  API 3.x)
+- Test artifact sweep updated for 1-based pagination and bulk tag deletion
+
+### Removed
+- Diagnostic "Gramps plugin state" CI step (no longer needed)
+- Tag update support (`upsert_tag` with handle) — tags are immutable after
+  creation in API 3.x
 
 ## 2026-03-15 (test coverage)
 

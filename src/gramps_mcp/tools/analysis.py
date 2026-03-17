@@ -417,16 +417,11 @@ def _format_tree_info(tree_info: Dict) -> str:
 
     # Statistics from usage fields
     usage_people = tree_info.get("usage_people")
-    usage_media = tree_info.get("usage_media")
 
     result += "## Statistics\n\n"
 
-    if usage_people is not None or usage_media is not None:
-        if usage_people is not None:
-            result += f"• **People:** {usage_people:,}\n"
-        if usage_media is not None:
-            usage_media_mb = usage_media / (1024 * 1024)
-            result += f"• **Media Storage:** {usage_media_mb:.2f} MB\n"
+    if usage_people is not None:
+        result += f"• **People:** {usage_people:,}\n"
         result += "\n"
     else:
         result += "Statistics not available\n\n"

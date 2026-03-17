@@ -255,17 +255,13 @@ class TestFindMediaTool:
 class TestFindNoteTool:
     """Test search_tool functionality for note with real API."""
 
-    @pytest.mark.asyncio
     @pytest.mark.skip(
-        reason="Gramps Web bug: note GQL queries return HTTP 500 on boolean filters"
+        reason="Gramps Web GQL engine still crashes on note queries "
+        "in API 3.x (HTTP 500 on any note GQL filter)"
     )
+    @pytest.mark.asyncio
     async def test_find_note(self):
-        """Test notes search with GQL.
-
-        Skipped: Gramps Web's GQL engine crashes on note queries involving
-        boolean fields (e.g. `private = false`). Confirmed in spike testing
-        against v25.3.0.
-        """
+        """Test notes search with GQL."""
         result = await search_tool(
             {"type": "note", "gql": 'gramps_id ~ "N0001"', "max_results": 3}
         )

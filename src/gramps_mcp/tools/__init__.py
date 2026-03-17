@@ -31,19 +31,24 @@ from .analysis import (
     get_tree_stats_tool,
 )
 
-# Data Management Tools
+# Data Management Tools — import from each submodule directly to avoid
+# circular imports (data_management ↔ data_management_delete/media).
 from .data_management import (
-    delete_tool,
     upsert_citation_tool,
     upsert_event_tool,
     upsert_family_tool,
-    upsert_media_tool,
     upsert_note_tool,
     upsert_person_tool,
     upsert_place_tool,
     upsert_repository_tool,
     upsert_source_tool,
+)
+from .data_management_delete import (
+    delete_tool,
     upsert_tag_tool,
+)
+from .data_management_media import (
+    upsert_media_tool,
 )
 from .search_basic import (
     list_tags_tool,

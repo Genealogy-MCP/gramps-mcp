@@ -1,5 +1,5 @@
 """
-Unit tests for tools/data_management.py — CRUD helpers and delete tool.
+Unit tests for data management tools — CRUD helpers, delete, tag, and media tools.
 
 Tests mock GrampsWebAPIClient to avoid network calls.
 """
@@ -14,12 +14,11 @@ from src.gramps_mcp.tools.data_management import (
     _extract_entity_data,
     _format_save_response,
     _handle_crud_operation,
-    delete_tool,
     upsert_family_tool,
-    upsert_media_tool,
     upsert_repository_tool,
-    upsert_tag_tool,
 )
+from src.gramps_mcp.tools.data_management_delete import delete_tool, upsert_tag_tool
+from src.gramps_mcp.tools.data_management_media import upsert_media_tool
 
 
 def _mock_settings():
@@ -241,9 +240,9 @@ class TestDeleteTool:
     """Test delete_tool dispatch and error handling."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.data_management_delete.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.data_management_delete.get_settings",
         return_value=_mock_settings(),
     )
     async def test_delete_success(self, _settings, mock_client_cls):
@@ -258,9 +257,9 @@ class TestDeleteTool:
         assert "p1" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.data_management_delete.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.data_management_delete.get_settings",
         return_value=_mock_settings(),
     )
     async def test_delete_api_error(self, _settings, mock_client_cls):
@@ -385,9 +384,9 @@ class TestUpsertTagTool:
     """Test upsert_tag_tool create and update paths."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.data_management_delete.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.data_management_delete.get_settings",
         return_value=_mock_settings(),
     )
     async def test_create_tag(self, _settings, mock_client_cls):
@@ -412,29 +411,12 @@ class TestUpsertTagTool:
         assert "Research" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
-    @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
-        return_value=_mock_settings(),
-    )
-    async def test_update_tag(self, _settings, mock_client_cls):
-        client_inst = AsyncMock()
-        client_inst.make_api_call = AsyncMock(
-            return_value={
-                "handle": "t1",
-                "name": "Updated",
-                "color": "#00FF00",
-                "priority": 2,
-            }
-        )
-        client_inst.close = AsyncMock()
-        mock_client_cls.return_value = client_inst
-
-        result = await upsert_tag_tool(
-            {"handle": "t1", "name": "Updated", "color": "#00FF00"}
-        )
-        assert "updated" in result[0].text
-        assert "Updated" in result[0].text
+    async def test_update_tag_raises_error(self):
+        """Tag updates are not supported in API 3.x — should raise McpToolError."""
+        with pytest.raises(McpToolError, match="not supported"):
+            await upsert_tag_tool(
+                {"handle": "t1", "name": "Updated", "color": "#00FF00"}
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -446,9 +428,9 @@ class TestUpsertMediaTool:
     """Test upsert_media_tool update path (create requires real file)."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.data_management_media.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools.data_management.FORMATTER_DISPATCH", {})
@@ -470,9 +452,9 @@ class TestUpsertMediaTool:
             await upsert_media_tool({"desc": "No file"})
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.data_management_media.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools.data_management.FORMATTER_DISPATCH", {})

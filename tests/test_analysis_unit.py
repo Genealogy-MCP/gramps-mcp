@@ -268,14 +268,12 @@ class TestFormatTreeInfo:
             "name": "Smith Family",
             "description": "Three generations",
             "usage_people": 2157,
-            "usage_media": 104857600,
         }
         result = _format_tree_info(tree)
         assert "Smith Family" in result
         assert "tree1" in result
         assert "Three generations" in result
         assert "2,157" in result
-        assert "MB" in result
 
     def test_no_description(self):
         tree = {
@@ -292,11 +290,10 @@ class TestFormatTreeInfo:
         result = _format_tree_info(tree)
         assert "Statistics not available" in result
 
-    def test_only_media_usage(self):
-        tree = {"id": "t4", "name": "Media Only", "usage_media": 5242880}
+    def test_no_stats_available(self):
+        tree = {"id": "t4", "name": "No Stats"}
         result = _format_tree_info(tree)
-        assert "MB" in result
-        assert "People" not in result
+        assert "Statistics not available" in result
 
 
 # ---------------------------------------------------------------------------

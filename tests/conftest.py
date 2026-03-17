@@ -19,6 +19,7 @@ import pytest
 from src.gramps_mcp.client import GrampsAPIError, GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.models.api_calls import ApiCalls
+from src.gramps_mcp.tools.data_management_delete import DELETE_API_CALLS, _ENTITY_CLASS_NAMES
 
 # ---------------------------------------------------------------------------
 # Default test instance — local Docker Gramps Web on port 5055.
@@ -38,8 +39,8 @@ def _is_docker_reachable(url: str) -> bool:
     Returns:
         True if the service responds with HTTP 200.
     """
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     try:
         urllib.request.urlopen(f"{url}/", timeout=3)
@@ -89,6 +90,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:
         if "integration" in item.keywords:
             item.add_marker(skip_marker)
 
+
 logger = logging.getLogger(__name__)
 
 TEST_PREFIX = "MCP_TEST_"
@@ -109,21 +111,9 @@ DELETION_PRIORITY: List[str] = [
     "tag",
 ]
 
-DELETE_API_CALLS: Dict[str, ApiCalls] = {
-    "person": ApiCalls.DELETE_PERSON,
-    "family": ApiCalls.DELETE_FAMILY,
-    "event": ApiCalls.DELETE_EVENT,
-    "place": ApiCalls.DELETE_PLACE,
-    "source": ApiCalls.DELETE_SOURCE,
-    "citation": ApiCalls.DELETE_CITATION,
-    "note": ApiCalls.DELETE_NOTE,
-    "media": ApiCalls.DELETE_MEDIA_ITEM,
-    "repository": ApiCalls.DELETE_REPOSITORY,
-    "tag": ApiCalls.DELETE_TAG,
-}
 
 # GQL filters per entity type for finding MCP_TEST_ prefixed records.
-# Note: notes are excluded because the demo server's GQL engine returns 500
+# Note: notes are excluded because Gramps Web's GQL engine returns 500
 # on any note query (even trivial ones like `private = false`). Notes are
 # swept via client-side filtering in _sweep_notes_fallback() instead.
 _SWEEP_GQL_FILTERS: Dict[str, str] = {
@@ -221,6 +211,24 @@ class HandleRegistry:
                 for handle in reversed(handles):
                     api_call = DELETE_API_CALLS.get(entity_type)
                     if not api_call:
+                        # Tags use bulk delete (API 3.x removed DELETE /tags/{handle})
+                        if entity_type == "tag":
+                            try:
+                                url = client._build_url(tree_id, "objects/delete/")
+                                await client._make_request(
+                                    method="POST",
+                                    url=url,
+                                    json_data=[{"_class": "Tag", "handle": handle}],
+                                )
+                                logger.info(f"Deleted tag [{handle}] via bulk endpoint")
+                            except Exception as e:
+                                if "404" in str(e) or "not found" in str(e).lower():
+                                    logger.info(f"Already gone: tag [{handle}]")
+                                else:
+                                    logger.warning(
+                                        f"Failed to delete tag [{handle}]: {e}"
+                                    )
+                            continue
                         logger.warning(f"No delete API call for type '{entity_type}'")
                         continue
                     try:
@@ -310,7 +318,7 @@ async def _paginated_gql_query(
         Aggregated list of entity dicts across all pages.
     """
     all_results: List[dict] = []
-    page = 0
+    page = 1
     while True:
         response = await client.make_api_call(
             api_call=api_call,
@@ -415,6 +423,20 @@ async def sweep_test_artifacts() -> int:
                     logger.info(f"Swept {entity_type} [{handle}]")
                 except Exception as e:
                     logger.warning(f"Failed to sweep {entity_type} [{handle}]: {e}")
+
+        # Tags use bulk delete endpoint (API 3.x removed DELETE /tags/{handle})
+        for handle in to_delete.get("tag", []):
+            try:
+                url = client._build_url(tree_id, "objects/delete/")
+                await client._make_request(
+                    method="POST",
+                    url=url,
+                    json_data=[{"_class": "Tag", "handle": handle}],
+                )
+                deleted_count += 1
+                logger.info(f"Swept tag [{handle}]")
+            except Exception as e:
+                logger.warning(f"Failed to sweep tag [{handle}]: {e}")
 
     finally:
         await client.close()

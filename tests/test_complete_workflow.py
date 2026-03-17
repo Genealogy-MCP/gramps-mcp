@@ -26,13 +26,13 @@ from src.gramps_mcp.tools.data_management import (
     upsert_citation_tool,
     upsert_event_tool,
     upsert_family_tool,
-    upsert_media_tool,
     upsert_note_tool,
     upsert_person_tool,
     upsert_place_tool,
     upsert_repository_tool,
     upsert_source_tool,
 )
+from src.gramps_mcp.tools.data_management_media import upsert_media_tool
 from src.gramps_mcp.tools.search_basic import (
     search_citation_tool,
     search_event_tool,
@@ -399,7 +399,10 @@ class TestCompleteWorkflow:
         await self._create_place_hierarchy(workflow_data)
 
         find_result = await search_event_tool(
-            {"query": f"marriage {TEST_PREFIX}John {TEST_PREFIX}Smith 1878", "pagesize": 5}
+            {
+                "query": f"marriage {TEST_PREFIX}John {TEST_PREFIX}Smith 1878",
+                "pagesize": 5,
+            }
         )
 
         assert isinstance(find_result, list) and len(find_result) == 1
@@ -470,7 +473,10 @@ class TestCompleteWorkflow:
         registry = workflow_data["_registry"]
 
         find_result = await search_family_tool(
-            {"query": f"{TEST_PREFIX}John {TEST_PREFIX}Smith {TEST_PREFIX}Mary {TEST_PREFIX}Jones", "pagesize": 5}
+            {
+                "query": f"{TEST_PREFIX}John {TEST_PREFIX}Smith {TEST_PREFIX}Mary {TEST_PREFIX}Jones",
+                "pagesize": 5,
+            }
         )
 
         assert isinstance(find_result, list) and len(find_result) == 1
@@ -640,7 +646,10 @@ class TestCompleteWorkflow:
         workflow_data["city_handle"] = city_handle
 
         church_handle = await self._create_or_find_place(
-            workflow_data, f"{TEST_PREFIX}St Marys Catholic Church", "Church", city_handle
+            workflow_data,
+            f"{TEST_PREFIX}St Marys Catholic Church",
+            "Church",
+            city_handle,
         )
         workflow_data["church_handle"] = church_handle
 
