@@ -22,7 +22,7 @@ import pytest
 
 pytestmark = pytest.mark.integration
 
-from src.gramps_mcp.tools.data_management import (
+from src.gramps_mcp.tools import (
     upsert_citation_tool,
     upsert_event_tool,
     upsert_family_tool,

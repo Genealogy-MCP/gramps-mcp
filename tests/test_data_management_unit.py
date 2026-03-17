@@ -9,11 +9,13 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from mcp.types import TextContent
 
-from src.gramps_mcp.tools._errors import McpToolError
-from src.gramps_mcp.tools.data_management import (
+from src.gramps_mcp.tools._data_helpers import (
     _extract_entity_data,
     _format_save_response,
     _handle_crud_operation,
+)
+from src.gramps_mcp.tools._errors import McpToolError
+from src.gramps_mcp.tools.data_management import (
     upsert_family_tool,
     upsert_repository_tool,
 )
@@ -88,7 +90,7 @@ class TestFormatSaveResponse:
         client = AsyncMock()
 
         with patch(
-            "src.gramps_mcp.tools.data_management.FORMATTER_DISPATCH",
+            "src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH",
             {"person": mock_formatter},
         ):
             result = await _format_save_response(
@@ -107,7 +109,7 @@ class TestFormatSaveResponse:
     async def test_unknown_entity_type_fallback(self):
         client = AsyncMock()
 
-        with patch("src.gramps_mcp.tools.data_management.FORMATTER_DISPATCH", {}):
+        with patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {}):
             result = await _format_save_response(
                 client,
                 {"handle": "h1", "gramps_id": "T001"},
@@ -125,7 +127,7 @@ class TestFormatSaveResponse:
         client = AsyncMock()
 
         with patch(
-            "src.gramps_mcp.tools.data_management.FORMATTER_DISPATCH",
+            "src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH",
             {"event": mock_formatter},
         ):
             result = await _format_save_response(
@@ -150,13 +152,13 @@ class TestHandleCrudOperation:
     """Test _handle_crud_operation create/update paths."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools._data_helpers.get_settings",
         return_value=_mock_settings(),
     )
     @patch(
-        "src.gramps_mcp.tools.data_management.FORMATTER_DISPATCH",
+        "src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH",
         {},
     )
     async def test_create_path(self, _settings, mock_client_cls):
@@ -183,13 +185,13 @@ class TestHandleCrudOperation:
         assert "created" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools._data_helpers.get_settings",
         return_value=_mock_settings(),
     )
     @patch(
-        "src.gramps_mcp.tools.data_management.FORMATTER_DISPATCH",
+        "src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH",
         {},
     )
     async def test_update_path(self, _settings, mock_client_cls):
@@ -294,7 +296,7 @@ class TestUpsertFamilyTool:
         "src.gramps_mcp.tools.data_management.get_settings",
         return_value=_mock_settings(),
     )
-    @patch("src.gramps_mcp.tools.data_management.FORMATTER_DISPATCH", {})
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
     async def test_create_family(self, _settings, mock_client_cls):
         client_inst = AsyncMock()
         client_inst.make_api_call = AsyncMock(
@@ -315,7 +317,7 @@ class TestUpsertFamilyTool:
         "src.gramps_mcp.tools.data_management.get_settings",
         return_value=_mock_settings(),
     )
-    @patch("src.gramps_mcp.tools.data_management.FORMATTER_DISPATCH", {})
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
     async def test_update_family(self, _settings, mock_client_cls):
         client_inst = AsyncMock()
         client_inst.make_api_call = AsyncMock(
@@ -342,7 +344,7 @@ class TestUpsertRepositoryTool:
         "src.gramps_mcp.tools.data_management.get_settings",
         return_value=_mock_settings(),
     )
-    @patch("src.gramps_mcp.tools.data_management.FORMATTER_DISPATCH", {})
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
     async def test_create_repository(self, _settings, mock_client_cls):
         client_inst = AsyncMock()
         client_inst.make_api_call = AsyncMock(
@@ -360,7 +362,7 @@ class TestUpsertRepositoryTool:
         "src.gramps_mcp.tools.data_management.get_settings",
         return_value=_mock_settings(),
     )
-    @patch("src.gramps_mcp.tools.data_management.FORMATTER_DISPATCH", {})
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
     async def test_update_repository(self, _settings, mock_client_cls):
         client_inst = AsyncMock()
         client_inst.make_api_call = AsyncMock(
@@ -433,7 +435,7 @@ class TestUpsertMediaTool:
         "src.gramps_mcp.tools.data_management_media.get_settings",
         return_value=_mock_settings(),
     )
-    @patch("src.gramps_mcp.tools.data_management.FORMATTER_DISPATCH", {})
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
     async def test_update_media(self, _settings, mock_client_cls):
         client_inst = AsyncMock()
         client_inst.make_api_call = AsyncMock(
@@ -457,7 +459,7 @@ class TestUpsertMediaTool:
         "src.gramps_mcp.tools.data_management_media.get_settings",
         return_value=_mock_settings(),
     )
-    @patch("src.gramps_mcp.tools.data_management.FORMATTER_DISPATCH", {})
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
     async def test_create_media_file_not_found(self, _settings, mock_client_cls):
         """Creating media with nonexistent file raises error."""
         client_inst = AsyncMock()

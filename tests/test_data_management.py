@@ -17,18 +17,19 @@ import pytest
 from src.gramps_mcp.tools._errors import McpToolError
 
 pytestmark = pytest.mark.integration
-from src.gramps_mcp.tools.data_management import (
+from src.gramps_mcp.tools import (
+    delete_tool,
     upsert_citation_tool,
     upsert_event_tool,
     upsert_family_tool,
+    upsert_media_tool,
     upsert_note_tool,
     upsert_person_tool,
     upsert_place_tool,
     upsert_repository_tool,
     upsert_source_tool,
+    upsert_tag_tool,
 )
-from src.gramps_mcp.tools.data_management_delete import delete_tool, upsert_tag_tool
-from src.gramps_mcp.tools.data_management_media import upsert_media_tool
 from src.gramps_mcp.tools.search_basic import list_tags_tool
 
 from .conftest import TEST_PREFIX

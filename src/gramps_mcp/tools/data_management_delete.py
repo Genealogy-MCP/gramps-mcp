@@ -30,8 +30,8 @@ from ..client import GrampsWebAPIClient
 from ..config import get_settings
 from ..models.api_calls import ApiCalls
 from ..models.parameters.simple_params import DeleteParams
+from ._data_helpers import _extract_entity_data
 from ._errors import raise_tool_error
-from .data_management import _extract_entity_data
 
 logger = logging.getLogger(__name__)
 
