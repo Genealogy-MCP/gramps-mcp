@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: astral-sh/setup-uv@v4
         with:
@@ -59,7 +59,7 @@ jobs:
       GRAMPS_PASSWORD: owner
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set Docker Compose project name
         run: echo "COMPOSE_PROJECT_NAME=gramps-test-py${PYTHON_VERSION//./-}" >> "$GITHUB_ENV"
@@ -148,7 +148,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: astral-sh/setup-uv@v4
         with:
