@@ -13,7 +13,6 @@ from mcp.types import TextContent
 
 from src.gramps_mcp.tools._errors import McpToolError
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -264,8 +263,8 @@ class TestSearchEntities:
     )
     async def test_empty_list_response(self, _mock):
         """Empty list response says 'No X found'."""
-        from src.gramps_mcp.tools.search_basic import _search_entities
         from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
+        from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
         client.make_api_call = AsyncMock(return_value=[])
@@ -282,8 +281,8 @@ class TestSearchEntities:
     )
     async def test_list_response_with_results(self, _mock):
         """List response formats each item with the handler."""
-        from src.gramps_mcp.tools.search_basic import _search_entities
         from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
+        from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
         items = [{"handle": "h1"}, {"handle": "h2"}]
@@ -302,8 +301,8 @@ class TestSearchEntities:
     )
     async def test_dict_response(self, _mock):
         """Dict response with 'data' key and total_count."""
-        from src.gramps_mcp.tools.search_basic import _search_entities
         from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
+        from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
         client.make_api_call = AsyncMock(
@@ -326,14 +325,14 @@ class TestSearchEntities:
     )
     async def test_skips_non_dict_items(self, _mock):
         """Non-dict items in results are skipped."""
-        from src.gramps_mcp.tools.search_basic import _search_entities
         from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
+        from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
         client.make_api_call = AsyncMock(return_value=["not_a_dict", {"handle": "h1"}])
         handler = AsyncMock(return_value="• item\n")
 
-        result = await _search_entities(
+        await _search_entities(
             client, {}, BaseGetMultipleParams, "GET_PEOPLE", "people", handler
         )
         assert handler.await_count == 1
@@ -344,14 +343,14 @@ class TestSearchEntities:
     )
     async def test_item_without_handle_skipped(self, _mock):
         """Items with empty handle are skipped."""
-        from src.gramps_mcp.tools.search_basic import _search_entities
         from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
+        from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
         client.make_api_call = AsyncMock(return_value=[{"gramps_id": "I1"}])
         handler = AsyncMock(return_value="• item\n")
 
-        result = await _search_entities(
+        await _search_entities(
             client, {}, BaseGetMultipleParams, "GET_PEOPLE", "people", handler
         )
         assert handler.await_count == 0
@@ -362,8 +361,8 @@ class TestSearchEntities:
     )
     async def test_wrapped_object_item(self, _mock):
         """Items wrapped in {'object': {...}} are unwrapped."""
-        from src.gramps_mcp.tools.search_basic import _search_entities
         from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
+        from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
         client.make_api_call = AsyncMock(
@@ -371,7 +370,7 @@ class TestSearchEntities:
         )
         handler = AsyncMock(return_value="• item\n")
 
-        result = await _search_entities(
+        await _search_entities(
             client, {}, BaseGetMultipleParams, "GET_PEOPLE", "people", handler
         )
         assert handler.await_count == 1
@@ -379,8 +378,8 @@ class TestSearchEntities:
     @pytest.mark.asyncio
     async def test_validation_error_raises(self):
         """Invalid parameters raise McpToolError."""
-        from src.gramps_mcp.tools.search_basic import _search_entities
         from src.gramps_mcp.models.parameters.source_params import SourceSearchParams
+        from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
         with pytest.raises(McpToolError, match="search"):
@@ -523,9 +522,7 @@ class TestFindTypeTool:
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
-        result = await search_tool(
-            {"type": "person", "gql": "test", "max_results": 1}
-        )
+        result = await search_tool({"type": "person", "gql": "test", "max_results": 1})
         assert isinstance(result[0], TextContent)
 
 
@@ -710,9 +707,7 @@ class TestGetTypeTool:
         original = search_details._GET_TOOL_DISPATCH["event"]
         search_details._GET_TOOL_DISPATCH["event"] = mock_tool
         try:
-            result = await search_details.get_tool(
-                {"type": "event", "handle": "h1"}
-            )
+            await search_details.get_tool({"type": "event", "handle": "h1"})
             mock_tool.assert_awaited_once_with({"handle": "h1"})
         finally:
             search_details._GET_TOOL_DISPATCH["event"] = original
@@ -728,9 +723,7 @@ class TestGetTypeTool:
         original = search_details._GET_TOOL_DISPATCH["note"]
         search_details._GET_TOOL_DISPATCH["note"] = mock_tool
         try:
-            result = await search_details.get_tool(
-                {"type": "note", "handle": "h1"}
-            )
+            await search_details.get_tool({"type": "note", "handle": "h1"})
             mock_tool.assert_awaited_once_with({"handle": "h1"})
         finally:
             search_details._GET_TOOL_DISPATCH["note"] = original
@@ -750,9 +743,7 @@ class TestGetTypeTool:
         original = search_details._GET_TOOL_DISPATCH["event"]
         search_details._GET_TOOL_DISPATCH["event"] = mock_get
         try:
-            result = await search_details.get_tool(
-                {"type": "event", "gramps_id": "E0001"}
-            )
+            await search_details.get_tool({"type": "event", "gramps_id": "E0001"})
             mock_find.assert_awaited_once()
             mock_get.assert_awaited_once_with({"handle": "resolved_handle"})
         finally:

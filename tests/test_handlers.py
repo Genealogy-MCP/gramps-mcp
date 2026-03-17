@@ -578,9 +578,7 @@ class TestFormatPlace:
                     "gramps_id": "P0001",
                     "title": "Boston, MA, USA",
                     "place_type": "City",
-                    "urls": [
-                        {"path": "https://boston.gov", "description": "City site"}
-                    ],
+                    "urls": [{"path": "https://boston.gov", "desc": "City site"}],
                     "name": {},
                     "placeref_list": [],
                 }
@@ -627,7 +625,16 @@ class TestFormatPlace:
         client = AsyncMock()
         client.make_api_call = AsyncMock(side_effect=Exception("error"))
         result = await format_place(client, TREE_ID, "handle123", inline=False)
-        assert "Error formatting place" in result
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_place_format_error_non_inline_returns_empty(self):
+        """Broken place record (e.g. orphaned parent handle) returns empty string."""
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=Exception("Record not found"))
+        result = await format_place(client, TREE_ID, "broken_handle", inline=False)
+        assert result == ""
+        assert "error" not in result.lower()
 
 
 # ============================================================
@@ -1158,3 +1165,1000 @@ class TestFormatRecentChanges:
 
         result = await _format_recent_changes(transactions, client, TREE_ID)
         assert "... and 2 more" in result
+
+
+# ============================================================
+# person_handler — extended branches
+# ============================================================
+
+
+class TestFormatPersonExtended:
+    """Test format_person with birth/death events, families, media, notes, URLs."""
+
+    @pytest.mark.asyncio
+    async def test_person_with_birth_and_death(self):
+        client = _mock_client(
+            {
+                "GET_PERSON": {
+                    "gramps_id": "I0001",
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "gender": 1,
+                    "birth_ref_index": 0,
+                    "death_ref_index": 1,
+                    "event_ref_list": [
+                        {"ref": "birth_h", "role": "Primary"},
+                        {"ref": "death_h", "role": "Primary"},
+                    ],
+                    "family_list": [],
+                    "parent_family_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "extended": {
+                        "events": [
+                            {
+                                "date": {"dateval": [1, 5, 1850, False]},
+                                "place": "place_h",
+                            },
+                            {
+                                "date": {"dateval": [15, 3, 1920, False]},
+                                "place": "",
+                            },
+                        ],
+                        "families": [],
+                        "parent_families": [],
+                    },
+                },
+                "GET_PLACE": {
+                    "title": "Boston, MA",
+                    "name": {},
+                    "placeref_list": [],
+                },
+            }
+        )
+        result = await format_person(client, TREE_ID, "handle123")
+        assert "Born:" in result
+        assert "1850" in result
+        assert "Died:" in result
+        assert "1920" in result
+
+    @pytest.mark.asyncio
+    async def test_person_with_family_relationships(self):
+        client = _mock_client(
+            {
+                "GET_PERSON": {
+                    "gramps_id": "I0001",
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "gender": 1,
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "event_ref_list": [],
+                    "family_list": ["fam1"],
+                    "parent_family_list": ["fam2"],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "extended": {
+                        "events": [],
+                        "families": [{"gramps_id": "F0001"}],
+                        "parent_families": [{"gramps_id": "F0002"}],
+                    },
+                },
+            }
+        )
+        result = await format_person(client, TREE_ID, "handle123")
+        assert "Family member of:" in result
+        assert "child (F0002)" in result
+        assert "parent (F0001)" in result
+
+    @pytest.mark.asyncio
+    async def test_person_with_events_list(self):
+        client = _mock_client(
+            {
+                "GET_PERSON": {
+                    "gramps_id": "I0001",
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "gender": 1,
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "event_ref_list": [
+                        {"ref": "e1", "role": "Primary"},
+                        {"ref": "e2", "role": "Witness"},
+                    ],
+                    "family_list": [],
+                    "parent_family_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "extended": {
+                        "events": [
+                            {"type": "Birth", "gramps_id": "E0001"},
+                            {"type": "Baptism", "gramps_id": "E0002"},
+                        ],
+                        "families": [],
+                        "parent_families": [],
+                    },
+                },
+            }
+        )
+        result = await format_person(client, TREE_ID, "handle123")
+        assert "Events:" in result
+        assert "Birth, Primary (E0001)" in result
+        assert "Baptism, Witness (E0002)" in result
+
+    @pytest.mark.asyncio
+    async def test_person_with_media_notes_urls(self):
+        client = _mock_client(
+            {
+                "GET_PERSON": {
+                    "gramps_id": "I0001",
+                    "primary_name": {
+                        "first_name": "Jane",
+                        "surname_list": [{"surname": "Doe"}],
+                    },
+                    "gender": 0,
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "event_ref_list": [],
+                    "family_list": [],
+                    "parent_family_list": [],
+                    "media_list": [{"ref": "m1"}],
+                    "note_list": ["n1"],
+                    "urls": [
+                        {"path": "https://example.com", "desc": "Homepage"},
+                        {"path": "https://other.com", "desc": ""},
+                    ],
+                    "extended": {
+                        "events": [],
+                        "families": [],
+                        "parent_families": [],
+                        "media": [{"gramps_id": "O0001"}],
+                        "notes": [{"gramps_id": "N0001"}],
+                    },
+                },
+            }
+        )
+        result = await format_person(client, TREE_ID, "handle123")
+        assert "Attached media: O0001" in result
+        assert "Attached notes: N0001" in result
+        assert "https://example.com - Homepage" in result
+        assert "https://other.com\n" in result
+
+    @pytest.mark.asyncio
+    async def test_person_event_no_role(self):
+        """Event ref without a role key."""
+        client = _mock_client(
+            {
+                "GET_PERSON": {
+                    "gramps_id": "I0001",
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "gender": 1,
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "event_ref_list": ["plain_ref"],
+                    "family_list": [],
+                    "parent_family_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "extended": {
+                        "events": [{"type": "Census", "gramps_id": "E0010"}],
+                        "families": [],
+                        "parent_families": [],
+                    },
+                },
+            }
+        )
+        result = await format_person(client, TREE_ID, "handle123")
+        assert "Census (E0010)" in result
+
+
+# ============================================================
+# family_handler — extended branches
+# ============================================================
+
+
+class TestFormatFamilyExtended:
+    """Test format_family with marriage/divorce, children, media, notes, URLs."""
+
+    @pytest.mark.asyncio
+    async def test_family_with_parents_and_marriage(self):
+        client = _mock_client(
+            {
+                "GET_FAMILY": {
+                    "gramps_id": "F0001",
+                    "father_handle": "fh",
+                    "mother_handle": "mh",
+                    "event_ref_list": [{"ref": "evt1"}],
+                    "child_ref_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "extended": {
+                        "father": {
+                            "gramps_id": "I0001",
+                            "gender": 1,
+                            "primary_name": {
+                                "first_name": "John",
+                                "surname_list": [{"surname": "Smith"}],
+                            },
+                        },
+                        "mother": {
+                            "gramps_id": "I0002",
+                            "gender": 0,
+                            "primary_name": {
+                                "first_name": "Mary",
+                                "surname_list": [{"surname": "Jones"}],
+                            },
+                        },
+                        "events": [
+                            {
+                                "type": "Marriage",
+                                "date": {"dateval": [10, 6, 1880, False]},
+                                "place": "",
+                            }
+                        ],
+                    },
+                },
+            }
+        )
+        result = await format_family(client, TREE_ID, "handle123")
+        assert "Father: John Smith (M) - I0001" in result
+        assert "Mother: Mary Jones (F) - I0002" in result
+        assert "Married:" in result
+        assert "1880" in result
+
+    @pytest.mark.asyncio
+    async def test_family_with_divorce(self):
+        client = _mock_client(
+            {
+                "GET_FAMILY": {
+                    "gramps_id": "F0002",
+                    "event_ref_list": [{"ref": "evt1"}],
+                    "child_ref_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "extended": {
+                        "events": [
+                            {
+                                "type": "Divorce",
+                                "date": {"dateval": [0, 0, 1895, False]},
+                                "place": "place_h",
+                            }
+                        ],
+                    },
+                },
+                "GET_PLACE": {
+                    "title": "New York",
+                    "name": {},
+                    "placeref_list": [],
+                },
+            }
+        )
+        result = await format_family(client, TREE_ID, "handle123")
+        assert "Divorced:" in result
+        assert "1895" in result
+
+    @pytest.mark.asyncio
+    async def test_family_with_children(self):
+        client = _mock_client(
+            {
+                "GET_FAMILY": {
+                    "gramps_id": "F0003",
+                    "event_ref_list": [],
+                    "child_ref_list": [{"ref": "c1"}, {"ref": "c2"}],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "extended": {
+                        "events": [],
+                        "children": [
+                            {
+                                "gramps_id": "I0010",
+                                "gender": 1,
+                                "primary_name": {
+                                    "first_name": "James",
+                                    "surname_list": [{"surname": "Smith"}],
+                                },
+                            },
+                            {
+                                "gramps_id": "I0011",
+                                "gender": 0,
+                                "primary_name": {
+                                    "first_name": "Alice",
+                                    "surname_list": [{"surname": "Smith"}],
+                                },
+                            },
+                        ],
+                    },
+                },
+            }
+        )
+        result = await format_family(client, TREE_ID, "handle123")
+        assert "Children:" in result
+        assert "James Smith (M) - I0010" in result
+        assert "Alice Smith (F) - I0011" in result
+
+    @pytest.mark.asyncio
+    async def test_family_with_events_media_notes_urls(self):
+        client = _mock_client(
+            {
+                "GET_FAMILY": {
+                    "gramps_id": "F0004",
+                    "event_ref_list": [{"ref": "e1", "role": "Family"}],
+                    "child_ref_list": [],
+                    "media_list": [{"ref": "m1"}],
+                    "note_list": ["n1"],
+                    "urls": [{"path": "https://family.org", "desc": "Family site"}],
+                    "extended": {
+                        "events": [{"type": "Census", "gramps_id": "E0020"}],
+                        "media": [{"gramps_id": "O0010"}],
+                        "notes": [{"gramps_id": "N0010"}],
+                    },
+                },
+            }
+        )
+        result = await format_family(client, TREE_ID, "handle123")
+        assert "Events:" in result
+        assert "Census, Family (E0020)" in result
+        assert "Attached media: O0010" in result
+        assert "Attached notes: N0010" in result
+        assert "https://family.org - Family site" in result
+
+    @pytest.mark.asyncio
+    async def test_family_no_parents(self):
+        """Family with no father/mother shows just gramps_id line."""
+        client = _mock_client(
+            {
+                "GET_FAMILY": {
+                    "gramps_id": "F0005",
+                    "event_ref_list": [],
+                    "child_ref_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "extended": {"events": []},
+                },
+            }
+        )
+        result = await format_family(client, TREE_ID, "handle123")
+        assert result.startswith("F0005 - [handle123]")
+
+    @pytest.mark.asyncio
+    async def test_family_marriage_with_place(self):
+        """Marriage event with a place shows place after date."""
+        client = _mock_client(
+            {
+                "GET_FAMILY": {
+                    "gramps_id": "F0006",
+                    "event_ref_list": [{"ref": "e1"}],
+                    "child_ref_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "extended": {
+                        "events": [
+                            {
+                                "type": "Marriage",
+                                "date": {"dateval": [5, 7, 1900, False]},
+                                "place": "place_h",
+                            }
+                        ],
+                    },
+                },
+                "GET_PLACE": {
+                    "title": "Springfield",
+                    "name": {},
+                    "placeref_list": [],
+                },
+            }
+        )
+        result = await format_family(client, TREE_ID, "handle123")
+        assert "Married:" in result
+        assert "Springfield" in result
+
+
+# ============================================================
+# event_handler — extended branches
+# ============================================================
+
+
+class TestFormatEventExtended:
+    """Test format_event with family backlinks, citations, notes."""
+
+    @pytest.mark.asyncio
+    async def test_event_with_family_backlinks(self):
+        """Marriage event with family backlink resolves father and mother."""
+
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            name = api_call.name if hasattr(api_call, "name") else str(api_call)
+            if name == "GET_EVENT":
+                return {
+                    "gramps_id": "E0100",
+                    "type": "Marriage",
+                    "date": {"dateval": [10, 6, 1880, False]},
+                    "place": "",
+                    "extended": {
+                        "backlinks": {
+                            "family": [
+                                {
+                                    "gramps_id": "F0001",
+                                    "father_handle": "father_h",
+                                    "mother_handle": "mother_h",
+                                    "event_ref_list": [
+                                        {"ref": "evt_handle", "role": "Family"}
+                                    ],
+                                }
+                            ]
+                        }
+                    },
+                }
+            if name == "GET_PERSON":
+                if handle == "father_h":
+                    return {
+                        "gramps_id": "I0001",
+                        "primary_name": {
+                            "first_name": "John",
+                            "surname_list": [{"surname": "Smith"}],
+                        },
+                    }
+                if handle == "mother_h":
+                    return {
+                        "gramps_id": "I0002",
+                        "primary_name": {
+                            "first_name": "Mary",
+                            "surname_list": [{"surname": "Jones"}],
+                        },
+                    }
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_event(client, TREE_ID, "evt_handle")
+        assert "Marriage" in result
+        assert "John Smith & Mary Jones" in result
+        assert "Husband (I0001)" in result
+        assert "Wife (I0002)" in result
+
+    @pytest.mark.asyncio
+    async def test_event_with_citations_and_notes(self):
+        client = _mock_client(
+            {
+                "GET_EVENT": {
+                    "gramps_id": "E0200",
+                    "type": "Birth",
+                    "date": {"dateval": [15, 6, 1878, False]},
+                    "place": "place_h",
+                    "extended": {
+                        "backlinks": {},
+                        "citations": [{"gramps_id": "C0001"}],
+                        "notes": [{"gramps_id": "N0001"}],
+                    },
+                },
+                "GET_PLACE": {
+                    "title": "Boston",
+                    "name": {},
+                    "placeref_list": [],
+                },
+            }
+        )
+        result = await format_event(client, TREE_ID, "evt_handle")
+        assert "Attached citations: C0001" in result
+        assert "Attached notes: N0001" in result
+        assert "Boston" in result
+
+    @pytest.mark.asyncio
+    async def test_event_date_place_display(self):
+        """Full format shows date-place on second line."""
+        client = _mock_client(
+            {
+                "GET_EVENT": {
+                    "gramps_id": "E0300",
+                    "type": "Census",
+                    "date": {"dateval": [0, 0, 1900, False]},
+                    "place": "",
+                    "extended": {"backlinks": {}},
+                },
+            }
+        )
+        result = await format_event(client, TREE_ID, "evt_handle")
+        assert "1900" in result
+        assert "Census" in result
+
+
+# ============================================================
+# person_detail_handler — extended branches
+# ============================================================
+
+
+class TestFormatPersonDetailExtended:
+    """Test format_person_detail with relations, timeline, media, notes."""
+
+    @pytest.mark.asyncio
+    async def test_person_detail_with_birth_death(self):
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            name = api_call.name
+            if name == "GET_PERSON":
+                return {
+                    "gramps_id": "I0001",
+                    "gender": 0,
+                    "primary_name": {
+                        "first_name": "Jane",
+                        "surname_list": [{"surname": "Doe"}],
+                    },
+                    "birth_ref_index": 0,
+                    "death_ref_index": 1,
+                    "event_ref_list": [{"ref": "b1"}, {"ref": "d1"}],
+                    "parent_family_list": [],
+                    "family_list": [],
+                    "extended": {
+                        "events": [
+                            {"date": {"dateval": [1, 1, 1800, False]}, "place": ""},
+                            {"date": {"dateval": [1, 1, 1870, False]}, "place": ""},
+                        ],
+                    },
+                }
+            if name == "GET_PERSON_TIMELINE":
+                return []
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_person_detail(client, TREE_ID, "h1")
+        assert "Born:" in result
+        assert "1800" in result
+        assert "Died:" in result
+        assert "1870" in result
+
+    @pytest.mark.asyncio
+    async def test_person_detail_with_parents_and_siblings(self):
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            name = api_call.name
+            if name == "GET_PERSON" and handle == "h1":
+                return {
+                    "gramps_id": "I0001",
+                    "gender": 1,
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "parent_family_list": ["fam_h"],
+                    "family_list": [],
+                    "extended": {"events": []},
+                }
+            if name == "GET_FAMILY":
+                return {
+                    "gramps_id": "F0001",
+                    "extended": {
+                        "father": {
+                            "handle": "dad_h",
+                            "gramps_id": "I0010",
+                            "primary_name": {
+                                "first_name": "Robert",
+                                "surname_list": [{"surname": "Smith"}],
+                            },
+                        },
+                        "mother": {
+                            "handle": "mom_h",
+                            "gramps_id": "I0011",
+                            "primary_name": {
+                                "first_name": "Susan",
+                                "surname_list": [{"surname": "Brown"}],
+                            },
+                        },
+                        "children": [
+                            {"gramps_id": "I0001"},
+                            {
+                                "handle": "sib_h",
+                                "gramps_id": "I0012",
+                                "primary_name": {
+                                    "first_name": "Alice",
+                                    "surname_list": [{"surname": "Smith"}],
+                                },
+                            },
+                        ],
+                    },
+                }
+            if name == "GET_PERSON":
+                return {
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "extended": {"events": []},
+                }
+            if name == "GET_PERSON_TIMELINE":
+                return []
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_person_detail(client, TREE_ID, "h1")
+        assert "Robert Smith" in result
+        assert "Susan Brown" in result
+        assert "Siblings:" in result
+        assert "Alice Smith" in result
+
+    @pytest.mark.asyncio
+    async def test_person_detail_with_spouse_and_children(self):
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            name = api_call.name
+            if name == "GET_PERSON" and handle == "h1":
+                return {
+                    "gramps_id": "I0001",
+                    "gender": 1,
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "parent_family_list": [],
+                    "family_list": ["fam_h"],
+                    "extended": {"events": []},
+                }
+            if name == "GET_FAMILY":
+                return {
+                    "gramps_id": "F0001",
+                    "extended": {
+                        "father": {"gramps_id": "I0001"},
+                        "mother": {
+                            "handle": "spouse_h",
+                            "gramps_id": "I0020",
+                            "primary_name": {
+                                "first_name": "Mary",
+                                "surname_list": [{"surname": "Jones"}],
+                            },
+                        },
+                        "children": [
+                            {
+                                "handle": "child_h",
+                                "gramps_id": "I0030",
+                                "primary_name": {
+                                    "first_name": "James",
+                                    "surname_list": [{"surname": "Smith"}],
+                                },
+                            }
+                        ],
+                    },
+                }
+            if name == "GET_PERSON":
+                return {
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "extended": {"events": []},
+                }
+            if name == "GET_PERSON_TIMELINE":
+                return []
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_person_detail(client, TREE_ID, "h1")
+        assert "Spouse:" in result
+        assert "Mary Jones" in result
+        assert "Children:" in result
+        assert "James Smith" in result
+
+    @pytest.mark.asyncio
+    async def test_person_detail_with_timeline(self):
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            name = api_call.name
+            if name == "GET_PERSON":
+                return {
+                    "gramps_id": "I0001",
+                    "gender": 1,
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "parent_family_list": [],
+                    "family_list": [],
+                    "extended": {"events": [], "media": [], "notes": []},
+                }
+            if name == "GET_PERSON_TIMELINE":
+                return [
+                    {
+                        "type": "Birth",
+                        "gramps_id": "E0001",
+                        "role": "Primary",
+                        "handle": "evt_h",
+                        "place": {"display_name": "Boston"},
+                        "person": {"relationship": "self"},
+                    }
+                ]
+            if name == "GET_EVENT":
+                return {
+                    "date": {"dateval": [1, 5, 1850, False]},
+                    "extended": {
+                        "citations": [{"gramps_id": "C0001"}],
+                    },
+                }
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_person_detail(client, TREE_ID, "h1")
+        assert "TIMELINE:" in result
+        assert "Birth" in result
+        assert "(Boston)" in result
+        assert "Citations: C0001" in result
+
+    @pytest.mark.asyncio
+    async def test_person_detail_timeline_other_person(self):
+        """Timeline event for another person (not self)."""
+
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            name = api_call.name
+            if name == "GET_PERSON":
+                return {
+                    "gramps_id": "I0001",
+                    "gender": 1,
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "parent_family_list": [],
+                    "family_list": [],
+                    "extended": {"events": [], "media": [], "notes": []},
+                }
+            if name == "GET_PERSON_TIMELINE":
+                return [
+                    {
+                        "type": "Marriage",
+                        "gramps_id": "E0050",
+                        "role": "Bride",
+                        "handle": "evt_h",
+                        "place": {},
+                        "person": {
+                            "relationship": "spouse",
+                            "name_given": "Mary",
+                            "name_surname": "Jones",
+                            "gramps_id": "I0020",
+                        },
+                    }
+                ]
+            if name == "GET_EVENT":
+                return {
+                    "date": {"dateval": [0, 0, 1880, False]},
+                    "extended": {},
+                }
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_person_detail(client, TREE_ID, "h1")
+        assert "Mary Jones" in result
+        assert "Bride" in result
+
+    @pytest.mark.asyncio
+    async def test_person_detail_with_media_and_notes(self):
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            name = api_call.name
+            if name == "GET_PERSON":
+                return {
+                    "gramps_id": "I0001",
+                    "gender": 1,
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "parent_family_list": [],
+                    "family_list": [],
+                    "extended": {
+                        "events": [],
+                        "media": [{"desc": "Photo", "gramps_id": "O0001"}],
+                        "notes": [
+                            {
+                                "type": "Research",
+                                "gramps_id": "N0001",
+                                "text": {"string": "Very long note " + "x" * 60},
+                            }
+                        ],
+                    },
+                }
+            if name == "GET_PERSON_TIMELINE":
+                return []
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_person_detail(client, TREE_ID, "h1")
+        assert "Photo (O0001)" in result
+        assert "Research:" in result
+        assert "..." in result
+
+
+# ============================================================
+# family_detail_handler — extended branches
+# ============================================================
+
+
+class TestFormatFamilyDetailExtended:
+    """Test format_family_detail with children, timeline, media, notes."""
+
+    @pytest.mark.asyncio
+    async def test_family_detail_with_children_and_dates(self):
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            name = api_call.name
+            if name == "GET_FAMILY":
+                return {
+                    "gramps_id": "F0001",
+                    "event_ref_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "extended": {
+                        "father": {
+                            "handle": "fh",
+                            "gramps_id": "I0001",
+                            "gender": 1,
+                            "primary_name": {
+                                "first_name": "John",
+                                "surname_list": [{"surname": "Smith"}],
+                            },
+                        },
+                        "mother": {
+                            "handle": "mh",
+                            "gramps_id": "I0002",
+                            "gender": 0,
+                            "primary_name": {
+                                "first_name": "Mary",
+                                "surname_list": [{"surname": "Jones"}],
+                            },
+                        },
+                        "children": [
+                            {
+                                "handle": "ch",
+                                "gramps_id": "I0010",
+                                "gender": 1,
+                                "primary_name": {
+                                    "first_name": "James",
+                                    "surname_list": [{"surname": "Smith"}],
+                                },
+                            }
+                        ],
+                    },
+                }
+            if name == "GET_FAMILY_TIMELINE":
+                return []
+            if name == "GET_PERSON":
+                return {
+                    "birth_ref_index": 0,
+                    "death_ref_index": -1,
+                    "extended": {
+                        "events": [
+                            {"date": {"dateval": [0, 0, 1850, False]}, "place": ""}
+                        ]
+                    },
+                }
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_family_detail(client, TREE_ID, "fam_h")
+        assert "CHILDREN:" in result
+        assert "James Smith" in result
+        assert "1850" in result
+
+    @pytest.mark.asyncio
+    async def test_family_detail_with_marriage_event(self):
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            name = api_call.name
+            if name == "GET_FAMILY":
+                return {
+                    "gramps_id": "F0001",
+                    "event_ref_list": [{"ref": "evt_h"}],
+                    "media_list": [],
+                    "note_list": [],
+                    "extended": {},
+                }
+            if name == "GET_FAMILY_TIMELINE":
+                return []
+            if name == "GET_EVENT":
+                return {
+                    "type": "Marriage",
+                    "date": {"dateval": [15, 6, 1880, False]},
+                    "place": "",
+                }
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_family_detail(client, TREE_ID, "fam_h")
+        assert "Married:" in result
+        assert "1880" in result
+
+    @pytest.mark.asyncio
+    async def test_family_detail_with_timeline(self):
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            name = api_call.name
+            if name == "GET_FAMILY":
+                return {
+                    "gramps_id": "F0001",
+                    "event_ref_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "extended": {},
+                }
+            if name == "GET_FAMILY_TIMELINE":
+                return [
+                    {
+                        "type": "Birth",
+                        "gramps_id": "E0001",
+                        "role": "Primary",
+                        "handle": "evt_h",
+                        "place": {"display_name": "Springfield"},
+                        "person": {
+                            "name_given": "James",
+                            "name_surname": "Smith",
+                            "gramps_id": "I0010",
+                        },
+                    }
+                ]
+            if name == "GET_EVENT":
+                return {
+                    "date": {"dateval": [1, 3, 1885, False]},
+                    "extended": {
+                        "citations": [{"gramps_id": "C0010"}],
+                    },
+                }
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_family_detail(client, TREE_ID, "fam_h")
+        assert "TIMELINE:" in result
+        assert "Birth" in result
+        assert "(Springfield)" in result
+        assert "James Smith" in result
+        assert "Citations: C0010" in result
+
+    @pytest.mark.asyncio
+    async def test_family_detail_with_media_and_notes(self):
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            name = api_call.name
+            if name == "GET_FAMILY":
+                return {
+                    "gramps_id": "F0001",
+                    "event_ref_list": [],
+                    "media_list": [{"ref": "m1"}],
+                    "note_list": ["n1"],
+                    "extended": {
+                        "media": [{"desc": "Wedding photo", "gramps_id": "O0001"}],
+                        "notes": [
+                            {
+                                "type": "General",
+                                "gramps_id": "N0001",
+                                "text": {"string": "Family note content"},
+                            }
+                        ],
+                    },
+                }
+            if name == "GET_FAMILY_TIMELINE":
+                return []
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_family_detail(client, TREE_ID, "fam_h")
+        assert "Wedding photo (O0001)" in result
+        assert "General: Family note content (N0001)" in result

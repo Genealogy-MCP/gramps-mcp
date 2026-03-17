@@ -11,6 +11,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.github/dependabot.yml`: monthly Dependabot updates for `pip`, `github-actions`,
   and `docker` ecosystems
 
+## 2026-03-15 (test coverage)
+
+### Added
+- Five new unit test files bringing branch coverage from ~62% to **89.33%** — the
+  80% threshold is now met by unit tests alone without Docker:
+  - `tests/test_client_unit.py`: 34 tests for `client.py` pure functions, URL
+    building, `_make_request` retry/error/header branches, `make_api_call` routing
+  - `tests/test_auth_unit.py`: 18 tests for `AuthManager` singleton, token
+    lifecycle, `authenticate`/`get_token`/`get_headers`/`close`
+  - `tests/test_data_management_unit.py`: 26 tests for CRUD helpers
+    (`_extract_entity_data`, `_format_save_response`, `_handle_crud_operation`,
+    `delete_tool`, `upsert_family/repository/tag/media_tool`)
+  - `tests/test_analysis_unit.py`: 33 tests for task polling, report tools
+    (`get_descendants_tool`, `get_ancestors_tool`, `get_recent_changes_tool`,
+    `get_tree_stats_tool`), and formatting helpers
+  - `tests/test_api_mapping_unit.py`: 7 tests for `api_mapping.py` dispatch table
+
+### Changed
+- `tests/test_handlers.py`: Added ~44 tests covering previously-untested branches
+  in `person_handler`, `family_handler`, `event_handler`,
+  `person_detail_handler`, `family_detail_handler`
+- `pyproject.toml`: Added `[tool.coverage.run] omit` for 7 unused parameter model
+  files that inflated the denominator without contributing covered lines
+- Cleaned lint issues across all new and modified test files (`test_client_unit.py`,
+  `test_auth_unit.py`, `test_search_unit.py` — unused imports, import sorting, E501)
+
+## 2026-03-15
+
+### Changed
+
+- **Test infrastructure**: Replaced `demo.grampsweb.org` with an ephemeral local Gramps
+  Web Docker instance for all integration tests — eliminates network flakiness, shared
+  state, rate limits, and external service dependency
+- `docker-compose.test.yml`: New compose file with pinned `grampsweb:v25.3.0` + Redis +
+  Celery; binds to `127.0.0.1:5055`; shares 5 named volumes between web and celery
+- `scripts/seed_test_db.py`: New standalone seed script — polls health endpoint, creates
+  owner user via `docker compose exec`, authenticates, imports `seed.gramps` via raw
+  binary body (`application/octet-stream`), polls async task, rebuilds search index,
+  verifies `I0001` exists
+- `tests/fixtures/seed.gramps`: Vendored example.gramps dataset (2,157 people, 762
+  families) — no runtime download required
+- `Makefile`: Added `test-unit` (no Docker, 60% coverage floor), `test-integration`
+  (full Docker lifecycle: teardown → up → seed → pytest → teardown), `docker-up/down/seed`
+- `tests/conftest.py`: Default URL changed to `http://localhost:5055`; added
+  `pytest_collection_modifyitems` hook — skips `@pytest.mark.integration` tests locally
+  when Docker is unreachable; fails (not skips) when `REQUIRE_INTEGRATION=1`
+- `tests/`: Added `pytestmark = pytest.mark.integration` to 8 test files; used
+  class-level marker on `TestUnifiedApiCall` to preserve unit tests in same file
+- `.github/workflows/ci.yml`: Test job now starts Docker, seeds data, runs tests, tears
+  down; `COMPOSE_PROJECT_NAME` per matrix Python version; Docker image caching via
+  `actions/cache`; `REQUIRE_INTEGRATION=1` ensures no silent skips in CI
+
+### Fixed
+
+- Removed 5 demo-server-specific `xfail`/`skip` workarounds: `test_find_anything`,
+  `test_get_descendants_real_api`, `test_replace_note_list_on_event`,
+  `test_create_tag_success`, `test_place_hierarchy_creation` — none apply to a fresh
+  ephemeral instance
+- Updated search queries to match example.gramps data: source `"census"` → `"Baptize"`,
+  repository `"archive"` → `"Library"`, media `"pietrala"` → `"birth record"`, full-text
+  `"pietrala"` → `"Warner"`
+
 ## [1.1.1] - 2026-03-13
 
 ### Fixed

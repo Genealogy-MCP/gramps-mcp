@@ -13,9 +13,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
   lint:
     name: lint + typecheck
@@ -55,8 +52,19 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
 
+    env:
+      REQUIRE_INTEGRATION: "1"
+      GRAMPS_API_URL: http://localhost:5055
+      GRAMPS_USERNAME: owner
+      GRAMPS_PASSWORD: owner
+
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set Docker Compose project name
+        run: echo "COMPOSE_PROJECT_NAME=gramps-test-py${PYTHON_VERSION//./-}" >> "$GITHUB_ENV"
+        env:
+          PYTHON_VERSION: ${{ matrix.python-version }}
 
       - uses: astral-sh/setup-uv@v4
         with:
@@ -66,15 +74,74 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Cache Docker images
+        uses: actions/cache@v4
+        with:
+          path: /tmp/docker-cache
+          key: docker-grampsweb-${{ hashFiles('docker-compose.test.yml') }}
+
+      - name: Load cached Docker images
+        run: |
+          if [ -f /tmp/docker-cache/images.tar ]; then
+            docker load -i /tmp/docker-cache/images.tar
+          fi
+
       - name: Install dependencies
         run: uv sync
 
-      - name: Test
-        env:
-          GRAMPS_API_URL: https://demo.grampsweb.org
-          GRAMPS_USERNAME: owner
-          GRAMPS_PASSWORD: owner
+      - name: Start Gramps Web test instance
+        run: docker compose -f docker-compose.test.yml up -d --wait
+
+      - name: Seed test database
+        run: uv run python scripts/seed_test_db.py
+
+      - name: Run tests
         run: uv run pytest
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.test.yml logs --tail=100
+
+      - name: Diagnose Gramps plugin state
+        if: failure()
+        run: |
+          docker compose -f docker-compose.test.yml exec -T grampsweb python3 -c "
+          import os, sys, traceback
+          try:
+              from gramps.gen.const import PLUGINS_DIR, USER_PLUGINS, VERSION
+              print(f'Gramps version: {VERSION}')
+              print(f'PLUGINS_DIR: {PLUGINS_DIR} (exists={os.path.isdir(PLUGINS_DIR)})')
+              imp_dir = os.path.join(PLUGINS_DIR, 'importer')
+              print(f'importer dir: {imp_dir} (exists={os.path.isdir(imp_dir)})')
+              if os.path.isdir(imp_dir):
+                  print(f'  contents: {os.listdir(imp_dir)}')
+              from gramps.gen.plug import BasePluginManager
+              pmgr = BasePluginManager.get_instance()
+              pmgr.reg_plugins(PLUGINS_DIR, None, None)
+              pmgr.reg_plugins(USER_PLUGINS, None, None, load_on_reg=True)
+              importers = pmgr.get_reg_importers()
+              print(f'Registered importers: {len(importers)}')
+              for i in importers:
+                  print(f'  id={i.id} ext={i.extension} fpath={i.fpath}')
+              fails = pmgr.get_fail_list()
+              if fails:
+                  print(f'Failed plugins: {len(fails)}')
+                  for fname, exc_info, pdata in fails:
+                      print(f'  {fname}: {exc_info[1]}')
+          except Exception:
+              traceback.print_exc()
+          " 2>&1
+
+      - name: Save Docker images to cache
+        if: always()
+        run: |
+          mkdir -p /tmp/docker-cache
+          docker save $(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E 'grampsweb|redis') \
+            > /tmp/docker-cache/images.tar 2>/dev/null || true
+
+      - name: Stop test instance
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
 
   security:
     name: security audit

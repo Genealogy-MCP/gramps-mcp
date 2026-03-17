@@ -27,6 +27,9 @@
 - **After updating any logic**, check whether existing tests need to be updated. If so, do it.
 - **Tests should live in a `/tests` folder** mirroring the main app structure.
 - **Run tests frequently during development** using `uv run pytest` or `uv run pytest -xvs` for verbose output.
+- **Integration tests require Docker**: Run `make test-integration` to start a local Gramps Web instance, seed it with `tests/fixtures/seed.gramps`, run all tests, and tear down. Without Docker, integration tests auto-skip locally (but fail in CI via `REQUIRE_INTEGRATION=1`).
+- **Mark all tests that hit the API** with `@pytest.mark.integration` (or `pytestmark = pytest.mark.integration` at module level). Unit tests must never require Docker.
+- **Test data**: The seed fixture (`tests/fixtures/seed.gramps`) contains 2,157 people from the Gramps project's example dataset. Write tests create `MCP_TEST_`-prefixed entities and clean up after.
 
 
 ### Style & Conventions
@@ -117,7 +120,7 @@ Rules for building and maintaining this MCP server. Uses RFC 2119 conventions (M
 - **Always confirm file paths and module names** exist before referencing them in code or tests.
 - **Never delete or overwrite existing code** unless explicitly instructed to
 - **Do not use emojis in the code** to maintain a clean and professional coding style.
-- **NEVER use the live Gramps instance for testing.** The MCP-connected Gramps tree contains real family data. All tests must use mocks, a dedicated test instance, or be run against the demo API (demo.grampsweb.org). Creating test records (e.g. "John Smith", "Test Source") in the production tree is a data integrity violation that requires manual cleanup.
+- **NEVER use the live Gramps instance for testing.** The MCP-connected Gramps tree contains real family data. All tests must use the local Docker test instance (`make test-integration`). Creating test records (e.g. "John Smith", "Test Source") in the production tree is a data integrity violation that requires manual cleanup.
 - **MCP testing may ONLY use read-only tools.** When verifying MCP server functionality against the live instance, only use read-only tools (`search`, `search_text`, `get`, `get_tree_stats`, `get_ancestors`, `get_descendants`, `get_recent_changes`). NEVER call `upsert_*` tools for testing purposes — those are for real genealogy data entry only, following the user's Change Review Protocol.
 
 ---

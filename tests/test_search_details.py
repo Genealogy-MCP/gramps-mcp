@@ -18,6 +18,8 @@ from src.gramps_mcp.tools.search_details import get_tool
 # Load environment variables
 load_dotenv()
 
+pytestmark = pytest.mark.integration
+
 
 def extract_gramps_id_from_search(search_text: str):
     """Extract gramps_id from search result text."""

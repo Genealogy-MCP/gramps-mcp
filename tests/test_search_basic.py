@@ -17,6 +17,8 @@ from src.gramps_mcp.tools.search_basic import (
 # Load environment variables
 load_dotenv()
 
+pytestmark = pytest.mark.integration
+
 
 class TestFindPersonTool:
     """Test search_tool functionality for person with real API."""
@@ -145,7 +147,7 @@ class TestFindSourceTool:
     async def test_find_source(self):
         """Test sources search with GQL."""
         result = await search_tool(
-            {"type": "source", "gql": 'title ~ "census"', "max_results": 3}
+            {"type": "source", "gql": 'title ~ "Baptize"', "max_results": 3}
         )
 
         print("\n--- FIND SOURCE RESULT ---")
@@ -173,7 +175,7 @@ class TestFindRepositoryTool:
     async def test_find_repository(self):
         """Test repositories search with GQL."""
         result = await search_tool(
-            {"type": "repository", "gql": 'name ~ "archive"', "max_results": 3}
+            {"type": "repository", "gql": 'name ~ "Library"', "max_results": 3}
         )
 
         print("\n--- FIND REPOSITORY RESULT ---")
@@ -229,7 +231,7 @@ class TestFindMediaTool:
     async def test_find_media(self):
         """Test media search with GQL."""
         result = await search_tool(
-            {"type": "media", "gql": 'desc ~ "pietrala"', "max_results": 3}
+            {"type": "media", "gql": 'desc ~ "birth record"', "max_results": 3}
         )
 
         print("\n--- FIND MEDIA RESULT ---")
@@ -255,14 +257,14 @@ class TestFindNoteTool:
 
     @pytest.mark.asyncio
     @pytest.mark.skip(
-        reason="Note GQL search not supported by Gramps Web API despite documentation"
+        reason="Gramps Web bug: note GQL queries return HTTP 500 on boolean filters"
     )
     async def test_find_note(self):
         """Test notes search with GQL.
 
-        NOTE: Skipped because the Gramps Web API notes endpoint
-        does not properly support GQL queries, contrary to the documentation.
-        The API returns "Server error" when attempting note searches with GQL.
+        Skipped: Gramps Web's GQL engine crashes on note queries involving
+        boolean fields (e.g. `private = false`). Confirmed in spike testing
+        against v25.3.0.
         """
         result = await search_tool(
             {"type": "note", "gql": 'gramps_id ~ "N0001"', "max_results": 3}
@@ -290,10 +292,9 @@ class TestFindAnythingTool:
     """Test search_text_tool functionality with real API."""
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Demo API search endpoint may be flaky", strict=False)
     async def test_find_anything(self):
         """Test search across all object types with query."""
-        result = await search_text_tool({"query": "pietrala", "max_results": 3})
+        result = await search_text_tool({"query": "Warner", "max_results": 3})
 
         print("\n--- FIND ANYTHING RESULT ---")
         print(result[0].text)

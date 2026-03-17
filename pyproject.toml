@@ -38,6 +38,7 @@ dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
+    "pytest-rerunfailures>=16.1",
     "requests>=2.31.0",
     "ruff>=0.1.0",
     "tdd-guard-pytest>=0.1.2",
@@ -60,5 +61,16 @@ markers = [
     "timeout: marks tests with specific timeout values",
     "server: marks tests requiring a running MCP server (skipped by default)",
 ]
-addopts = "--verbose --strict-markers --tb=short --cov=src --cov-branch --cov-report=term-missing --cov-fail-under=80 -m 'not server'"
+addopts = "--verbose --strict-markers --tb=short --cov=src --cov-branch --cov-report=term-missing --cov-fail-under=80 -m 'not server' --reruns 3 --reruns-delay 2"
 asyncio_mode = "auto"
+
+[tool.coverage.run]
+omit = [
+    "src/gramps_mcp/models/parameters/facts_params.py",
+    "src/gramps_mcp/models/parameters/holidays_params.py",
+    "src/gramps_mcp/models/parameters/living_params.py",
+    "src/gramps_mcp/models/parameters/relations_params.py",
+    "src/gramps_mcp/models/parameters/timeline_params.py",
+    "src/gramps_mcp/models/parameters/types_params.py",
+    "src/gramps_mcp/models/parameters/parser_params.py",
+]

@@ -21,27 +21,73 @@ from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.models.api_calls import ApiCalls
 
 # ---------------------------------------------------------------------------
-# Demo defaults — applied before test collection so get_settings() never
-# fails in CI or when a developer hasn't configured .env.
+# Default test instance — local Docker Gramps Web on port 5055.
+# Applied before test collection so get_settings() never fails.
 # ---------------------------------------------------------------------------
-_DEMO_API_URL = "https://demo.grampsweb.org"
-_DEMO_USERNAME = "owner"
-_DEMO_PASSWORD = "owner"
+_DEFAULT_API_URL = "http://localhost:5055"
+_DEFAULT_USERNAME = "owner"
+_DEFAULT_PASSWORD = "owner"
+
+
+def _is_docker_reachable(url: str) -> bool:
+    """Check if the local Gramps Web Docker instance is responding.
+
+    Args:
+        url: Base URL to probe (e.g. http://localhost:5055).
+
+    Returns:
+        True if the service responds with HTTP 200.
+    """
+    import urllib.request
+    import urllib.error
+
+    try:
+        urllib.request.urlopen(f"{url}/", timeout=3)
+        return True
+    except (urllib.error.URLError, OSError):
+        return False
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Set demo env vars before any test collection or imports.
+    """Set default env vars before any test collection or imports.
 
     Uses setdefault so a developer's .env takes precedence.
     """
-    os.environ.setdefault("GRAMPS_API_URL", _DEMO_API_URL)
-    os.environ.setdefault("GRAMPS_USERNAME", _DEMO_USERNAME)
-    os.environ.setdefault("GRAMPS_PASSWORD", _DEMO_PASSWORD)
+    os.environ.setdefault("GRAMPS_API_URL", _DEFAULT_API_URL)
+    os.environ.setdefault("GRAMPS_USERNAME", _DEFAULT_USERNAME)
+    os.environ.setdefault("GRAMPS_PASSWORD", _DEFAULT_PASSWORD)
 
     target = os.environ["GRAMPS_API_URL"]
-    is_demo = target == _DEMO_API_URL
-    suffix = " (demo defaults)" if is_demo else ""
+    is_default = target == _DEFAULT_API_URL
+    suffix = " (local Docker defaults)" if is_default else ""
     print(f"\nGramps MCP Tests — targeting: {target}{suffix}\n")
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:
+    """Auto-skip integration tests when Docker is unreachable.
+
+    In CI (REQUIRE_INTEGRATION=1), integration tests FAIL instead of skipping.
+    Locally (default), they skip with a warning if Docker is down.
+    """
+    require = os.environ.get("REQUIRE_INTEGRATION", "").strip()
+    target = os.environ.get("GRAMPS_API_URL", _DEFAULT_API_URL)
+
+    if _is_docker_reachable(target):
+        return
+
+    if require == "1":
+        pytest.fail(
+            f"REQUIRE_INTEGRATION=1 but Gramps Web at {target} is unreachable. "
+            "Start Docker with: make docker-up && make docker-seed",
+            pytrace=False,
+        )
+
+    skip_marker = pytest.mark.skip(
+        reason=f"Gramps Web at {target} is unreachable (run: make test-integration)"
+    )
+    for item in items:
+        if "integration" in item.keywords:
+            item.add_marker(skip_marker)
 
 logger = logging.getLogger(__name__)
 

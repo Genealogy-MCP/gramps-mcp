@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint format typecheck test test-verbose test-server test-integration coverage audit clean pre-commit run run-stdio
+.PHONY: help install lint format typecheck test test-unit test-verbose test-server test-integration coverage audit clean pre-commit run run-stdio ci docker-up docker-down docker-seed
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -8,6 +8,7 @@ help: ## Show this help
 
 install: ## Install all dependencies (including dev)
 	uv sync --group dev
+	uv run pre-commit install
 
 lint: ## Run linter and format check
 	uv run ruff check src/
@@ -20,8 +21,11 @@ format: ## Auto-format source code
 typecheck: ## Run pyright type checker
 	uv run pyright src/
 
-test: ## Run tests with coverage
+test: ## Run all tests (requires Docker for integration tests)
 	uv run pytest
+
+test-unit: ## Run unit tests only (no Docker needed)
+	uv run pytest -m "not integration" --cov-fail-under=60
 
 test-verbose: ## Run tests with verbose output
 	uv run pytest -xvs
@@ -29,8 +33,23 @@ test-verbose: ## Run tests with verbose output
 test-server: ## Run e2e tests requiring a running MCP server
 	uv run pytest -m server -xvs
 
-test-integration: ## Run integration tests with cleanup logging
-	uv run pytest tests/test_data_management.py tests/test_complete_workflow.py -xvs --log-cli-level=INFO
+test-integration: ## Start Docker, seed, run ALL tests, teardown
+	docker compose -f docker-compose.test.yml down -v 2>/dev/null || true
+	docker compose -f docker-compose.test.yml up -d --wait
+	uv run python scripts/seed_test_db.py || \
+		{ docker compose -f docker-compose.test.yml down -v; exit 1; }
+	uv run pytest; rc=$$?; \
+		docker compose -f docker-compose.test.yml down -v; \
+		exit $$rc
+
+docker-up: ## Start Gramps Web test containers
+	docker compose -f docker-compose.test.yml up -d --wait
+
+docker-down: ## Stop and remove test containers and volumes
+	docker compose -f docker-compose.test.yml down -v
+
+docker-seed: ## Seed the running test instance with fixture data
+	uv run python scripts/seed_test_db.py
 
 coverage: ## Generate HTML coverage report
 	uv run pytest --cov-report=html
