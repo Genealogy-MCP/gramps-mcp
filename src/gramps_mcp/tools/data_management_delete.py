@@ -64,9 +64,9 @@ async def _delete_via_bulk(
         handle: Entity handle to delete.
     """
     class_name = _ENTITY_CLASS_NAMES[entity_type]
-    url = client._build_url(tree_id, "objects/delete/")
+    url = client._build_url(tree_id, ApiCalls.POST_OBJECTS_DELETE.endpoint)
     await client._make_request(
-        method="POST",
+        method=ApiCalls.POST_OBJECTS_DELETE.method,
         url=url,
         json_data=[{"_class": class_name, "handle": handle}],
     )

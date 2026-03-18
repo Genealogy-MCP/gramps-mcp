@@ -404,7 +404,7 @@ class TestMakeApiCall:
 
             await client.make_api_call(
                 api_call=ApiCalls.GET_PEOPLE,
-                params={"pagesize": 10, "page": 0},
+                params={"pagesize": 10, "page": 1},
             )
 
             call_kwargs = mock_req.call_args.kwargs

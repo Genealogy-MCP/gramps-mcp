@@ -54,6 +54,7 @@ from .models.parameters.source_params import SourceSaveParams
 # Import all tool functions
 from .models.parameters.tag_params import TagSaveParams, TagSearchParams
 from .models.parameters.transactions_params import TransactionHistoryParams
+from .startup import verify_api_on_startup
 from .tools import (
     delete_tool,
     get_ancestors_tool,
@@ -233,7 +234,10 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     },
     # Tag Management Tools
     "upsert_tag": {
-        "description": "Create or update a tag with name and color",
+        "description": (
+            "Create a tag with name and color. Tags are immutable after creation "
+            "in API 3.x -- to change a tag, delete and recreate it."
+        ),
         "schema": TagSaveParams,
         "handler": upsert_tag_tool,
         "annotations": _WRITE_ANNOTATIONS,
@@ -394,6 +398,8 @@ async def health_check(request):
 
 async def run_stdio_server():
     """Run the MCP server with stdio transport."""
+    await verify_api_on_startup()
+
     # Create a standard MCP server for stdio transport
     server = Server("gramps")
 
@@ -474,6 +480,9 @@ if __name__ == "__main__":
         # Run with stdio transport for CLI usage
         asyncio.run(run_stdio_server())
     else:
+        # Verify API version before starting HTTP transport
+        asyncio.run(verify_api_on_startup())
+
         # Run the FastMCP server with streamable HTTP transport
         # MCP-20: default to loopback; use GRAMPS_MCP_HOST=0.0.0.0 for Docker
         app.settings.host = os.environ.get("GRAMPS_MCP_HOST", "127.0.0.1")

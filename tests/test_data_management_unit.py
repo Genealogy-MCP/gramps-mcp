@@ -4,7 +4,7 @@ Unit tests for data management tools — CRUD helpers, delete, tag, and media to
 Tests mock GrampsWebAPIClient to avoid network calls.
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from mcp.types import TextContent
@@ -280,6 +280,28 @@ class TestDeleteTool:
         """Missing required params raises McpToolError."""
         with pytest.raises(McpToolError):
             await delete_tool({})
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools.data_management_delete.GrampsWebAPIClient")
+    @patch(
+        "src.gramps_mcp.tools.data_management_delete.get_settings",
+        return_value=_mock_settings(),
+    )
+    async def test_delete_tag_uses_bulk(self, _settings, mock_client_cls):
+        """TAG enum value routes through _delete_via_bulk, not standard DELETE."""
+        client_inst = AsyncMock()
+        client_inst._build_url = MagicMock(return_value="http://test/objects/delete/")
+        client_inst._make_request = AsyncMock(return_value={})
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        result = await delete_tool({"type": "tag", "handle": "t1"})
+        assert "Successfully deleted" in result[0].text
+        assert "tag" in result[0].text
+        # Verify it used bulk endpoint, not make_api_call
+        client_inst._make_request.assert_called_once()
+        call_kwargs = client_inst._make_request.call_args
+        assert call_kwargs.kwargs.get("method") == "POST" or call_kwargs.args[0] == "POST"
 
 
 # ---------------------------------------------------------------------------

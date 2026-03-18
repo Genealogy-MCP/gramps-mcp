@@ -53,7 +53,11 @@ class TransactionHistoryParams(BaseModel):
         None, description="Whether to include the raw object data after the change"
     )
     page: Optional[int] = Field(
-        None, description="Page number representing a subset of results to be returned"
+        None,
+        ge=1,
+        description=(
+            "Page number (1-based) representing a subset of results to be returned"
+        ),
     )
     pagesize: Optional[int] = Field(
         None, description="The number of items that constitute a page"

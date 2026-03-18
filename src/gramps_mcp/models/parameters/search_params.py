@@ -36,8 +36,10 @@ class SearchParams(BaseModel):
     query: str = Field(..., description="The search string")
     page: Optional[int] = Field(
         None,
+        ge=1,
         description=(
-            "The page number representing the subset of search results to be returned"
+            "The page number (1-based) representing the subset of search results"
+            " to be returned"
         ),
     )
     pagesize: Optional[int] = Field(
