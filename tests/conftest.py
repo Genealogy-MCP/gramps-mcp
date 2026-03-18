@@ -11,6 +11,10 @@ import atexit
 import logging
 import os
 import re
+import socket
+import subprocess
+import sys
+import time
 from collections import defaultdict
 from typing import Dict, List, Optional, Set, Tuple
 from unittest.mock import AsyncMock
@@ -89,7 +93,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:
         reason=f"Gramps Web at {target} is unreachable (run: make test)"
     )
     for item in items:
-        if "integration" in item.keywords:
+        if "integration" in item.keywords or "server" in item.keywords:
             item.add_marker(skip_marker)
 
 
@@ -109,6 +113,78 @@ def shared_auth_session():
     """
     yield
     AuthManager.reset_instance()
+
+
+def _find_free_port() -> int:
+    """Find an available TCP port on localhost.
+
+    Returns:
+        An unused port number.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+_MCP_SERVER_STARTUP_TIMEOUT = 15  # seconds
+
+
+@pytest.fixture(scope="session")
+def mcp_server():
+    """Start MCP server as a subprocess for E2E server tests.
+
+    Finds a free port, starts the server process, polls /health until ready,
+    yields the base URL, and terminates the process on teardown.
+    Auto-skips if the Gramps Web Docker instance is unreachable.
+
+    Yields:
+        str: Base URL of the running MCP server (e.g. http://localhost:12345).
+    """
+    import urllib.error
+    import urllib.request
+
+    target = os.environ.get("GRAMPS_API_URL", _DEFAULT_API_URL)
+    if not _is_docker_reachable(target):
+        pytest.skip("Gramps Web API unreachable -- cannot start MCP server")
+
+    port = _find_free_port()
+    env = {**os.environ, "GRAMPS_MCP_PORT": str(port)}
+
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "src.gramps_mcp.server"],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    base_url = f"http://localhost:{port}"
+    deadline = time.monotonic() + _MCP_SERVER_STARTUP_TIMEOUT
+
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            stderr = proc.stderr.read().decode() if proc.stderr else ""
+            pytest.fail(
+                f"MCP server exited with code {proc.returncode}: {stderr}"
+            )
+        try:
+            urllib.request.urlopen(f"{base_url}/health", timeout=1)
+            break
+        except (urllib.error.URLError, OSError):
+            time.sleep(0.5)
+    else:
+        proc.terminate()
+        stderr = proc.stderr.read().decode() if proc.stderr else ""
+        pytest.fail(
+            f"MCP server not healthy within {_MCP_SERVER_STARTUP_TIMEOUT}s: {stderr}"
+        )
+
+    yield base_url
+
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
 
 
 logger = logging.getLogger(__name__)

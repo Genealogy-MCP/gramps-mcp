@@ -60,8 +60,12 @@ markers = [
     "timeout: marks tests with specific timeout values",
     "server: marks tests requiring a running MCP server (skipped by default)",
 ]
-addopts = "--verbose --strict-markers --tb=short --cov=src --cov-branch --cov-report=term-missing --cov-fail-under=80 -m 'not server'"
+addopts = "--verbose --strict-markers --tb=short --cov=src --cov-branch --cov-report=term-missing --cov-fail-under=80"
 asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::pydantic.json_schema.PydanticJsonSchemaWarning",
+    "ignore::jwt.warnings.InsecureKeyLengthWarning",
+]
 
 [tool.coverage.run]
 omit = [

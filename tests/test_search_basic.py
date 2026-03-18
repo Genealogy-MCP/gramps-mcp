@@ -217,9 +217,10 @@ class TestFindMediaTool:
 class TestFindNoteTool:
     """Test search_tool functionality for note with real API."""
 
-    @pytest.mark.skip(
-        reason="Gramps Web GQL engine still crashes on note queries "
-        "in API 3.x (HTTP 500 on any note GQL filter)"
+    @pytest.mark.xfail(
+        reason="Gramps Web GQL engine crashes on note queries "
+        "in API 3.x (HTTP 500 on any note GQL filter)",
+        strict=True,
     )
     @pytest.mark.asyncio
     async def test_find_note(self):

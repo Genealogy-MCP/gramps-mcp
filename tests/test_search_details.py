@@ -282,7 +282,10 @@ async def test_get_note_by_gramps_id():
     try:
         result = await get_tool({"type": "note", "gramps_id": "N0001"})
     except McpToolError:
-        pytest.skip("Demo API returned error for note N0001")
+        pytest.xfail(
+            "Gramps Web GQL engine crashes on note queries "
+            "in API 3.x (HTTP 500 on any note GQL filter)"
+        )
 
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
