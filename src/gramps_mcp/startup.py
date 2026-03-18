@@ -19,6 +19,8 @@
 Server startup initialization and validation.
 """
 
+from .client import GrampsWebAPIClient
+
 
 async def verify_api_on_startup() -> None:
     """Check Gramps Web API version at startup.
@@ -27,8 +29,6 @@ async def verify_api_on_startup() -> None:
     Gracefully degrades on connection errors (the check is best-effort
     at startup — tool calls will surface auth/connection errors later).
     """
-    from .client import GrampsWebAPIClient
-
     client = GrampsWebAPIClient()
     try:
         await client.verify_api_version()

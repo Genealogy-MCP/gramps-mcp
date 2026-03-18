@@ -31,7 +31,7 @@ from ..config import get_settings
 from ..models.api_calls import ApiCalls
 from ..models.parameters.simple_params import DeleteParams
 from ._data_helpers import _extract_entity_data
-from ._errors import raise_tool_error
+from ._errors import McpToolError, raise_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +47,9 @@ DELETE_API_CALLS = {
     "repository": ApiCalls.DELETE_REPOSITORY,
 }
 
+# Entity types that lack a dedicated DELETE endpoint in API 3.x and must be
+# deleted via POST /objects/delete/. Maps entity type -> Gramps _class name.
+# Also used as the routing predicate in delete_tool() to choose bulk vs standard DELETE.
 _ENTITY_CLASS_NAMES: Dict[str, str] = {
     "tag": "Tag",
 }
@@ -64,11 +67,8 @@ async def _delete_via_bulk(
         handle: Entity handle to delete.
     """
     class_name = _ENTITY_CLASS_NAMES[entity_type]
-    url = client._build_url(tree_id, ApiCalls.POST_OBJECTS_DELETE.endpoint)
-    await client._make_request(
-        method=ApiCalls.POST_OBJECTS_DELETE.method,
-        url=url,
-        json_data=[{"_class": class_name, "handle": handle}],
+    await client.bulk_delete(
+        items=[{"_class": class_name, "handle": handle}], tree_id=tree_id
     )
 
 
@@ -90,12 +90,14 @@ async def delete_tool(arguments: Dict) -> List[TextContent]:
         uses_bulk = entity_type_str in _ENTITY_CLASS_NAMES
 
         if not api_call and not uses_bulk:
-            return [
-                TextContent(
-                    type="text",
-                    text=f"Error: Delete not supported for type '{entity_type_str}'",
-                )
-            ]
+            valid = sorted(
+                list(DELETE_API_CALLS.keys()) + list(_ENTITY_CLASS_NAMES.keys())
+            )
+            raise McpToolError(
+                f"Delete not supported for type "
+                f"'{entity_type_str}'. "
+                f"Valid types: {', '.join(valid)}"
+            )
 
         settings = get_settings()
         tree_id = settings.gramps_tree_id

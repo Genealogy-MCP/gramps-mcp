@@ -8,7 +8,7 @@ Unit tests only — no network required.
 import pytest
 
 from src.gramps_mcp.config import get_settings
-from src.gramps_mcp.server import (
+from src.gramps_mcp.server_tools import (
     _DELETE_ANNOTATIONS,
     _READ_ANNOTATIONS,
     _WRITE_ANNOTATIONS,
@@ -148,14 +148,13 @@ class TestDispatchPatterns:
     """MCP-18: No globals() dispatch; use explicit dicts."""
 
     def test_find_dispatch_covers_all_searchable_entity_types(self):
-        """_SEARCH_TOOL_DISPATCH must cover all GQL-searchable EntityType values.
+        """_SEARCH_TOOL_DISPATCH must cover all EntityType values.
 
-        TAG is excluded: tags have their own list_tags tool and don't support
-        GQL-based search.
+        EntityType excludes TAG by design — tags use list_tags, not GQL search.
         """
         from src.gramps_mcp.models.parameters.simple_params import EntityType
 
-        expected = {e.value for e in EntityType if e != EntityType.TAG}
+        expected = {e.value for e in EntityType}
         actual = set(_SEARCH_TOOL_DISPATCH.keys())
         assert actual == expected, f"Missing dispatch entries: {expected - actual}"
 
@@ -165,14 +164,14 @@ class TestDispatchPatterns:
             assert callable(func), f"Dispatch entry '{name}' is not callable"
 
     def test_formatter_dispatch_covers_all_searchable_entity_types(self):
-        """FORMATTER_DISPATCH must cover all GQL-searchable EntityType values.
+        """FORMATTER_DISPATCH must cover all EntityType values.
 
-        TAG is excluded: tags use a separate list_tags tool and don't go
-        through the generic search/format pipeline.
+        EntityType excludes TAG by design — tags use list_tags, not the
+        generic search/format pipeline.
         """
         from src.gramps_mcp.models.parameters.simple_params import EntityType
 
-        expected = {e.value for e in EntityType if e != EntityType.TAG}
+        expected = {e.value for e in EntityType}
         actual = set(FORMATTER_DISPATCH.keys())
         assert actual == expected, f"Missing formatter entries: {expected - actual}"
 

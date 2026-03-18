@@ -534,3 +534,65 @@ class TestUploadMediaFile:
         # Verify Content-Type header was set
         call_kwargs = client.auth_manager.client.request.call_args.kwargs
         assert call_kwargs["headers"]["Content-Type"] == "image/jpeg"
+
+
+# ---------------------------------------------------------------------------
+# bulk_delete
+# ---------------------------------------------------------------------------
+
+
+class TestBulkDelete:
+    """Test bulk_delete() input validation and request building."""
+
+    def _make_client(self):
+        """Build a GrampsWebAPIClient with mocked internals."""
+        client = GrampsWebAPIClient()
+        client.auth_manager = MagicMock()
+        client.auth_manager.get_token = AsyncMock()
+        client.auth_manager.get_headers = MagicMock(
+            return_value={"Authorization": "Bearer test"}
+        )
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.client.request = AsyncMock()
+        client.auth_manager.close = AsyncMock()
+        return client
+
+    @pytest.mark.asyncio
+    async def test_rejects_empty_list(self):
+        """Empty items list raises ValueError."""
+        client = self._make_client()
+        with pytest.raises(ValueError, match="non-empty"):
+            await client.bulk_delete(items=[])
+
+    @pytest.mark.asyncio
+    async def test_rejects_malformed_items(self):
+        """Items missing _class or handle raise ValueError."""
+        client = self._make_client()
+        with pytest.raises(ValueError, match="_class"):
+            await client.bulk_delete(items=[{"handle": "h1"}])
+
+    @pytest.mark.asyncio
+    async def test_rejects_non_dict_items(self):
+        """Non-dict items raise ValueError."""
+        client = self._make_client()
+        with pytest.raises(ValueError, match="_class"):
+            await client.bulk_delete(items=["not a dict"])
+
+    @pytest.mark.asyncio
+    async def test_builds_correct_request(self):
+        """Successful call posts to objects/delete/ with correct payload."""
+        client = self._make_client()
+        client._make_request = AsyncMock(return_value={})
+
+        await client.bulk_delete(
+            items=[{"_class": "Tag", "handle": "t1"}], tree_id="mytree"
+        )
+
+        client._make_request.assert_called_once()
+        call_kwargs = client._make_request.call_args
+        method = call_kwargs.kwargs.get("method") or call_kwargs.args[0]
+        assert method == "POST"
+        url = call_kwargs.kwargs.get("url") or call_kwargs.args[1]
+        assert "objects/delete/" in url
+        json_data = call_kwargs.kwargs.get("json_data")
+        assert json_data == [{"_class": "Tag", "handle": "t1"}]

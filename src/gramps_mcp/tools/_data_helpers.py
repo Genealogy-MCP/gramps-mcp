@@ -36,10 +36,21 @@ from .search_basic import FORMATTER_DISPATCH
 logger = logging.getLogger(__name__)
 
 
-def _extract_entity_data(result: Any, entity_type: str | None = None) -> Any:
-    """Extract entity data from API response, handling different formats."""
+def _extract_entity_data(result: Any, entity_type: str | None = None) -> dict:
+    """Extract entity data from API response, handling different formats.
+
+    Args:
+        result: Raw API response (dict, list of transaction entries, or None).
+        entity_type: Optional entity type hint for family creation special case.
+
+    Returns:
+        Entity data dict extracted from the response.
+
+    Raises:
+        ValueError: If the API returned an empty or falsy response.
+    """
     if not result:
-        return None
+        raise ValueError("API returned an empty response")
 
     # Handle family creation special case - find Family entry in response list
     if entity_type == "family" and isinstance(result, list) and len(result) > 1:
@@ -50,12 +61,12 @@ def _extract_entity_data(result: Any, entity_type: str | None = None) -> Any:
                 break
         return family_entry if family_entry else result[0].get("new", result[0])
 
-    # Standard case - API may return list or single object
-    return (
-        result[0]["new"]
-        if result and isinstance(result, list) and result[0].get("new")
-        else result
-    )
+    # Standard case - API may return list of transaction entries or dict
+    if isinstance(result, list):
+        if result[0].get("new"):
+            return result[0]["new"]
+        return result[0]
+    return result
 
 
 async def _handle_crud_operation(

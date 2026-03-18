@@ -482,31 +482,31 @@ class TestFindTypeTool:
     """Test search_tool dispatch logic."""
 
     @pytest.mark.asyncio
-    async def test_missing_entity_type(self):
-        """Missing type returns error message (not exception)."""
+    async def test_missing_entity_type_raises(self):
+        """Missing type raises McpToolError (MCP-8 compliance)."""
         from src.gramps_mcp.tools.search_basic import search_tool
 
-        result = await search_tool({"gql": "test"})
-        assert "Entity type is required" in result[0].text
+        with pytest.raises(McpToolError, match="Entity type is required"):
+            await search_tool({"gql": "test"})
 
     @pytest.mark.asyncio
-    async def test_unsupported_entity_type(self):
-        """Unknown entity type returns not-supported message."""
+    async def test_unsupported_entity_type_raises(self):
+        """Unknown entity type raises McpToolError listing valid types."""
         from src.gramps_mcp.tools.search_basic import search_tool
 
-        result = await search_tool({"type": "unicorn", "gql": "test"})
-        assert "not supported" in result[0].text
+        with pytest.raises(McpToolError, match="not supported for search"):
+            await search_tool({"type": "unicorn", "gql": "test"})
 
     @pytest.mark.asyncio
-    async def test_enum_entity_type(self):
-        """Enum-like types with .value are handled."""
+    async def test_enum_entity_type_raises(self):
+        """Enum-like types with .value that don't match raise McpToolError."""
         from src.gramps_mcp.tools.search_basic import search_tool
 
         class FakeEnum:
             value = "nonexistent"
 
-        result = await search_tool({"type": FakeEnum(), "gql": "test"})
-        assert "not supported" in result[0].text
+        with pytest.raises(McpToolError, match="not supported for search"):
+            await search_tool({"type": FakeEnum(), "gql": "test"})
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
@@ -655,20 +655,20 @@ class TestGetTypeTool:
     """Test get_tool dispatch and gramps_id resolution."""
 
     @pytest.mark.asyncio
-    async def test_unsupported_type(self):
-        """Unsupported entity type returns error message."""
+    async def test_unsupported_type_raises(self):
+        """Unsupported entity type raises McpToolError (MCP-8 compliance)."""
         from src.gramps_mcp.tools.search_details import get_tool
 
-        result = await get_tool({"type": "unicorn", "handle": "h1"})
-        assert "not supported" in result[0].text
+        with pytest.raises(McpToolError, match="not supported for get"):
+            await get_tool({"type": "unicorn", "handle": "h1"})
 
     @pytest.mark.asyncio
-    async def test_no_handle_no_gramps_id(self):
-        """Neither handle nor gramps_id returns resolution error."""
+    async def test_no_handle_no_gramps_id_raises(self):
+        """Neither handle nor gramps_id raises McpToolError."""
         from src.gramps_mcp.tools.search_details import get_tool
 
-        result = await get_tool({"type": "event"})
-        assert "Could not resolve" in result[0].text
+        with pytest.raises(McpToolError, match="Could not resolve"):
+            await get_tool({"type": "event"})
 
     @pytest.mark.asyncio
     @patch(
@@ -751,13 +751,13 @@ class TestGetTypeTool:
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.tools.search_basic.search_tool", new_callable=AsyncMock)
-    async def test_gramps_id_not_resolved(self, mock_find):
-        """gramps_id that can't be resolved returns error."""
+    async def test_gramps_id_not_resolved_raises(self, mock_find):
+        """gramps_id that can't be resolved raises McpToolError."""
         from src.gramps_mcp.tools.search_details import get_tool
 
         mock_find.return_value = [TextContent(type="text", text="No events found")]
-        result = await get_tool({"type": "event", "gramps_id": "E9999"})
-        assert "Could not resolve" in result[0].text
+        with pytest.raises(McpToolError, match="Could not resolve"):
+            await get_tool({"type": "event", "gramps_id": "E9999"})
 
 
 # ============================================================================

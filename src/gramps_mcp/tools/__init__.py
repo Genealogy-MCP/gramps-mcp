@@ -31,8 +31,9 @@ from .analysis import (
     get_tree_stats_tool,
 )
 
-# Data Management Tools — import from each submodule directly to avoid
-# circular imports (data_management ↔ data_management_delete/media).
+# Data Management Tools -- split across submodules by responsibility:
+# data_management (CRUD), data_management_delete (delete + tags),
+# data_management_media (media upload).
 from .data_management import (
     upsert_citation_tool,
     upsert_event_tool,

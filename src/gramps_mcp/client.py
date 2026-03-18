@@ -439,6 +439,43 @@ class GrampsWebAPIClient:
         response.raise_for_status()
         return response.json()
 
+    async def bulk_delete(
+        self, items: list[dict[str, str]], tree_id: str = "default"
+    ) -> dict:
+        """Delete entities via POST /objects/delete/ (bulk endpoint).
+
+        Used for entity types that lack a dedicated DELETE endpoint in API 3.x
+        (e.g. tags).
+
+        Args:
+            items: List of dicts, each with '_class' and 'handle' keys.
+                Example: [{"_class": "Tag", "handle": "abc123"}]
+            tree_id: Tree identifier.
+
+        Returns:
+            API response dict.
+
+        Raises:
+            ValueError: If items list is empty or items are malformed.
+            GrampsAPIError: If the API call fails.
+        """
+        if not items:
+            raise ValueError("bulk_delete requires a non-empty items list")
+
+        for item in items:
+            if (
+                not isinstance(item, dict)
+                or "_class" not in item
+                or "handle" not in item
+            ):
+                raise ValueError(
+                    "Each item must be a dict with "
+                    f"'_class' and 'handle' keys, got: {item}"
+                )
+
+        url = self._build_url(tree_id, "objects/delete/")
+        return await self._make_request(method="POST", url=url, json_data=items)
+
 
 # Export the main classes for easy import
 __all__ = ["GrampsWebAPIClient", "GrampsAPIError", "MIN_API_MAJOR_VERSION"]

@@ -36,14 +36,17 @@ def _mock_settings():
 class TestExtractEntityData:
     """Test _extract_entity_data response parsing."""
 
-    def test_none_returns_none(self):
-        assert _extract_entity_data(None) is None
+    def test_none_raises_value_error(self):
+        with pytest.raises(ValueError, match="empty response"):
+            _extract_entity_data(None)
 
-    def test_empty_dict_returns_none(self):
-        assert _extract_entity_data({}) is None
+    def test_empty_dict_raises_value_error(self):
+        with pytest.raises(ValueError, match="empty response"):
+            _extract_entity_data({})
 
-    def test_empty_list_returns_none(self):
-        assert _extract_entity_data([]) is None
+    def test_empty_list_raises_value_error(self):
+        with pytest.raises(ValueError, match="empty response"):
+            _extract_entity_data([])
 
     def test_standard_list_with_new(self):
         result = [{"new": {"handle": "h1", "gramps_id": "I001"}}]
@@ -71,9 +74,9 @@ class TestExtractEntityData:
         assert entity["handle"] == "p1"
 
     def test_list_without_new_key(self):
-        """List items without 'new' key return the full result."""
+        """List items without 'new' key return the first entry."""
         result = [{"handle": "h1"}]
-        assert _extract_entity_data(result) == [{"handle": "h1"}]
+        assert _extract_entity_data(result) == {"handle": "h1"}
 
 
 # ---------------------------------------------------------------------------
@@ -288,20 +291,18 @@ class TestDeleteTool:
         return_value=_mock_settings(),
     )
     async def test_delete_tag_uses_bulk(self, _settings, mock_client_cls):
-        """TAG enum value routes through _delete_via_bulk, not standard DELETE."""
+        """TAG enum value routes through bulk_delete, not standard DELETE."""
         client_inst = AsyncMock()
-        client_inst._build_url = MagicMock(return_value="http://test/objects/delete/")
-        client_inst._make_request = AsyncMock(return_value={})
+        client_inst.bulk_delete = AsyncMock(return_value={})
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
         result = await delete_tool({"type": "tag", "handle": "t1"})
         assert "Successfully deleted" in result[0].text
         assert "tag" in result[0].text
-        # Verify it used bulk endpoint, not make_api_call
-        client_inst._make_request.assert_called_once()
-        call_kwargs = client_inst._make_request.call_args
-        assert call_kwargs.kwargs.get("method") == "POST" or call_kwargs.args[0] == "POST"
+        client_inst.bulk_delete.assert_called_once_with(
+            items=[{"_class": "Tag", "handle": "t1"}], tree_id="tree1"
+        )
 
 
 # ---------------------------------------------------------------------------

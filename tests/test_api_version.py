@@ -191,7 +191,7 @@ class TestVerifyApiOnStartup:
     """Test the verify_api_on_startup server startup hook."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.client.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.startup.GrampsWebAPIClient")
     async def test_startup_calls_verify(self, mock_client_cls):
         """verify_api_on_startup creates a client, verifies, and closes it."""
         client_inst = AsyncMock()
@@ -205,7 +205,7 @@ class TestVerifyApiOnStartup:
         client_inst.close.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.client.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.startup.GrampsWebAPIClient")
     async def test_startup_propagates_api_error(self, mock_client_cls):
         """Unsupported version error propagates so the server fails to start."""
         client_inst = AsyncMock()
@@ -222,7 +222,7 @@ class TestVerifyApiOnStartup:
         client_inst.close.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.client.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.startup.GrampsWebAPIClient")
     async def test_startup_closes_client_on_exception(self, mock_client_cls):
         """Client is closed even if verify_api_version raises unexpectedly."""
         client_inst = AsyncMock()
@@ -236,3 +236,18 @@ class TestVerifyApiOnStartup:
             await verify_api_on_startup()
 
         client_inst.close.assert_called_once()
+
+
+class TestServerLifespan:
+    """Test that the FastMCP lifespan hook wires startup verification."""
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.server.verify_api_on_startup", new_callable=AsyncMock)
+    async def test_lifespan_calls_verify(self, mock_verify):
+        """server_lifespan must call verify_api_on_startup before yielding."""
+        from src.gramps_mcp.server import server_lifespan
+
+        async with server_lifespan(None):
+            pass
+
+        mock_verify.assert_called_once()
