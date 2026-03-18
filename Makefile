@@ -1,6 +1,8 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint format typecheck test test-unit test-verbose test-server test-integration coverage audit clean pre-commit run run-stdio ci docker-up docker-down docker-seed
+PYTEST_ARGS ?=
+
+.PHONY: help install lint format typecheck test test-unit test-server coverage audit clean pre-commit run run-stdio ci docker-up docker-down docker-seed
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -21,26 +23,15 @@ format: ## Auto-format source code
 typecheck: ## Run pyright type checker
 	uv run pyright src/
 
-test: ## Run all tests (requires Docker for integration tests)
-	uv run pytest
+test: ## Run all tests (auto-starts Docker if available)
+	bash scripts/ensure_docker.sh || true
+	uv run pytest $(PYTEST_ARGS)
 
 test-unit: ## Run unit tests only (no Docker needed)
-	uv run pytest -m "not integration" --cov-fail-under=60
-
-test-verbose: ## Run tests with verbose output
-	uv run pytest -xvs
+	uv run pytest -m "not integration and not server" $(PYTEST_ARGS)
 
 test-server: ## Run e2e tests requiring a running MCP server
-	uv run pytest -m server -xvs
-
-test-integration: ## Start Docker, seed, run ALL tests, teardown
-	docker compose -f docker-compose.test.yml down -v 2>/dev/null || true
-	docker compose -f docker-compose.test.yml up -d --wait
-	uv run python scripts/seed_test_db.py || \
-		{ docker compose -f docker-compose.test.yml down -v; exit 1; }
-	uv run pytest; rc=$$?; \
-		docker compose -f docker-compose.test.yml down -v; \
-		exit $$rc
+	uv run pytest -m server -xvs $(PYTEST_ARGS)
 
 docker-up: ## Start Gramps Web test containers
 	docker compose -f docker-compose.test.yml up -d --wait
@@ -52,7 +43,7 @@ docker-seed: ## Seed the running test instance with fixture data
 	uv run python scripts/seed_test_db.py
 
 coverage: ## Generate HTML coverage report
-	uv run pytest --cov-report=html
+	uv run pytest --cov-report=html $(PYTEST_ARGS)
 	@echo "Coverage report: htmlcov/index.html"
 
 audit: ## Audit dependencies for known vulnerabilities

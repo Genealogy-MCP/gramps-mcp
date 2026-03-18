@@ -16,6 +16,20 @@ import pytest
 from src.gramps_mcp.auth import AuthManager
 
 
+@pytest.fixture(autouse=True)
+def _isolate_auth_singleton():
+    """Save and restore the AuthManager singleton around each test.
+
+    Auth unit tests call reset_instance() and create fresh instances.
+    Without this guard, they destroy the shared token that integration
+    tests rely on when both run in the same session.
+    """
+    saved = AuthManager._instance
+    AuthManager._instance = None
+    yield
+    AuthManager._instance = saved
+
+
 # ---------------------------------------------------------------------------
 # Singleton behaviour
 # ---------------------------------------------------------------------------

@@ -295,7 +295,8 @@ async def test_get_note_by_gramps_id():
 @pytest.mark.asyncio
 async def test_get_repository_by_gramps_id():
     """Test get_tool with type=repository using gramps_id."""
-    result = await get_tool({"type": "repository", "gramps_id": "R0001"})
+    # Seed data has R0000, R0002, R0003 — no R0001 exists
+    result = await get_tool({"type": "repository", "gramps_id": "R0000"})
 
     assert len(result) == 1
     assert isinstance(result[0], TextContent)

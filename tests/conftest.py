@@ -86,20 +86,27 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:
         )
 
     skip_marker = pytest.mark.skip(
-        reason=f"Gramps Web at {target} is unreachable (run: make test-integration)"
+        reason=f"Gramps Web at {target} is unreachable (run: make test)"
     )
     for item in items:
         if "integration" in item.keywords:
             item.add_marker(skip_marker)
 
 
-@pytest.fixture(autouse=True)
-def reset_auth_singleton():
-    """Reset AuthManager singleton before and after each test.
+@pytest.fixture(scope="session", autouse=True)
+def shared_auth_session():
+    """Authenticate once at session start; integration tests share the token.
 
-    Prevents stale token state from leaking between tests across all files.
+    The old per-test reset_auth_singleton fixture destroyed the cached JWT
+    before every test, forcing re-authentication.  With ~500 tests the
+    /api/token/ rate limiter (429) triggered after the first few requests,
+    cascading failures across the entire integration suite.
+
+    This session-scoped fixture lets the singleton persist so the token is
+    reused.  A single reset at session end prevents state leakage to other
+    pytest sessions.  Unit tests are unaffected because they mock the
+    client and never call AuthManager.authenticate().
     """
-    AuthManager.reset_instance()
     yield
     AuthManager.reset_instance()
 
@@ -473,6 +480,8 @@ async def sweep_test_artifacts() -> int:
 
 # Module-level registry for atexit (needed for Ctrl+C recovery)
 _atexit_registry: Optional[HandleRegistry] = None
+# Set when cleanup_registry teardown runs — prevents redundant sessionfinish sweep
+_cleanup_registry_ran = False
 
 
 def _atexit_cleanup() -> None:
@@ -510,20 +519,22 @@ async def cleanup_registry():
     yield registry
 
     # Normal teardown path
+    global _cleanup_registry_ran
+    _cleanup_registry_ran = True
     await registry.cleanup_all()
 
 
 def pytest_sessionfinish(session, exitstatus):
-    """Sweep MCP_TEST_ artifacts after all tests and fixture teardowns complete.
+    """Sweep MCP_TEST_ artifacts when cleanup_registry didn't run.
 
-    This is the safety net that runs unconditionally — even when:
-    - Only unit tests ran (cleanup_registry fixture never triggered)
-    - Fixture cleanup missed some entities (server errors)
-    - Tests created entities without using the registry
-
-    Short-circuits when Docker is unreachable to avoid a 3s timeout
-    penalty on unit-only runs.
+    Safety net for sessions where no integration tests used the
+    cleanup_registry fixture (e.g. unit-only runs that still have
+    Docker reachable).  Skips when cleanup_registry already handled
+    teardown — running both causes SQLite locking on the test container.
     """
+    if _cleanup_registry_ran:
+        return
+
     target = os.environ.get("GRAMPS_API_URL", _DEFAULT_API_URL)
     if not _is_docker_reachable(target):
         return
@@ -531,7 +542,6 @@ def pytest_sessionfinish(session, exitstatus):
     try:
         asyncio.run(sweep_test_artifacts())
     except Exception as e:
-        # Reason: non-fatal — cleanup failure must not mask test results
         logger.warning(f"Post-test sweep failed (non-fatal): {e}")
 
 
