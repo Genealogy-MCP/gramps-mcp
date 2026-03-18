@@ -173,6 +173,66 @@ async def _wait_for_task_completion(
             raise GrampsAPIError(f"Error polling task {task_id}: {str(e)}")
 
 
+async def _fetch_report_with_retry(
+    client: GrampsWebAPIClient,
+    tree_id: str,
+    report_id: str,
+    filename: str,
+    max_retries: int = 3,
+    initial_delay: float = 0.5,
+) -> str:
+    """
+    Download a processed report file, retrying on 404.
+
+    After a Celery task completes, the generated file may not be
+    immediately available via the web endpoint. This retries the
+    GET_REPORT_PROCESSED call on 404 with exponential backoff.
+
+    Args:
+        client: Gramps API client.
+        tree_id: Family tree identifier.
+        report_id: Report type identifier (e.g. "descend_report").
+        filename: Generated report filename from task result.
+        max_retries: Maximum number of retry attempts on 404.
+        initial_delay: Seconds to wait before first retry (doubles each time).
+
+    Returns:
+        Report content as a string (HTML).
+
+    Raises:
+        GrampsAPIError: If all retries are exhausted or a non-404 error occurs.
+    """
+    download_params = ReportFileParams(options=None)
+    delay = initial_delay
+
+    for attempt in range(1 + max_retries):
+        try:
+            response = await client.make_api_call(
+                api_call=ApiCalls.GET_REPORT_PROCESSED,
+                params=download_params,
+                tree_id=tree_id,
+                report_id=report_id,
+                filename=filename,
+            )
+            if isinstance(response, dict) and "raw_content" in response:
+                return response["raw_content"]
+            return str(response)
+
+        except GrampsAPIError as e:
+            error_msg = str(e).lower()
+            is_not_found = "not found" in error_msg or "404" in error_msg
+            if not is_not_found or attempt == max_retries:
+                raise
+            logger.debug(
+                f"Report file not yet available (attempt {attempt + 1}/"
+                f"{1 + max_retries}), retrying in {delay}s..."
+            )
+            await asyncio.sleep(delay)
+            delay *= 2
+
+    raise AssertionError("Unreachable: loop always returns or raises")
+
+
 # ============================================================================
 # Analysis Tools
 # ============================================================================
@@ -242,28 +302,11 @@ async def get_descendants_tool(client, arguments: Dict) -> List[TextContent]:
                     f"Response: {report_result}"
                 )
 
-        # Download the processed report content
-        download_params = ReportFileParams(
-            options=None  # No options needed for download
+        # Download the processed report content (retries on 404 race condition)
+        report_content = await _fetch_report_with_retry(
+            client, tree_id, "descend_report", filename
         )
-
-        report_response = await client.make_api_call(
-            api_call=ApiCalls.GET_REPORT_PROCESSED,
-            params=download_params,
-            tree_id=tree_id,
-            report_id="descend_report",
-            filename=filename,
-        )
-
-        # Extract HTML content from response
-        if isinstance(report_response, dict) and "raw_content" in report_response:
-            report_content = report_response["raw_content"]
-        else:
-            report_content = str(report_response)
-
-        # Convert HTML to Markdown
         markdown_content = html_to_markdown(report_content)
-
         return [TextContent(type="text", text=markdown_content)]
 
     except Exception as e:
@@ -339,28 +382,11 @@ async def get_ancestors_tool(client, arguments: Dict) -> List[TextContent]:
                     f"Response: {report_result}"
                 )
 
-        # Download the processed report content
-        download_params = ReportFileParams(
-            options=None  # No options needed for download
+        # Download the processed report content (retries on 404 race condition)
+        report_content = await _fetch_report_with_retry(
+            client, tree_id, "ancestor_report", filename
         )
-
-        report_response = await client.make_api_call(
-            api_call=ApiCalls.GET_REPORT_PROCESSED,
-            params=download_params,
-            tree_id=tree_id,
-            report_id="ancestor_report",
-            filename=filename,
-        )
-
-        # Extract HTML content from response
-        if isinstance(report_response, dict) and "raw_content" in report_response:
-            report_content = report_response["raw_content"]
-        else:
-            report_content = str(report_response)
-
-        # Convert HTML to Markdown
         markdown_content = html_to_markdown(report_content)
-
         return [TextContent(type="text", text=markdown_content)]
 
     except Exception as e:
