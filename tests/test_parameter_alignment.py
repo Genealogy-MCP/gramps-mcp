@@ -551,6 +551,7 @@ class TestParameterAlignment:
             "media",
             "repository",
             "note",
+            "tag",
         }
         assert entity_types == expected_types, "EntityType should have all entity types"
 

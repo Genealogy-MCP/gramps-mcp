@@ -20,6 +20,8 @@ from src.gramps_mcp.models.parameters.base_params import (
     BaseGetMultipleParams,
     BaseGetSingleParams,
 )
+from src.gramps_mcp.models.parameters.search_params import SearchParams
+from src.gramps_mcp.models.parameters.transactions_params import TransactionHistoryParams
 
 
 class TestApiMapping:
@@ -60,6 +62,21 @@ class TestApiMapping:
         assert result.page == 1
         assert result.pagesize == 10
 
+    def test_validate_api_call_params_page_zero_rejected(self):
+        """API 3.x uses 1-based pagination; page=0 must be rejected."""
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            validate_api_call_params(ApiCalls.GET_PEOPLE, {"page": 0})
+
+    def test_validate_api_call_params_page_negative_rejected(self):
+        """Negative page numbers must be rejected."""
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            validate_api_call_params(ApiCalls.GET_PEOPLE, {"page": -1})
+
+    def test_validate_api_call_params_page_one_accepted(self):
+        """page=1 is the minimum valid page for API 3.x."""
+        result = validate_api_call_params(ApiCalls.GET_PEOPLE, {"page": 1})
+        assert result.page == 1
+
     def test_validate_api_call_params_invalid(self):
         """Test parameter validation with invalid parameters."""
         # Test with invalid parameters - invalid extend choice
@@ -79,6 +96,30 @@ class TestApiMapping:
         # Test with parameters but no model defined (should raise error)
         with pytest.raises(ValueError, match="does not accept parameters"):
             validate_api_call_params(ApiCalls.DELETE_PERSON, {"page": 1})
+
+
+class TestPaginationConstraints:
+    """Verify all pagination models reject page=0 (API 3.x is 1-based)."""
+
+    def test_search_params_page_zero_rejected(self):
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            SearchParams(query="test", page=0)
+
+    def test_search_params_page_one_accepted(self):
+        params = SearchParams(query="test", page=1)
+        assert params.page == 1
+
+    def test_transaction_history_params_page_zero_rejected(self):
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            TransactionHistoryParams(page=0)
+
+    def test_transaction_history_params_page_one_accepted(self):
+        params = TransactionHistoryParams(page=1)
+        assert params.page == 1
+
+    def test_base_get_multiple_page_zero_rejected(self):
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            BaseGetMultipleParams(page=0)
 
 
 @pytest.mark.integration

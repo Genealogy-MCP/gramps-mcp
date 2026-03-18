@@ -37,6 +37,7 @@ class EntityType(str, Enum):
     MEDIA = "media"
     REPOSITORY = "repository"
     NOTE = "note"
+    TAG = "tag"
 
 
 class SimpleFindParams(BaseModel):

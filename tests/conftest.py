@@ -19,7 +19,11 @@ import pytest
 from src.gramps_mcp.client import GrampsAPIError, GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.models.api_calls import ApiCalls
-from src.gramps_mcp.tools.data_management_delete import DELETE_API_CALLS, _ENTITY_CLASS_NAMES
+from src.gramps_mcp.tools.data_management_delete import (
+    DELETE_API_CALLS,
+    _ENTITY_CLASS_NAMES,
+    _delete_via_bulk,
+)
 
 # ---------------------------------------------------------------------------
 # Default test instance — local Docker Gramps Web on port 5055.
@@ -211,22 +215,22 @@ class HandleRegistry:
                 for handle in reversed(handles):
                     api_call = DELETE_API_CALLS.get(entity_type)
                     if not api_call:
-                        # Tags use bulk delete (API 3.x removed DELETE /tags/{handle})
-                        if entity_type == "tag":
+                        if entity_type in _ENTITY_CLASS_NAMES:
                             try:
-                                url = client._build_url(tree_id, "objects/delete/")
-                                await client._make_request(
-                                    method="POST",
-                                    url=url,
-                                    json_data=[{"_class": "Tag", "handle": handle}],
+                                await _delete_via_bulk(
+                                    client, tree_id, entity_type, handle
                                 )
-                                logger.info(f"Deleted tag [{handle}] via bulk endpoint")
+                                logger.info(
+                                    f"Deleted {entity_type} [{handle}] via bulk endpoint"
+                                )
                             except Exception as e:
                                 if "404" in str(e) or "not found" in str(e).lower():
-                                    logger.info(f"Already gone: tag [{handle}]")
+                                    logger.info(
+                                        f"Already gone: {entity_type} [{handle}]"
+                                    )
                                 else:
                                     logger.warning(
-                                        f"Failed to delete tag [{handle}]: {e}"
+                                        f"Failed to delete {entity_type} [{handle}]: {e}"
                                     )
                             continue
                         logger.warning(f"No delete API call for type '{entity_type}'")
@@ -427,12 +431,7 @@ async def sweep_test_artifacts() -> int:
         # Tags use bulk delete endpoint (API 3.x removed DELETE /tags/{handle})
         for handle in to_delete.get("tag", []):
             try:
-                url = client._build_url(tree_id, "objects/delete/")
-                await client._make_request(
-                    method="POST",
-                    url=url,
-                    json_data=[{"_class": "Tag", "handle": handle}],
-                )
+                await _delete_via_bulk(client, tree_id, "tag", handle)
                 deleted_count += 1
                 logger.info(f"Swept tag [{handle}]")
             except Exception as e:

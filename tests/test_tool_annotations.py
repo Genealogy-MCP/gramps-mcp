@@ -147,11 +147,15 @@ class TestSettingsValidation:
 class TestDispatchPatterns:
     """MCP-18: No globals() dispatch; use explicit dicts."""
 
-    def test_find_dispatch_covers_all_entity_types(self):
-        """_SEARCH_TOOL_DISPATCH must have an entry for every EntityType value."""
+    def test_find_dispatch_covers_all_searchable_entity_types(self):
+        """_SEARCH_TOOL_DISPATCH must cover all GQL-searchable EntityType values.
+
+        TAG is excluded: tags have their own list_tags tool and don't support
+        GQL-based search.
+        """
         from src.gramps_mcp.models.parameters.simple_params import EntityType
 
-        expected = {e.value for e in EntityType}
+        expected = {e.value for e in EntityType if e != EntityType.TAG}
         actual = set(_SEARCH_TOOL_DISPATCH.keys())
         assert actual == expected, f"Missing dispatch entries: {expected - actual}"
 
@@ -160,11 +164,15 @@ class TestDispatchPatterns:
         for name, func in _SEARCH_TOOL_DISPATCH.items():
             assert callable(func), f"Dispatch entry '{name}' is not callable"
 
-    def test_formatter_dispatch_covers_all_entity_types(self):
-        """FORMATTER_DISPATCH must have an entry for every EntityType value."""
+    def test_formatter_dispatch_covers_all_searchable_entity_types(self):
+        """FORMATTER_DISPATCH must cover all GQL-searchable EntityType values.
+
+        TAG is excluded: tags use a separate list_tags tool and don't go
+        through the generic search/format pipeline.
+        """
         from src.gramps_mcp.models.parameters.simple_params import EntityType
 
-        expected = {e.value for e in EntityType}
+        expected = {e.value for e in EntityType if e != EntityType.TAG}
         actual = set(FORMATTER_DISPATCH.keys())
         assert actual == expected, f"Missing formatter entries: {expected - actual}"
 

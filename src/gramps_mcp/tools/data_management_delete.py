@@ -30,8 +30,8 @@ from ..client import GrampsWebAPIClient
 from ..config import get_settings
 from ..models.api_calls import ApiCalls
 from ..models.parameters.simple_params import DeleteParams
+from ._data_helpers import _extract_entity_data
 from ._errors import raise_tool_error
-from .data_management import _extract_entity_data
 
 logger = logging.getLogger(__name__)
 
@@ -64,9 +64,9 @@ async def _delete_via_bulk(
         handle: Entity handle to delete.
     """
     class_name = _ENTITY_CLASS_NAMES[entity_type]
-    url = client._build_url(tree_id, "objects/delete/")
+    url = client._build_url(tree_id, ApiCalls.POST_OBJECTS_DELETE.endpoint)
     await client._make_request(
-        method="POST",
+        method=ApiCalls.POST_OBJECTS_DELETE.method,
         url=url,
         json_data=[{"_class": class_name, "handle": handle}],
     )

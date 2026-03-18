@@ -6,7 +6,7 @@ version, rejects unsupported versions, and handles edge cases gracefully.
 No network required -- all API calls are mocked.
 """
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -15,6 +15,7 @@ from src.gramps_mcp.client import (
     GrampsAPIError,
     GrampsWebAPIClient,
 )
+from src.gramps_mcp.startup import verify_api_on_startup
 
 
 class TestMinVersionConstant:
@@ -184,3 +185,54 @@ class TestVerifyApiVersion:
         )
         version = await client.verify_api_version(tree_id="custom_tree")
         assert version == "3.0.0"
+
+
+class TestVerifyApiOnStartup:
+    """Test the verify_api_on_startup server startup hook."""
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.client.GrampsWebAPIClient")
+    async def test_startup_calls_verify(self, mock_client_cls):
+        """verify_api_on_startup creates a client, verifies, and closes it."""
+        client_inst = AsyncMock()
+        client_inst.verify_api_version = AsyncMock(return_value="3.7.1")
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        await verify_api_on_startup()
+
+        client_inst.verify_api_version.assert_called_once()
+        client_inst.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.client.GrampsWebAPIClient")
+    async def test_startup_propagates_api_error(self, mock_client_cls):
+        """Unsupported version error propagates so the server fails to start."""
+        client_inst = AsyncMock()
+        client_inst.verify_api_version = AsyncMock(
+            side_effect=GrampsAPIError("version 2.5.0 is not supported")
+        )
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        with pytest.raises(GrampsAPIError, match="not supported"):
+            await verify_api_on_startup()
+
+        # Client must be closed even on error
+        client_inst.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.client.GrampsWebAPIClient")
+    async def test_startup_closes_client_on_exception(self, mock_client_cls):
+        """Client is closed even if verify_api_version raises unexpectedly."""
+        client_inst = AsyncMock()
+        client_inst.verify_api_version = AsyncMock(
+            side_effect=RuntimeError("unexpected")
+        )
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        with pytest.raises(RuntimeError):
+            await verify_api_on_startup()
+
+        client_inst.close.assert_called_once()
