@@ -17,15 +17,17 @@ from src.gramps_mcp.tools._errors import McpToolError
 # Helpers
 # ---------------------------------------------------------------------------
 
+_SETTINGS_PATCH = "src.gramps_mcp.tools.search_basic.get_settings"
+_CLIENT_PATCH = "src.gramps_mcp.tools.search_basic.GrampsWebAPIClient"
+
 
 def _mock_settings():
     """Return a mock settings object with a tree ID."""
-    settings = type("Settings", (), {"gramps_tree_id": "tree1"})()
-    return settings
+    return type("Settings", (), {"gramps_tree_id": "tree1"})()
 
 
-def _mock_client(handler_return="• **Mocked** result\n\n"):
-    """Return a mock client whose make_api_call returns a configurable value."""
+def _mock_client_instance():
+    """Return a pre-configured mock client for tool tests."""
     client = AsyncMock()
     client.make_api_call = AsyncMock(return_value=[])
     client.close = AsyncMock()
@@ -36,15 +38,29 @@ def _mock_client(handler_return="• **Mocked** result\n\n"):
 # format_search_result_by_type
 # ============================================================================
 
+# Entity types that all follow the same dispatch pattern
+_DISPATCH_ENTITY_TYPES = [
+    "person",
+    "family",
+    "event",
+    "place",
+    "source",
+    "media",
+    "citation",
+    "note",
+]
+
 
 class TestFormatSearchResultByType:
     """Test entity-type dispatch in format_search_result_by_type."""
 
+    @pytest.fixture(autouse=True)
+    def _patch_settings(self):
+        with patch(_SETTINGS_PATCH, return_value=_mock_settings()):
+            yield
+
     @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_no_handle(self, _mock):
+    async def test_no_handle(self):
         """Items without a handle get a generic line."""
         from src.gramps_mcp.tools.search_basic import format_search_result_by_type
 
@@ -54,139 +70,23 @@ class TestFormatSearchResultByType:
         assert "No handle" in result
 
     @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_person_type(self, _mock):
+    @pytest.mark.parametrize("entity_type", _DISPATCH_ENTITY_TYPES)
+    async def test_entity_type_dispatch(self, entity_type):
+        """Each known entity type dispatches to its formatter."""
         from src.gramps_mcp.tools.search_basic import (
             FORMATTER_DISPATCH,
             format_search_result_by_type,
         )
 
-        mock_handler = AsyncMock(return_value="• person\n")
-        with patch.dict(FORMATTER_DISPATCH, {"person": mock_handler}):
-            item = {"object_type": "person", "object": {"handle": "h1"}}
+        mock_handler = AsyncMock(return_value=f"* {entity_type}\n")
+        with patch.dict(FORMATTER_DISPATCH, {entity_type: mock_handler}):
+            item = {"object_type": entity_type, "object": {"handle": "h1"}}
             result = await format_search_result_by_type(AsyncMock(), item)
-        assert result == "• person\n"
+        assert result == f"* {entity_type}\n"
         mock_handler.assert_awaited_once()
 
     @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_family_type(self, _mock):
-        from src.gramps_mcp.tools.search_basic import (
-            FORMATTER_DISPATCH,
-            format_search_result_by_type,
-        )
-
-        mock_handler = AsyncMock(return_value="• family\n")
-        with patch.dict(FORMATTER_DISPATCH, {"family": mock_handler}):
-            item = {"object_type": "family", "object": {"handle": "h1"}}
-            result = await format_search_result_by_type(AsyncMock(), item)
-        assert result == "• family\n"
-
-    @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_event_type(self, _mock):
-        from src.gramps_mcp.tools.search_basic import (
-            FORMATTER_DISPATCH,
-            format_search_result_by_type,
-        )
-
-        mock_handler = AsyncMock(return_value="• event\n")
-        with patch.dict(FORMATTER_DISPATCH, {"event": mock_handler}):
-            item = {"object_type": "event", "object": {"handle": "h1"}}
-            result = await format_search_result_by_type(AsyncMock(), item)
-        assert result == "• event\n"
-
-    @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_place_type(self, _mock):
-        from src.gramps_mcp.tools.search_basic import (
-            FORMATTER_DISPATCH,
-            format_search_result_by_type,
-        )
-
-        mock_handler = AsyncMock(return_value="• place\n")
-        with patch.dict(FORMATTER_DISPATCH, {"place": mock_handler}):
-            item = {"object_type": "place", "object": {"handle": "h1"}}
-            result = await format_search_result_by_type(AsyncMock(), item)
-        assert result == "• place\n"
-
-    @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_source_type(self, _mock):
-        from src.gramps_mcp.tools.search_basic import (
-            FORMATTER_DISPATCH,
-            format_search_result_by_type,
-        )
-
-        mock_handler = AsyncMock(return_value="• source\n")
-        with patch.dict(FORMATTER_DISPATCH, {"source": mock_handler}):
-            item = {"object_type": "source", "object": {"handle": "h1"}}
-            result = await format_search_result_by_type(AsyncMock(), item)
-        assert result == "• source\n"
-
-    @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_media_type(self, _mock):
-        from src.gramps_mcp.tools.search_basic import (
-            FORMATTER_DISPATCH,
-            format_search_result_by_type,
-        )
-
-        mock_handler = AsyncMock(return_value="• media\n")
-        with patch.dict(FORMATTER_DISPATCH, {"media": mock_handler}):
-            item = {"object_type": "media", "object": {"handle": "h1"}}
-            result = await format_search_result_by_type(AsyncMock(), item)
-        assert result == "• media\n"
-
-    @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_citation_type(self, _mock):
-        from src.gramps_mcp.tools.search_basic import (
-            FORMATTER_DISPATCH,
-            format_search_result_by_type,
-        )
-
-        mock_handler = AsyncMock(return_value="• cite\n")
-        with patch.dict(FORMATTER_DISPATCH, {"citation": mock_handler}):
-            item = {"object_type": "citation", "object": {"handle": "h1"}}
-            result = await format_search_result_by_type(AsyncMock(), item)
-        assert result == "• cite\n"
-
-    @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_note_type(self, _mock):
-        from src.gramps_mcp.tools.search_basic import (
-            FORMATTER_DISPATCH,
-            format_search_result_by_type,
-        )
-
-        mock_handler = AsyncMock(return_value="• note\n")
-        with patch.dict(FORMATTER_DISPATCH, {"note": mock_handler}):
-            item = {"object_type": "note", "object": {"handle": "h1"}}
-            result = await format_search_result_by_type(AsyncMock(), item)
-        assert result == "• note\n"
-
-    @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_unknown_type(self, _mock):
+    async def test_unknown_type(self):
         """Unknown types produce a generic line with gramps_id."""
         from src.gramps_mcp.tools.search_basic import format_search_result_by_type
 
@@ -199,10 +99,7 @@ class TestFormatSearchResultByType:
         assert "W99" in result
 
     @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_unknown_type_no_title(self, _mock):
+    async def test_unknown_type_no_title(self):
         """Unknown type with no title or desc falls back to type name."""
         from src.gramps_mcp.tools.search_basic import format_search_result_by_type
 
@@ -211,10 +108,7 @@ class TestFormatSearchResultByType:
         assert "Widget record" in result
 
     @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_handler_exception(self, _mock):
+    async def test_handler_exception(self):
         """Exception in handler produces a graceful fallback line."""
         from src.gramps_mcp.tools.search_basic import (
             FORMATTER_DISPATCH,
@@ -232,10 +126,7 @@ class TestFormatSearchResultByType:
         assert "I99" in result
 
     @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_event_returns_none(self, _mock):
+    async def test_event_returns_none(self):
         """Event handler returning None should produce empty string."""
         from src.gramps_mcp.tools.search_basic import (
             FORMATTER_DISPATCH,
@@ -257,18 +148,20 @@ class TestFormatSearchResultByType:
 class TestSearchEntities:
     """Test _search_entities response parsing and formatting."""
 
+    @pytest.fixture(autouse=True)
+    def _patch_settings(self):
+        with patch(_SETTINGS_PATCH, return_value=_mock_settings()):
+            yield
+
     @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_empty_list_response(self, _mock):
+    async def test_empty_list_response(self):
         """Empty list response says 'No X found'."""
         from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
         from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
         client.make_api_call = AsyncMock(return_value=[])
-        handler = AsyncMock(return_value="• result\n")
+        handler = AsyncMock(return_value="* result\n")
 
         result = await _search_entities(
             client, {}, BaseGetMultipleParams, "GET_PEOPLE", "people", handler
@@ -276,10 +169,7 @@ class TestSearchEntities:
         assert "No people found" in result[0].text
 
     @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_list_response_with_results(self, _mock):
+    async def test_list_response_with_results(self):
         """List response formats each item with the handler."""
         from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
         from src.gramps_mcp.tools.search_basic import _search_entities
@@ -287,7 +177,7 @@ class TestSearchEntities:
         client = AsyncMock()
         items = [{"handle": "h1"}, {"handle": "h2"}]
         client.make_api_call = AsyncMock(return_value=items)
-        handler = AsyncMock(return_value="• item\n")
+        handler = AsyncMock(return_value="* item\n")
 
         result = await _search_entities(
             client, {}, BaseGetMultipleParams, "GET_PEOPLE", "people", handler
@@ -296,10 +186,7 @@ class TestSearchEntities:
         assert handler.await_count == 2
 
     @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_dict_response(self, _mock):
+    async def test_dict_response(self):
         """Dict response with 'data' key and total_count."""
         from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
         from src.gramps_mcp.tools.search_basic import _search_entities
@@ -311,7 +198,7 @@ class TestSearchEntities:
                 "total_count": 50,
             }
         )
-        handler = AsyncMock(return_value="• item\n")
+        handler = AsyncMock(return_value="* item\n")
 
         result = await _search_entities(
             client, {}, BaseGetMultipleParams, "GET_PEOPLE", "people", handler
@@ -320,17 +207,14 @@ class TestSearchEntities:
         assert "showing 1" in result[0].text
 
     @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_skips_non_dict_items(self, _mock):
+    async def test_skips_non_dict_items(self):
         """Non-dict items in results are skipped."""
         from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
         from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
         client.make_api_call = AsyncMock(return_value=["not_a_dict", {"handle": "h1"}])
-        handler = AsyncMock(return_value="• item\n")
+        handler = AsyncMock(return_value="* item\n")
 
         await _search_entities(
             client, {}, BaseGetMultipleParams, "GET_PEOPLE", "people", handler
@@ -338,17 +222,14 @@ class TestSearchEntities:
         assert handler.await_count == 1
 
     @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_item_without_handle_skipped(self, _mock):
+    async def test_item_without_handle_skipped(self):
         """Items with empty handle are skipped."""
         from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
         from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
         client.make_api_call = AsyncMock(return_value=[{"gramps_id": "I1"}])
-        handler = AsyncMock(return_value="• item\n")
+        handler = AsyncMock(return_value="* item\n")
 
         await _search_entities(
             client, {}, BaseGetMultipleParams, "GET_PEOPLE", "people", handler
@@ -356,10 +237,7 @@ class TestSearchEntities:
         assert handler.await_count == 0
 
     @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_wrapped_object_item(self, _mock):
+    async def test_wrapped_object_item(self):
         """Items wrapped in {'object': {...}} are unwrapped."""
         from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
         from src.gramps_mcp.tools.search_basic import _search_entities
@@ -368,7 +246,7 @@ class TestSearchEntities:
         client.make_api_call = AsyncMock(
             return_value=[{"object": {"handle": "h1"}, "object_type": "person"}]
         )
-        handler = AsyncMock(return_value="• item\n")
+        handler = AsyncMock(return_value="* item\n")
 
         await _search_entities(
             client, {}, BaseGetMultipleParams, "GET_PEOPLE", "people", handler
@@ -401,38 +279,34 @@ class TestSearchEntities:
 class TestFindTagsTool:
     """Test list_tags_tool formatting."""
 
+    @pytest.fixture(autouse=True)
+    def _patch_settings(self):
+        with patch(_SETTINGS_PATCH, return_value=_mock_settings()):
+            yield
+
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_empty_tags(self, _settings, mock_client_cls):
+    @patch(_CLIENT_PATCH)
+    async def test_empty_tags(self, mock_client_cls):
         from src.gramps_mcp.tools.search_basic import list_tags_tool
 
-        client_inst = AsyncMock()
-        client_inst.make_api_call = AsyncMock(return_value=[])
-        client_inst.close = AsyncMock()
+        client_inst = _mock_client_instance()
         mock_client_cls.return_value = client_inst
 
         result = await list_tags_tool({})
         assert "No tags found" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_tags_list(self, _settings, mock_client_cls):
+    @patch(_CLIENT_PATCH)
+    async def test_tags_list(self, mock_client_cls):
         from src.gramps_mcp.tools.search_basic import list_tags_tool
 
-        client_inst = AsyncMock()
+        client_inst = _mock_client_instance()
         client_inst.make_api_call = AsyncMock(
             return_value=[
                 {"name": "ToDo", "handle": "tag1", "color": "#FF0000", "priority": 1},
                 {"name": "Done", "handle": "tag2", "color": "#00FF00", "priority": 0},
             ]
         )
-        client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
         result = await list_tags_tool({})
@@ -443,15 +317,12 @@ class TestFindTagsTool:
         assert "#FF0000" in text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_tags_dict_response(self, _settings, mock_client_cls):
+    @patch(_CLIENT_PATCH)
+    async def test_tags_dict_response(self, mock_client_cls):
         """Dict response with 'data' key works correctly."""
         from src.gramps_mcp.tools.search_basic import list_tags_tool
 
-        client_inst = AsyncMock()
+        client_inst = _mock_client_instance()
         client_inst.make_api_call = AsyncMock(
             return_value={
                 "data": [
@@ -464,7 +335,6 @@ class TestFindTagsTool:
                 ]
             }
         )
-        client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
         result = await list_tags_tool({})
@@ -509,17 +379,13 @@ class TestFindTypeTool:
             await search_tool({"type": FakeEnum(), "gql": "test"})
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
+    @patch(_CLIENT_PATCH)
+    @patch(_SETTINGS_PATCH, return_value=_mock_settings())
     async def test_person_dispatch(self, _settings, mock_client_cls):
         """type=person dispatches to search_person_tool."""
         from src.gramps_mcp.tools.search_basic import search_tool
 
-        client_inst = AsyncMock()
-        client_inst.make_api_call = AsyncMock(return_value=[])
-        client_inst.close = AsyncMock()
+        client_inst = _mock_client_instance()
         mock_client_cls.return_value = client_inst
 
         result = await search_tool({"type": "person", "gql": "test", "max_results": 1})
@@ -534,17 +400,20 @@ class TestFindTypeTool:
 class TestFindAnythingTool:
     """Test search_text_tool response formatting."""
 
+    @pytest.fixture(autouse=True)
+    def _patch_settings(self):
+        with patch(_SETTINGS_PATCH, return_value=_mock_settings()):
+            yield
+
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_empty_results(self, _settings, mock_client_cls):
+    @patch(_CLIENT_PATCH)
+    async def test_empty_results(self, mock_client_cls):
         from src.gramps_mcp.tools.search_basic import search_text_tool
 
-        client_inst = AsyncMock()
-        client_inst.make_api_call = AsyncMock(return_value=([], {"x-total-count": "0"}))
-        client_inst.close = AsyncMock()
+        client_inst = _mock_client_instance()
+        client_inst.make_api_call = AsyncMock(
+            return_value=([], {"x-total-count": "0"})
+        )
         mock_client_cls.return_value = client_inst
 
         result = await search_text_tool({"query": "test"})
@@ -554,21 +423,17 @@ class TestFindAnythingTool:
     @patch(
         "src.gramps_mcp.tools.search_basic.format_search_result_by_type",
         new_callable=AsyncMock,
-        return_value="• item\n",
+        return_value="* item\n",
     )
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_list_response(self, _settings, mock_client_cls, mock_fmt):
+    @patch(_CLIENT_PATCH)
+    async def test_list_response(self, mock_client_cls, mock_fmt):
         from src.gramps_mcp.tools.search_basic import search_text_tool
 
-        client_inst = AsyncMock()
+        client_inst = _mock_client_instance()
         items = [{"object_type": "person", "object": {"handle": "h1"}}]
         client_inst.make_api_call = AsyncMock(
             return_value=(items, {"x-total-count": "1"})
         )
-        client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
         result = await search_text_tool({"query": "test"})
@@ -578,22 +443,18 @@ class TestFindAnythingTool:
     @patch(
         "src.gramps_mcp.tools.search_basic.format_search_result_by_type",
         new_callable=AsyncMock,
-        return_value="• item\n",
+        return_value="* item\n",
     )
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_truncated_display(self, _settings, mock_client_cls, mock_fmt):
+    @patch(_CLIENT_PATCH)
+    async def test_truncated_display(self, mock_client_cls, mock_fmt):
         """When total_count > displayed_count, show 'showing N'."""
         from src.gramps_mcp.tools.search_basic import search_text_tool
 
-        client_inst = AsyncMock()
+        client_inst = _mock_client_instance()
         items = [{"object_type": "person", "object": {"handle": "h1"}}]
         client_inst.make_api_call = AsyncMock(
             return_value=(items, {"x-total-count": "100"})
         )
-        client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
         result = await search_text_tool({"query": "test"})
@@ -605,45 +466,49 @@ class TestFindAnythingTool:
     @patch(
         "src.gramps_mcp.tools.search_basic.format_search_result_by_type",
         new_callable=AsyncMock,
-        return_value="• item\n",
+        return_value="* item\n",
     )
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_dict_response(self, _settings, mock_client_cls, mock_fmt):
+    @patch(_CLIENT_PATCH)
+    async def test_dict_response(self, mock_client_cls, mock_fmt):
         """Dict response with 'data' key parsed correctly."""
         from src.gramps_mcp.tools.search_basic import search_text_tool
 
-        client_inst = AsyncMock()
+        client_inst = _mock_client_instance()
         resp_dict = {"data": [{"object_type": "event", "object": {"handle": "h1"}}]}
         client_inst.make_api_call = AsyncMock(
             return_value=(resp_dict, {"x-total-count": "1"})
         )
-        client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
         result = await search_text_tool({"query": "test"})
         assert "Found 1 records" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
-    @patch(
-        "src.gramps_mcp.tools.search_basic.get_settings", return_value=_mock_settings()
-    )
-    async def test_skips_non_dict_items(self, _settings, mock_client_cls):
+    @patch(_CLIENT_PATCH)
+    async def test_skips_non_dict_items(self, mock_client_cls):
         from src.gramps_mcp.tools.search_basic import search_text_tool
 
-        client_inst = AsyncMock()
+        client_inst = _mock_client_instance()
         items = ["not_a_dict", {"object_type": "person", "object": {"handle": "h1"}}]
         client_inst.make_api_call = AsyncMock(
             return_value=(items, {"x-total-count": "2"})
         )
-        client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
         result = await search_text_tool({"query": "test"})
         assert isinstance(result[0], TextContent)
+
+    @pytest.mark.asyncio
+    @patch(_CLIENT_PATCH)
+    async def test_missing_query_raises(self, mock_client_cls):
+        """Missing required 'query' parameter raises McpToolError."""
+        from src.gramps_mcp.tools.search_basic import search_text_tool
+
+        client_inst = _mock_client_instance()
+        mock_client_cls.return_value = client_inst
+
+        with pytest.raises(McpToolError, match="search"):
+            await search_text_tool({})
 
 
 # ============================================================================
@@ -735,7 +600,7 @@ class TestGetTypeTool:
         from src.gramps_mcp.tools import search_details
 
         mock_find.return_value = [
-            TextContent(type="text", text="• Event [resolved_handle] - E0001")
+            TextContent(type="text", text="* Event [resolved_handle] - E0001")
         ]
         mock_get = AsyncMock(
             return_value=[TextContent(type="text", text="event details")]
@@ -761,108 +626,34 @@ class TestGetTypeTool:
 
 
 # ============================================================================
-# Individual get_*_tool missing-handle branches
+# Individual get_*_tool missing-handle branches (parametrized)
 # ============================================================================
+
+_GET_TOOL_MISSING_HANDLE_CASES = [
+    ("get_event_tool", "event details"),
+    ("get_place_tool", "place details"),
+    ("get_source_tool", "source details"),
+    ("get_citation_tool", "citation details"),
+    ("get_note_tool", "note details"),
+    ("get_media_tool", "media details"),
+    ("get_repository_tool", "repository details"),
+    ("get_person_tool", "person details"),
+    ("get_family_tool", "family details"),
+]
 
 
 class TestGetToolsMissingHandle:
     """Test that get_*_tool functions raise on missing handle."""
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("tool_name, match_text", _GET_TOOL_MISSING_HANDLE_CASES)
     @patch(
         "src.gramps_mcp.tools.search_basic.GrampsWebAPIClient",
         side_effect=lambda: AsyncMock(close=AsyncMock()),
     )
-    async def test_get_event_no_handle(self, _):
-        from src.gramps_mcp.tools.search_details import get_event_tool
+    async def test_missing_handle_raises(self, _, tool_name, match_text):
+        import src.gramps_mcp.tools.search_details as mod
 
-        with pytest.raises(McpToolError, match="event details"):
-            await get_event_tool({})
-
-    @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.GrampsWebAPIClient",
-        side_effect=lambda: AsyncMock(close=AsyncMock()),
-    )
-    async def test_get_place_no_handle(self, _):
-        from src.gramps_mcp.tools.search_details import get_place_tool
-
-        with pytest.raises(McpToolError, match="place details"):
-            await get_place_tool({})
-
-    @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.GrampsWebAPIClient",
-        side_effect=lambda: AsyncMock(close=AsyncMock()),
-    )
-    async def test_get_source_no_handle(self, _):
-        from src.gramps_mcp.tools.search_details import get_source_tool
-
-        with pytest.raises(McpToolError, match="source details"):
-            await get_source_tool({})
-
-    @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.GrampsWebAPIClient",
-        side_effect=lambda: AsyncMock(close=AsyncMock()),
-    )
-    async def test_get_citation_no_handle(self, _):
-        from src.gramps_mcp.tools.search_details import get_citation_tool
-
-        with pytest.raises(McpToolError, match="citation details"):
-            await get_citation_tool({})
-
-    @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.GrampsWebAPIClient",
-        side_effect=lambda: AsyncMock(close=AsyncMock()),
-    )
-    async def test_get_note_no_handle(self, _):
-        from src.gramps_mcp.tools.search_details import get_note_tool
-
-        with pytest.raises(McpToolError, match="note details"):
-            await get_note_tool({})
-
-    @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.GrampsWebAPIClient",
-        side_effect=lambda: AsyncMock(close=AsyncMock()),
-    )
-    async def test_get_media_no_handle(self, _):
-        from src.gramps_mcp.tools.search_details import get_media_tool
-
-        with pytest.raises(McpToolError, match="media details"):
-            await get_media_tool({})
-
-    @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.GrampsWebAPIClient",
-        side_effect=lambda: AsyncMock(close=AsyncMock()),
-    )
-    async def test_get_repository_no_handle(self, _):
-        from src.gramps_mcp.tools.search_details import get_repository_tool
-
-        with pytest.raises(McpToolError, match="repository details"):
-            await get_repository_tool({})
-
-    @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.GrampsWebAPIClient",
-        side_effect=lambda: AsyncMock(close=AsyncMock()),
-    )
-    async def test_get_person_no_handle(self, _):
-        from src.gramps_mcp.tools.search_details import get_person_tool
-
-        with pytest.raises(McpToolError, match="person details"):
-            await get_person_tool({})
-
-    @pytest.mark.asyncio
-    @patch(
-        "src.gramps_mcp.tools.search_basic.GrampsWebAPIClient",
-        side_effect=lambda: AsyncMock(close=AsyncMock()),
-    )
-    async def test_get_family_no_handle(self, _):
-        from src.gramps_mcp.tools.search_details import get_family_tool
-
-        with pytest.raises(McpToolError, match="family details"):
-            await get_family_tool({})
+        tool_func = getattr(mod, tool_name)
+        with pytest.raises(McpToolError, match=match_text):
+            await tool_func({})

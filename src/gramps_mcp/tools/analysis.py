@@ -124,12 +124,12 @@ async def _wait_for_task_completion(
     Raises:
         GrampsAPIError: If task fails or times out
     """
-    start_time = asyncio.get_event_loop().time()
+    start_time = asyncio.get_running_loop().time()
     sleep_interval: float = 2  # Start with 2 second intervals
     max_sleep = 10  # Maximum sleep interval
 
     while True:
-        elapsed = asyncio.get_event_loop().time() - start_time
+        elapsed = asyncio.get_running_loop().time() - start_time
         if elapsed > timeout:
             raise GrampsAPIError(f"Task {task_id} timed out after {timeout} seconds")
 

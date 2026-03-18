@@ -13,9 +13,11 @@ import os
 import re
 from collections import defaultdict
 from typing import Dict, List, Optional, Set, Tuple
+from unittest.mock import AsyncMock
 
 import pytest
 
+from src.gramps_mcp.auth import AuthManager
 from src.gramps_mcp.client import GrampsAPIError, GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.models.api_calls import ApiCalls
@@ -89,6 +91,17 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:
     for item in items:
         if "integration" in item.keywords:
             item.add_marker(skip_marker)
+
+
+@pytest.fixture(autouse=True)
+def reset_auth_singleton():
+    """Reset AuthManager singleton before and after each test.
+
+    Prevents stale token state from leaking between tests across all files.
+    """
+    AuthManager.reset_instance()
+    yield
+    AuthManager.reset_instance()
 
 
 logger = logging.getLogger(__name__)
@@ -492,9 +505,42 @@ def pytest_sessionfinish(session, exitstatus):
     - Only unit tests ran (cleanup_registry fixture never triggered)
     - Fixture cleanup missed some entities (server errors)
     - Tests created entities without using the registry
+
+    Short-circuits when Docker is unreachable to avoid a 3s timeout
+    penalty on unit-only runs.
     """
+    target = os.environ.get("GRAMPS_API_URL", _DEFAULT_API_URL)
+    if not _is_docker_reachable(target):
+        return
+
     try:
         asyncio.run(sweep_test_artifacts())
     except Exception as e:
         # Reason: non-fatal — cleanup failure must not mask test results
         logger.warning(f"Post-test sweep failed (non-fatal): {e}")
+
+
+def _mock_client(responses):
+    """Create a mock client returning predefined responses by API call name.
+
+    Keys should be enum names like "GET_NOTE", "GET_SOURCE", etc.
+    Values can be a dict (same response every time) or a list of dicts
+    (returns each in sequence, repeating the last for extra calls).
+    """
+    client = AsyncMock()
+    call_count = {}
+
+    async def mock_api_call(api_call, tree_id=None, handle=None, params=None):
+        key = api_call.name if hasattr(api_call, "name") else str(api_call)
+        call_count.setdefault(key, 0)
+        if key in responses:
+            val = responses[key]
+            if isinstance(val, list):
+                idx = min(call_count[key], len(val) - 1)
+                call_count[key] += 1
+                return val[idx]
+            return val
+        return {}
+
+    client.make_api_call = AsyncMock(side_effect=mock_api_call)
+    return client

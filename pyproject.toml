@@ -51,6 +51,7 @@ include = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -61,7 +62,7 @@ markers = [
     "timeout: marks tests with specific timeout values",
     "server: marks tests requiring a running MCP server (skipped by default)",
 ]
-addopts = "--verbose --strict-markers --tb=short --cov=src --cov-branch --cov-report=term-missing --cov-fail-under=80 -m 'not server' --reruns 3 --reruns-delay 2"
+addopts = "--verbose --strict-markers --tb=short --cov=src --cov-branch --cov-report=term-missing --cov-fail-under=80 -m 'not server'"
 asyncio_mode = "auto"
 
 [tool.coverage.run]

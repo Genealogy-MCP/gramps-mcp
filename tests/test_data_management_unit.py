@@ -235,6 +235,34 @@ class TestHandleCrudOperation:
                 EventSaveParams,
             )
 
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
+    @patch(
+        "src.gramps_mcp.tools._data_helpers.get_settings",
+        return_value=_mock_settings(),
+    )
+    async def test_api_error_raises_mcp_error(self, _settings, mock_client_cls):
+        """GrampsAPIError during API call wraps as McpToolError."""
+        from src.gramps_mcp.client import GrampsAPIError
+        from src.gramps_mcp.models.api_calls import ApiCalls
+        from src.gramps_mcp.models.parameters.event_params import EventSaveParams
+
+        client_inst = AsyncMock()
+        client_inst.make_api_call = AsyncMock(
+            side_effect=GrampsAPIError("Record not found at /events/bad")
+        )
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        with pytest.raises(McpToolError, match="event save"):
+            await _handle_crud_operation(
+                {"type": "Birth"},
+                "event",
+                ApiCalls.POST_EVENTS,
+                ApiCalls.PUT_EVENT,
+                EventSaveParams,
+            )
+
 
 # ---------------------------------------------------------------------------
 # delete_tool

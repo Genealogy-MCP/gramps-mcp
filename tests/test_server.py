@@ -81,37 +81,11 @@ class TestMCPServerSetup:
                 # List tools
                 tools_result = await session.list_tools()
                 tools = tools_result.tools
-                assert len(tools) == 19  # 4 search + 11 data mgmt + 4 analysis tools
-
-                # Verify all expected tools are registered
-                expected_tools = {
-                    # Search & Retrieval Tools (4)
-                    "search",
-                    "search_text",
-                    "list_tags",
-                    "get",
-                    # Data Management Tools (9 upsert + 1 tag + 1 delete)
-                    "upsert_person",
-                    "upsert_family",
-                    "upsert_event",
-                    "upsert_place",
-                    "upsert_source",
-                    "upsert_citation",
-                    "upsert_note",
-                    "upsert_media",
-                    "upsert_repository",
-                    "upsert_tag",
-                    "delete",
-                    # Tree Management Tools (1)
-                    "get_tree_stats",
-                    # Analysis Tools (3)
-                    "get_descendants",
-                    "get_ancestors",
-                    "get_recent_changes",
-                }
+                # MCP-6: derive expected tools from TOOL_REGISTRY, not hardcoded
+                from src.gramps_mcp.server_tools import TOOL_REGISTRY
 
                 registered_tool_names = {tool.name for tool in tools}
-                assert registered_tool_names == expected_tools
+                assert registered_tool_names == set(TOOL_REGISTRY.keys())
 
     @pytest.mark.asyncio
     async def test_tool_descriptions(self):
@@ -146,7 +120,10 @@ class TestHTTPRoutes:
             assert response.status_code == 200
             data = response.json()
             assert data["service"] == "Gramps MCP Server"
-            assert data["tools_count"] == 19  # 4 search + 11 data mgmt + 4 analysis
+            # MCP-6: derive expected count from TOOL_REGISTRY
+            from src.gramps_mcp.server_tools import TOOL_REGISTRY
+
+            assert data["tools_count"] == len(TOOL_REGISTRY)
 
     @pytest.mark.asyncio
     async def test_health_endpoint(self):
@@ -177,9 +154,10 @@ class TestMCPProtocolCompliance:
 
                 # List tools
                 tools_result = await session.list_tools()
-                assert (
-                    len(tools_result.tools) == 19
-                )  # 4 search + 11 data mgmt + 4 analysis
+                # MCP-6: derive expected count from TOOL_REGISTRY
+                from src.gramps_mcp.server_tools import TOOL_REGISTRY
+
+                assert len(tools_result.tools) == len(TOOL_REGISTRY)
 
     @pytest.mark.asyncio
     async def test_mcp_tool_call_search_real_api(self):
@@ -314,13 +292,14 @@ class TestErrorHandling:
                 # Initialize session
                 await session.initialize()
 
-                # Call find_person which now uses configured tree
+                # Call search (was find_person before tool rename)
                 result = await session.call_tool(
-                    "find_person",
+                    "search",
                     {
                         "arguments": {
+                            "type": "person",
                             "gql": 'primary_name.first_name ~ "test"',
-                            "pagesize": 1,
+                            "max_results": 1,
                         }
                     },
                 )

@@ -59,6 +59,12 @@ class TestNormaliseUrlKeys:
         assert data["urls"][0] == "not-a-dict"
         assert data["urls"][1]["desc"] == "X"
 
+    def test_none_urls_is_noop(self):
+        """urls=None should be treated as falsy (no-op)."""
+        data = {"urls": None}
+        _normalise_url_keys(data)
+        assert data == {"urls": None}
+
 
 # ---------------------------------------------------------------------------
 # _format_http_error
@@ -337,6 +343,18 @@ class TestMakeRequest:
             await client._make_request("GET", "http://test/api/people/")
 
     @pytest.mark.asyncio
+    async def test_generic_exception(self):
+        """Non-httpx exceptions are caught and wrapped in GrampsAPIError."""
+        client = self._setup_client()
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.client.request = AsyncMock(
+            side_effect=RuntimeError("something unexpected")
+        )
+
+        with pytest.raises(GrampsAPIError, match="Unexpected error"):
+            await client._make_request("GET", "http://test/api/people/")
+
+    @pytest.mark.asyncio
     async def test_json_with_return_headers(self):
         """Valid JSON + return_headers returns (data, headers)."""
         client = self._setup_client()
@@ -534,6 +552,49 @@ class TestUploadMediaFile:
         # Verify Content-Type header was set
         call_kwargs = client.auth_manager.client.request.call_args.kwargs
         assert call_kwargs["headers"]["Content-Type"] == "image/jpeg"
+
+    @pytest.mark.asyncio
+    async def test_413_payload_too_large(self):
+        """413 from server propagates as HTTPStatusError."""
+        client = GrampsWebAPIClient()
+        client.auth_manager = MagicMock()
+        client.auth_manager.get_token = AsyncMock()
+        client.auth_manager.get_headers = MagicMock(
+            return_value={"Authorization": "Bearer test"}
+        )
+        client.auth_manager.close = AsyncMock()
+
+        request = httpx.Request("POST", "http://test/api/media/")
+        response = httpx.Response(413, request=request)
+        error = httpx.HTTPStatusError("413", request=request, response=response)
+
+        resp = MagicMock()
+        resp.raise_for_status = MagicMock(side_effect=error)
+
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.client.request = AsyncMock(return_value=resp)
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await client.upload_media_file(b"huge" * 1000, "image/png")
+
+    @pytest.mark.asyncio
+    async def test_connection_error(self):
+        """ConnectError during upload propagates."""
+        client = GrampsWebAPIClient()
+        client.auth_manager = MagicMock()
+        client.auth_manager.get_token = AsyncMock()
+        client.auth_manager.get_headers = MagicMock(
+            return_value={"Authorization": "Bearer test"}
+        )
+        client.auth_manager.close = AsyncMock()
+
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.client.request = AsyncMock(
+            side_effect=httpx.ConnectError("Connection refused")
+        )
+
+        with pytest.raises(httpx.ConnectError):
+            await client.upload_media_file(b"content", "image/jpeg")
 
 
 # ---------------------------------------------------------------------------
