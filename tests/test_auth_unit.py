@@ -334,3 +334,31 @@ class TestClose:
         mgr._client = None
         await mgr.close()
         assert mgr._client is None
+
+
+# ---------------------------------------------------------------------------
+# Config + initialization (no API calls, only env vars from conftest)
+# ---------------------------------------------------------------------------
+
+
+class TestConfigLoading:
+    """Test configuration loading from env vars set by conftest.py."""
+
+    def test_get_settings_loads_from_env(self):
+        """Settings load from env vars set by pytest_configure."""
+        from src.gramps_mcp.config import get_settings
+
+        settings = get_settings()
+
+        assert settings.gramps_api_url is not None
+        assert settings.gramps_username is not None
+        assert settings.gramps_password is not None
+        assert settings.gramps_tree_id is not None
+
+    def test_auth_manager_initialization(self):
+        """Auth manager initializes with settings from env vars."""
+        auth = AuthManager()
+
+        assert auth.settings.gramps_api_url is not None
+        assert auth.settings.gramps_username is not None
+        assert auth.settings.gramps_password is not None

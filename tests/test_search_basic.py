@@ -6,16 +6,12 @@ search_sources, search_media, and search_all tools.
 """
 
 import pytest
-from dotenv import load_dotenv
 from mcp.types import TextContent
 
 from src.gramps_mcp.tools.search_basic import (
     search_text_tool,
     search_tool,
 )
-
-# Load environment variables
-load_dotenv()
 
 pytestmark = pytest.mark.integration
 
@@ -34,22 +30,17 @@ class TestFindPersonTool:
             }
         )
 
-        print("\n--- FIND PERSON RESULT ---")
-        print(result[0].text)
-        print("--- END ---\n")
-
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "error" not in result[0].text.lower(), (
             f"Error found in response: {result[0].text}"
         )
-        assert "Found" in result[0].text or "No people found" in result[0].text
+        assert "Found" in result[0].text, (
+            f"Expected results for 'John' in seeded database but got: {result[0].text}"
+        )
 
-        # Assert max_results is respected - count actual result entries
-        if "Found" in result[0].text and "No people found" not in result[0].text:
-            # Count the number of "• **" entries which indicate individual results
-            result_count = result[0].text.count("• **")
-            assert result_count <= 3, f"Expected max 3 results, got {result_count}"
+        result_count = result[0].text.count("* **")
+        assert result_count <= 3, f"Expected max 3 results, got {result_count}"
 
 
 class TestFindFamilyTool:
@@ -66,22 +57,17 @@ class TestFindFamilyTool:
             }
         )
 
-        print("\n--- FIND FAMILY RESULT ---")
-        print(result[0].text)
-        print("--- END ---\n")
-
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "error" not in result[0].text.lower(), (
             f"Error found in response: {result[0].text}"
         )
-        assert "Found" in result[0].text or "No families found" in result[0].text
+        assert "Found" in result[0].text, (
+            f"Expected results for 'Smith' families in seeded database but got: {result[0].text}"
+        )
 
-        # Assert max_results is respected - count actual result entries
-        if "Found" in result[0].text and "No families found" not in result[0].text:
-            # Count the number of "• **" entries which indicate individual results
-            result_count = result[0].text.count("• **")
-            assert result_count <= 3, f"Expected max 3 results, got {result_count}"
+        result_count = result[0].text.count("* **")
+        assert result_count <= 3, f"Expected max 3 results, got {result_count}"
 
 
 class TestFindEventTool:
@@ -94,22 +80,17 @@ class TestFindEventTool:
             {"type": "event", "gql": "date.dateval[2] > 1800", "max_results": 3}
         )
 
-        print("\n--- FIND EVENT RESULT ---")
-        print(result[0].text)
-        print("--- END ---\n")
-
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "error" not in result[0].text.lower(), (
             f"Error found in response: {result[0].text}"
         )
-        assert "Found" in result[0].text or "No events found" in result[0].text
+        assert "Found" in result[0].text, (
+            f"Expected events after 1800 in seeded database but got: {result[0].text}"
+        )
 
-        # Assert max_results is respected - count actual result entries
-        if "Found" in result[0].text and "No events found" not in result[0].text:
-            # Count the number of "• **" entries which indicate individual results
-            result_count = result[0].text.count("• **")
-            assert result_count <= 3, f"Expected max 3 results, got {result_count}"
+        result_count = result[0].text.count("* **")
+        assert result_count <= 3, f"Expected max 3 results, got {result_count}"
 
 
 class TestFindPlaceTool:
@@ -122,22 +103,17 @@ class TestFindPlaceTool:
             {"type": "place", "gql": 'name.value ~ "Boston"', "max_results": 3}
         )
 
-        print("\n--- FIND PLACE RESULT ---")
-        print(result[0].text)
-        print("--- END ---\n")
-
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "error" not in result[0].text.lower(), (
             f"Error found in response: {result[0].text}"
         )
-        assert "Found" in result[0].text or "No places found" in result[0].text
+        assert "Found" in result[0].text, (
+            f"Expected Boston in seeded database but got: {result[0].text}"
+        )
 
-        # Assert max_results is respected - count actual result entries
-        if "Found" in result[0].text and "No places found" not in result[0].text:
-            # Count the number of "• **" entries which indicate individual results
-            result_count = result[0].text.count("• **")
-            assert result_count <= 3, f"Expected max 3 results, got {result_count}"
+        result_count = result[0].text.count("* **")
+        assert result_count <= 3, f"Expected max 3 results, got {result_count}"
 
 
 class TestFindSourceTool:
@@ -150,22 +126,17 @@ class TestFindSourceTool:
             {"type": "source", "gql": 'title ~ "Baptize"', "max_results": 3}
         )
 
-        print("\n--- FIND SOURCE RESULT ---")
-        print(result[0].text)
-        print("--- END ---\n")
-
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "error" not in result[0].text.lower(), (
             f"Error found in response: {result[0].text}"
         )
-        assert "Found" in result[0].text or "No sources found" in result[0].text
+        assert "Found" in result[0].text, (
+            f"Expected baptism sources in seeded database but got: {result[0].text}"
+        )
 
-        # Assert max_results is respected - count actual result entries
-        if "Found" in result[0].text and "No sources found" not in result[0].text:
-            # Count the number of "• **" entries which indicate individual results
-            result_count = result[0].text.count("• **")
-            assert result_count <= 3, f"Expected max 3 results, got {result_count}"
+        result_count = result[0].text.count("* **")
+        assert result_count <= 3, f"Expected max 3 results, got {result_count}"
 
 
 class TestFindRepositoryTool:
@@ -178,22 +149,17 @@ class TestFindRepositoryTool:
             {"type": "repository", "gql": 'name ~ "Library"', "max_results": 3}
         )
 
-        print("\n--- FIND REPOSITORY RESULT ---")
-        print(result[0].text)
-        print("--- END ---\n")
-
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "error" not in result[0].text.lower(), (
             f"Error found in response: {result[0].text}"
         )
-        assert "Found" in result[0].text or "No repositories found" in result[0].text
+        assert "Found" in result[0].text, (
+            f"Expected library repositories in seeded database but got: {result[0].text}"
+        )
 
-        # Assert max_results is respected - count actual result entries
-        if "Found" in result[0].text and "No repositories found" not in result[0].text:
-            # Count the number of "• **" entries which indicate individual results
-            result_count = result[0].text.count("• **")
-            assert result_count <= 3, f"Expected max 3 results, got {result_count}"
+        result_count = result[0].text.count("* **")
+        assert result_count <= 3, f"Expected max 3 results, got {result_count}"
 
 
 class TestFindCitationTool:
@@ -206,22 +172,17 @@ class TestFindCitationTool:
             {"type": "citation", "gql": 'page ~ "1624"', "max_results": 3}
         )
 
-        print("\n--- FIND CITATION RESULT ---")
-        print(result[0].text)
-        print("--- END ---\n")
-
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "error" not in result[0].text.lower(), (
             f"Error found in response: {result[0].text}"
         )
-        assert "Found" in result[0].text or "No citations found" in result[0].text
+        assert "Found" in result[0].text, (
+            f"Expected citations with '1624' in seeded database but got: {result[0].text}"
+        )
 
-        # Assert max_results is respected - count actual result entries
-        if "Found" in result[0].text and "No citations found" not in result[0].text:
-            # Count the number of "• **" entries which indicate individual results
-            result_count = result[0].text.count("• **")
-            assert result_count <= 3, f"Expected max 3 results, got {result_count}"
+        result_count = result[0].text.count("* **")
+        assert result_count <= 3, f"Expected max 3 results, got {result_count}"
 
 
 class TestFindMediaTool:
@@ -234,22 +195,17 @@ class TestFindMediaTool:
             {"type": "media", "gql": 'desc ~ "birth record"', "max_results": 3}
         )
 
-        print("\n--- FIND MEDIA RESULT ---")
-        print(result[0].text)
-        print("--- END ---\n")
-
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "error" not in result[0].text.lower(), (
             f"Error found in response: {result[0].text}"
         )
-        assert "Found" in result[0].text or "No media files found" in result[0].text
+        assert "Found" in result[0].text, (
+            f"Expected birth record media in seeded database but got: {result[0].text}"
+        )
 
-        # Assert max_results is respected - count actual result entries
-        if "Found" in result[0].text and "No media files found" not in result[0].text:
-            # Count the number of "• **" entries which indicate individual results
-            result_count = result[0].text.count("• **")
-            assert result_count <= 3, f"Expected max 3 results, got {result_count}"
+        result_count = result[0].text.count("* **")
+        assert result_count <= 3, f"Expected max 3 results, got {result_count}"
 
 
 class TestFindNoteTool:
@@ -266,22 +222,17 @@ class TestFindNoteTool:
             {"type": "note", "gql": 'gramps_id ~ "N0001"', "max_results": 3}
         )
 
-        print("\n--- FIND NOTE RESULT ---")
-        print(result[0].text)
-        print("--- END ---\n")
-
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "error" not in result[0].text.lower(), (
             f"Error found in response: {result[0].text}"
         )
-        assert "Found" in result[0].text or "No notes found" in result[0].text
+        assert "Found" in result[0].text, (
+            f"Expected notes in seeded database but got: {result[0].text}"
+        )
 
-        # Assert max_results is respected - count actual result entries
-        if "Found" in result[0].text and "No notes found" not in result[0].text:
-            # Count the number of "• **" entries which indicate individual results
-            result_count = result[0].text.count("• **")
-            assert result_count <= 3, f"Expected max 3 results, got {result_count}"
+        result_count = result[0].text.count("* **")
+        assert result_count <= 3, f"Expected max 3 results, got {result_count}"
 
 
 class TestFindAnythingTool:
@@ -292,10 +243,6 @@ class TestFindAnythingTool:
         """Test search across all object types with query."""
         result = await search_text_tool({"query": "Warner", "max_results": 3})
 
-        print("\n--- FIND ANYTHING RESULT ---")
-        print(result[0].text)
-        print("--- END ---\n")
-
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert "error" not in result[0].text.lower(), (
@@ -303,8 +250,5 @@ class TestFindAnythingTool:
         )
         assert "Found" in result[0].text and "records matching" in result[0].text
 
-        # Assert max_results is respected - count actual result entries
-        if "Found" in result[0].text and "No records found" not in result[0].text:
-            # Count the number of "• **" entries which indicate individual results
-            result_count = result[0].text.count("• **")
-            assert result_count <= 3, f"Expected max 3 results, got {result_count}"
+        result_count = result[0].text.count("* **")
+        assert result_count <= 3, f"Expected max 3 results, got {result_count}"

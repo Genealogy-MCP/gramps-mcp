@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 2026-03-17 (test suite quality)
+
+### Changed
+- `test_search_basic.py`: Removed redundant `load_dotenv()` (conftest.py owns env setup);
+  tightened assertions from `"Found" or "No X found"` to require `"Found"` — exposes a
+  known issue: several GQL queries return no results against the seed dataset (see TODO)
+- `test_auth_integration.py`: Removed silent-pass `try/except ValueError` from
+  `test_authentication_attempt` and `test_get_token_flow`; auth failure in integration
+  context is now a real test failure
+- `test_unified_api.py`: Extracted 3 pure URL-building tests (`test_build_url_*`) from
+  `@pytest.mark.integration` class into unmarked `TestUrlBuilding` — they now run without Docker
+- `test_auth_unit.py`: Added `TestConfigLoading` with 2 tests for settings/init that
+  were incorrectly integration-marked; removed redundant singleton test
+- `test_data_management.py`: Removed 2 validation-only tests already covered by
+  `test_data_management_unit.py::TestUpsertMediaTool`; added ordering comment
+- `test_complete_workflow.py`: Deleted dead `_create_or_find_person` legacy method
+- `conftest.py`: Added shared `extract_handle(text)` utility function
+- `pyproject.toml`: Removed `black>=26.3.1` from `[project.dependencies]` (was
+  incorrectly a runtime dep; remains in dev group); removed unused `pytest-rerunfailures`
+
+### Added
+- `tests/conftest.py`: `extract_handle(text: str) -> str` shared test utility
+
+
+
 ### Added
 - `.github/dependabot.yml`: monthly Dependabot updates for `pip`, `github-actions`,
   and `docker` ecosystems

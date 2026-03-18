@@ -108,6 +108,21 @@ logger = logging.getLogger(__name__)
 
 TEST_PREFIX = "MCP_TEST_"
 
+
+def extract_handle(text: str) -> str:
+    """Extract hex handle from tool response text.
+
+    Args:
+        text: Tool response text containing a handle in [handle] format.
+
+    Returns:
+        The extracted handle string.
+    """
+    match = re.search(r"\[([a-f0-9]+)\]", text)
+    if not match:
+        pytest.fail(f"Could not extract handle from: {text}")
+    return match.group(1)
+
 # Deletion order respects referential integrity: entities that reference others
 # are deleted first. Families reference people/events, people reference events,
 # citations reference sources, sources reference repositories.

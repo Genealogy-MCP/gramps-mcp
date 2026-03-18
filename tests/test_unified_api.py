@@ -122,22 +122,13 @@ class TestPaginationConstraints:
             BaseGetMultipleParams(page=0)
 
 
-@pytest.mark.integration
-class TestUnifiedApiCall:
-    """Test the unified API call functionality with real API integration."""
-
-    @pytest.fixture
-    async def client(self):
-        """Create a real GrampsWebAPIClient for integration testing."""
-        client = GrampsWebAPIClient()
-        yield client
-        await client.close()
+class TestUrlBuilding:
+    """Test URL building logic — pure string manipulation, no API calls."""
 
     def test_build_url_with_substitution(self):
         """Test URL building with parameter substitution."""
         client = GrampsWebAPIClient()
 
-        # Test URL substitution
         url = client._build_url_with_substitution(
             tree_id="test_tree",
             endpoint="people/{handle}/timeline",
@@ -152,7 +143,6 @@ class TestUnifiedApiCall:
         """Test URL building with multiple parameter substitutions."""
         client = GrampsWebAPIClient()
 
-        # Test multiple parameter substitution
         url = client._build_url_with_substitution(
             tree_id="test_tree",
             endpoint="relations/{handle1}/{handle2}",
@@ -169,13 +159,24 @@ class TestUnifiedApiCall:
         """Test URL building with missing parameters."""
         client = GrampsWebAPIClient()
 
-        # Test missing parameters
         with pytest.raises(ValueError, match="Missing required URL parameters"):
             client._build_url_with_substitution(
                 tree_id="test_tree",
                 endpoint="people/{handle}/timeline",
-                url_params={},  # Missing handle
+                url_params={},
             )
+
+
+@pytest.mark.integration
+class TestUnifiedApiCall:
+    """Test the unified API call functionality with real API integration."""
+
+    @pytest.fixture
+    async def client(self):
+        """Create a real GrampsWebAPIClient for integration testing."""
+        client = GrampsWebAPIClient()
+        yield client
+        await client.close()
 
     @pytest.mark.asyncio
     async def test_make_api_call_parameter_validation(self, client):
