@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-03-19 (Code Mode architecture)
+
+### Breaking
+- **19 individual tools replaced by 2 meta-tools**: `search` and `execute`. LLM
+  clients now call `search(query="find people")` to discover operations, then
+  `execute(operation="search", params={...})` to run them. All 19 operations
+  remain available with identical parameters through the `execute` meta-tool.
+- **Migration**: `call_tool("upsert_person", {...})` becomes
+  `call_tool("execute", {"operation": "upsert_person", "params": {...}})`.
+  `call_tool("search", {"query": "person"})` discovers available operations.
+
+### Added
+- `src/gramps_mcp/operations.py`: Operation registry (`OPERATION_REGISTRY`) with
+  `OperationEntry` dataclass, `search_operations()` keyword search, and
+  `summarize_params()` for parameter summaries. Single source of truth for all
+  19 operations (MCP-30).
+- `src/gramps_mcp/tools/meta_search.py`: `search` meta-tool handler — queries the
+  operation registry and returns structured results with parameter schemas.
+- `src/gramps_mcp/tools/meta_execute.py`: `execute` meta-tool handler — validates
+  operation name, dispatches to the registered handler, and provides close-match
+  suggestions for typos.
+- `tests/test_operations.py`: 24 unit tests for registry completeness, search
+  algorithm scoring, and parameter summarization.
+- `tests/test_meta_tools.py`: 15 unit tests for search and execute meta-tool
+  handlers, including error handling and dispatch validation.
+- Root endpoint now includes `operations_count` alongside `tools_count`.
+- Health endpoint now includes `operations` count alongside `tools` count.
+
+### Changed
+- Tool count: 19 individual tools reduced to 2 meta-tools (`search` + `execute`).
+  Token overhead for tool schemas drops from ~19K to ~1K tokens.
+- `server.py`: Registers 2 meta-tools instead of 19 individual tools. Both
+  HTTP and stdio transports use the new `_META_TOOLS` dict.
+- `search` meta-tool: `readOnlyHint=True, openWorldHint=False` (local registry).
+- `execute` meta-tool: `readOnlyHint=False, openWorldHint=True` (external API).
+
+### Removed
+- `server_tools.py`: Replaced by `operations.py`. `TOOL_REGISTRY` dict,
+  `_READ_ANNOTATIONS`, `_WRITE_ANNOTATIONS`, `_DELETE_ANNOTATIONS` annotation
+  presets, and `TreeInfoParams`, `DescendantsParams`, `AncestorsParams` models
+  all moved to `operations.py`.
+
 ## 2026-03-19 (GQL search discoverability)
 
 ### Added

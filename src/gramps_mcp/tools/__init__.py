@@ -19,8 +19,8 @@
 Unified interface for all MCP tools.
 
 This module re-exports per-type tool functions used by
-tools/__init__.py consumers. Registered tools are defined in
-TOOL_REGISTRY (server.py).
+tools/__init__.py consumers. Operations are registered in
+OPERATION_REGISTRY (operations.py).
 """
 
 # Analysis Tools
@@ -46,6 +46,11 @@ from .data_management import (
 )
 from .data_management_delete import delete_tool, upsert_tag_tool
 from .data_management_media import upsert_media_tool
+
+# Meta-tools (Code Mode) are NOT re-exported here to avoid circular
+# imports: meta_execute/meta_search depend on operations.py, which
+# imports handler functions from this package. Import them directly
+# from tools.meta_search / tools.meta_execute where needed.
 from .search_basic import (
     list_tags_tool,
     search_citation_tool,

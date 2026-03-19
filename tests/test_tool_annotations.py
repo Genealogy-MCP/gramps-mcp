@@ -8,12 +8,7 @@ Unit tests only — no network required.
 import pytest
 
 from src.gramps_mcp.config import get_settings
-from src.gramps_mcp.server_tools import (
-    _DELETE_ANNOTATIONS,
-    _READ_ANNOTATIONS,
-    _WRITE_ANNOTATIONS,
-    TOOL_REGISTRY,
-)
+from src.gramps_mcp.operations import OPERATION_REGISTRY
 from src.gramps_mcp.tools._errors import McpToolError, raise_tool_error
 from src.gramps_mcp.tools.search_basic import _SEARCH_TOOL_DISPATCH, FORMATTER_DISPATCH
 
@@ -49,63 +44,35 @@ DELETE_TOOLS = {"delete"}
 
 
 class TestToolAnnotations:
-    """MCP-5: Every tool must have annotations with correct hints."""
+    """MCP-5: Every operation must have correct behavioral flags."""
 
-    def test_all_tools_have_annotations(self):
-        """Every registered tool must carry an 'annotations' key."""
-        missing = [
-            name
-            for name, config in TOOL_REGISTRY.items()
-            if "annotations" not in config or config["annotations"] is None
-        ]
-        assert missing == [], f"Tools missing annotations: {missing}"
-
-    def test_read_tools_are_read_only(self):
-        """Read-only tools must set readOnlyHint=True."""
+    def test_read_operations_are_read_only(self):
+        """Read-only operations must have read_only=True."""
         for name in READ_TOOLS:
-            ann = TOOL_REGISTRY[name]["annotations"]
-            assert ann.readOnlyHint is True, f"{name} should be readOnlyHint=True"
-            assert ann.destructiveHint is False, f"{name} should not be destructive"
+            entry = OPERATION_REGISTRY[name]
+            assert entry.read_only is True, f"{name} should be read_only"
+            assert entry.destructive is False, f"{name} should not be destructive"
 
-    def test_write_tools_are_not_read_only(self):
-        """Create/update tools must NOT be readOnlyHint."""
+    def test_write_operations_are_not_read_only(self):
+        """Create/update operations must NOT be read_only."""
         for name in WRITE_TOOLS:
-            ann = TOOL_REGISTRY[name]["annotations"]
-            assert ann.readOnlyHint is False, f"{name} should be readOnlyHint=False"
-            assert ann.destructiveHint is False, f"{name} should not be destructive"
+            entry = OPERATION_REGISTRY[name]
+            assert entry.read_only is False, f"{name} should be read_only=False"
+            assert entry.destructive is False, f"{name} should not be destructive"
 
-    def test_delete_tool_is_destructive(self):
-        """delete_type must be destructiveHint=True."""
+    def test_delete_operation_is_destructive(self):
+        """delete must be destructive=True."""
         for name in DELETE_TOOLS:
-            ann = TOOL_REGISTRY[name]["annotations"]
-            assert ann.destructiveHint is True, f"{name} should be destructive"
-            assert ann.readOnlyHint is False, f"{name} should not be read-only"
+            entry = OPERATION_REGISTRY[name]
+            assert entry.destructive is True, f"{name} should be destructive"
+            assert entry.read_only is False, f"{name} should not be read-only"
 
-    def test_all_tools_are_open_world(self):
-        """All tools interact with external Gramps API — openWorldHint=True."""
-        for name, config in TOOL_REGISTRY.items():
-            ann = config["annotations"]
-            assert ann.openWorldHint is True, f"{name} should be openWorldHint=True"
-
-    def test_all_tools_are_idempotent(self):
-        """All tools should be idempotentHint=True (PUT semantics, safe retries)."""
-        for name, config in TOOL_REGISTRY.items():
-            ann = config["annotations"]
-            assert ann.idempotentHint is True, f"{name} should be idempotentHint=True"
-
-    def test_annotation_presets_are_distinct(self):
-        """The three preset objects must differ on their key hints."""
-        assert _READ_ANNOTATIONS.readOnlyHint is True
-        assert _WRITE_ANNOTATIONS.readOnlyHint is False
-        assert _DELETE_ANNOTATIONS.destructiveHint is True
-        assert _WRITE_ANNOTATIONS.destructiveHint is False
-
-    def test_tool_categories_cover_all_tools(self):
-        """READ + WRITE + DELETE must equal the full TOOL_REGISTRY key set."""
+    def test_tool_categories_cover_all_operations(self):
+        """READ + WRITE + DELETE must equal the full OPERATION_REGISTRY key set."""
         all_categorized = READ_TOOLS | WRITE_TOOLS | DELETE_TOOLS
-        all_registered = set(TOOL_REGISTRY.keys())
+        all_registered = set(OPERATION_REGISTRY.keys())
         assert all_categorized == all_registered, (
-            f"Uncategorized tools: {all_registered - all_categorized}"
+            f"Uncategorized operations: {all_registered - all_categorized}"
         )
 
 

@@ -31,11 +31,13 @@ from contextlib import asynccontextmanager
 from mcp.server import Server
 from mcp.server.fastmcp import FastMCP
 from mcp.server.stdio import stdio_server
-from mcp.types import Resource, Tool
+from mcp.types import Resource, Tool, ToolAnnotations
 from pydantic import AnyUrl
 
-from .server_tools import TOOL_REGISTRY
+from .operations import OPERATION_REGISTRY
 from .startup import verify_api_on_startup
+from .tools.meta_execute import ExecuteOperationParams, execute_operation_tool
+from .tools.meta_search import SearchOperationsParams, search_operations_tool
 
 # Setup logging — MCP-15: stdio transport uses stdout as the JSON-RPC channel,
 # so all logging MUST go to stderr.
@@ -60,29 +62,58 @@ app = FastMCP(
 
 
 # ============================================================================
-# Dynamic FastMCP Tool Registration
+# Code Mode: 2 Meta-Tool Registration (MCP-29)
 # ============================================================================
 
+_META_TOOLS = {
+    "search": {
+        "schema": SearchOperationsParams,
+        "handler": search_operations_tool,
+        "description": (
+            "Discover available operations and their parameters. "
+            "Returns matching operations with parameter schemas. "
+            "Use this before calling 'execute' to find the right operation."
+        ),
+        "annotations": ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+            openWorldHint=False,
+        ),
+    },
+    "execute": {
+        "schema": ExecuteOperationParams,
+        "handler": execute_operation_tool,
+        "description": (
+            "Run a named operation against the Gramps Web API. "
+            "Use 'search' first to discover operations and parameters, "
+            "then call this with the operation name and params dict."
+        ),
+        "annotations": ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=False,
+            openWorldHint=True,
+        ),
+    },
+}
 
-# Register all tools dynamically from the registry
-def register_tools():
-    """Register all tools from the registry with FastMCP."""
-    for tool_name, tool_config in TOOL_REGISTRY.items():
+
+def register_tools() -> None:
+    """Register the 2 Code Mode meta-tools with FastMCP."""
+    for tool_name, tool_config in _META_TOOLS.items():
         schema = tool_config["schema"]
         handler_func = tool_config["handler"]
         description = tool_config["description"]
-        annotations = tool_config.get("annotations")
+        annotations = tool_config["annotations"]
 
-        # Create the async handler function with proper schema annotation
         async def create_handler(arguments, handler=handler_func):
             return await handler(arguments.model_dump())
 
-        # Set proper metadata
         create_handler.__name__ = tool_name
         create_handler.__doc__ = description
         create_handler.__annotations__ = {"arguments": schema}
 
-        # Register with FastMCP (annotations passed via decorator kwargs)
         app.tool(description=description, annotations=annotations)(create_handler)
 
 
@@ -144,10 +175,11 @@ async def root(request):
     return JSONResponse(
         {
             "service": "Gramps MCP Server",
-            "version": "1.1.0",
+            "version": "2.0.0",
             "description": "MCP server for Gramps Web API genealogy operations",
             "mcp_endpoint": "/mcp",
-            "tools_count": len(TOOL_REGISTRY),
+            "tools_count": len(_META_TOOLS),
+            "operations_count": len(OPERATION_REGISTRY),
         }
     )
 
@@ -161,7 +193,8 @@ async def health_check(request):
         {
             "status": "healthy",
             "service": "Gramps MCP Server",
-            "tools": len(TOOL_REGISTRY),
+            "tools": len(_META_TOOLS),
+            "operations": len(OPERATION_REGISTRY),
         }
     )
 
@@ -175,24 +208,23 @@ async def run_stdio_server():
 
     @server.list_tools()
     async def handle_list_tools():
-        """List all available tools."""
+        """List the 2 Code Mode meta-tools."""
         return [
             Tool(
                 name=tool_name,
                 description=tool_config["description"],
                 inputSchema=tool_config["schema"].model_json_schema(),
-                annotations=tool_config.get("annotations"),
+                annotations=tool_config["annotations"],
             )
-            for tool_name, tool_config in TOOL_REGISTRY.items()
+            for tool_name, tool_config in _META_TOOLS.items()
         ]
 
     @server.call_tool()
     async def handle_call_tool(name: str, arguments: dict):
-        """Handle tool calls."""
-        if name in TOOL_REGISTRY:
-            return await TOOL_REGISTRY[name]["handler"](arguments)
-        else:
-            raise ValueError(f"Unknown tool: {name}")
+        """Handle tool calls for the 2 meta-tools."""
+        if name in _META_TOOLS:
+            return await _META_TOOLS[name]["handler"](arguments)
+        raise ValueError(f"Unknown tool: {name}")
 
     # Resource definitions for stdio transport
     STDIO_RESOURCES = [
