@@ -10,8 +10,11 @@
 - **Never create a file longer than 500 lines of code.** If a file approaches this limit, refactor by splitting it into modules or helper files.
 - **Organize code into clearly separated modules**, grouped by feature or responsibility.
   For this MCP server project:
-    - `server.py` - Main MCP server setup and routing
-    - `tools/` directory - MCP tool implementations organized by feature
+    - `server.py` - MCP server setup (2 meta-tools: search + execute)
+    - `operations.py` - Operation registry (19 operations, single source of truth)
+    - `tools/` directory - Tool implementations organized by feature
+    - `tools/meta_search.py` - `search` meta-tool (operation discovery)
+    - `tools/meta_execute.py` - `execute` meta-tool (operation dispatch)
     - `client.py` - Gramps Web API client
     - `auth.py` - JWT authentication handling
     - `models/` directory - Pydantic models for validation
@@ -72,7 +75,7 @@ Rules for building and maintaining this MCP server. Uses RFC 2119 conventions (M
 - **MCP-3 (SHOULD)** Warn about token-heavy operations in tool descriptions. Include default and maximum limits so the LLM can request less data.
 - **MCP-4 (MUST)** Every parameter in `inputSchema` has a `description` field. Use unambiguous names (`person_handle` not `handle` when multiple types accept handles). Include allowed values, constraints, and defaults.
 - **MCP-5 (SHOULD)** Provide tool annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) on every tool. Read-only tools: `readOnlyHint=True`. Destructive tools (delete): `destructiveHint=True`. All tools: `openWorldHint=True` (external API).
-- **MCP-6 (MUST)** Derive tool count and tool names from `TOOL_REGISTRY` at runtime. Never hardcode tool counts in health checks, docstrings, or endpoints.
+- **MCP-6 (MUST)** Derive tool count and tool names from `OPERATION_REGISTRY` at runtime. Never hardcode tool counts in health checks, docstrings, or endpoints.
 - **MCP-7 (SHOULD)** Add a `response_format` parameter (`"concise"` / `"detailed"`) to search and detail tools so the LLM can control token consumption.
 
 #### Error Handling
@@ -592,29 +595,34 @@ Full GQL documentation is served as MCP resource `gql://documentation`.
 
 #### Current MCP Coverage
 
-**19 registered MCP tools** covering the most common genealogy operations:
+**2 MCP tools** (`search` + `execute`) providing access to **19 operations** via Code Mode architecture (MCP-29):
 
-| MCP Tool | API Endpoints Used | Status |
+- `search` meta-tool: Discovers operations from the registry by keyword. `readOnlyHint=True, openWorldHint=False` (local registry, no API call).
+- `execute` meta-tool: Runs a named operation against the Gramps Web API. `readOnlyHint=False, openWorldHint=True`.
+
+**Operations (19):**
+
+| Operation | API Endpoints Used | Category |
 |---|---|---|
-| `search` | `GET {entity}/` with GQL | Covers all 9 searchable entity types |
-| `search_text` | `GET search/` | Full-text search |
-| `list_tags` | `GET tags/` | Tag listing with pagination |
-| `get` | `GET {entity}/{h}?extend=all` (+ timeline for person/family) | All 9 entity types |
-| `upsert_person` | `POST/PUT people/{h}` | Full CRUD, supports `list_mode` |
-| `upsert_family` | `POST/PUT families/{h}` | Full CRUD, supports `list_mode` |
-| `upsert_event` | `POST/PUT events/{h}` | Full CRUD, supports `list_mode` |
-| `upsert_place` | `POST/PUT places/{h}` | Full CRUD, supports `list_mode` |
-| `upsert_source` | `POST/PUT sources/{h}` | Full CRUD, supports `list_mode` |
-| `upsert_citation` | `POST/PUT citations/{h}` | Full CRUD, supports `list_mode` |
-| `upsert_note` | `POST/PUT notes/{h}` | Full CRUD |
-| `upsert_media` | `POST/PUT media/{h}` + file upload | Full CRUD, supports `list_mode` |
-| `upsert_repository` | `POST/PUT repositories/{h}` | Full CRUD, supports `list_mode` |
-| `upsert_tag` | `POST/PUT tags/{h}` | Full CRUD |
-| `delete` | `DELETE {entity}/{h}` | All 9 entity types |
-| `get_tree_stats` | `GET trees/{tree_id}` | Read-only |
-| `get_descendants` | `POST reports/descend_report/file` + task polling | Via report engine |
-| `get_ancestors` | `POST reports/ancestor_report/file` + task polling | Via report engine |
-| `get_recent_changes` | `GET transactions/history/` | Read-only |
+| `search` | `GET {entity}/` with GQL | search |
+| `search_text` | `GET search/` | search |
+| `list_tags` | `GET tags/` | search |
+| `get` | `GET {entity}/{h}?extend=all` (+ timeline) | read |
+| `get_tree_stats` | `GET trees/{tree_id}` | read |
+| `upsert_person` | `POST/PUT people/{h}` | write |
+| `upsert_family` | `POST/PUT families/{h}` | write |
+| `upsert_event` | `POST/PUT events/{h}` | write |
+| `upsert_place` | `POST/PUT places/{h}` | write |
+| `upsert_source` | `POST/PUT sources/{h}` | write |
+| `upsert_citation` | `POST/PUT citations/{h}` | write |
+| `upsert_note` | `POST/PUT notes/{h}` | write |
+| `upsert_media` | `POST/PUT media/{h}` + file upload | write |
+| `upsert_repository` | `POST/PUT repositories/{h}` | write |
+| `upsert_tag` | `POST/PUT tags/{h}` (create-only) | write |
+| `delete` | `DELETE {entity}/{h}` | delete |
+| `get_ancestors` | `POST reports/ancestor_report/file` + task polling | analysis |
+| `get_descendants` | `POST reports/descend_report/file` + task polling | analysis |
+| `get_recent_changes` | `GET transactions/history/` | analysis |
 
 **API endpoints NOT yet exposed as MCP tools** (potential future work):
 - `relations/` -- relationship path finding

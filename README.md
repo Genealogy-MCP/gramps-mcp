@@ -43,32 +43,22 @@ No more manual data entry, no context switching between apps, no generic genealo
 
 ## Features
 
-### 19 Genealogy Tools
+### Code Mode Architecture: 2 Tools, 19 Operations
 
-#### Search & Retrieval (4 tools)
-- **search** - Universal search for any entity type (person, family, event, place, source, citation, media, repository) using Gramps Query Language
-- **search_text** - Text search across all genealogy data (matches literal text, not logical combinations)
-- **get** - Get comprehensive information about specific persons or families by ID
-- **list_tags** - List all tags with pagination support
+Gramps MCP uses a **Code Mode** architecture: just 2 MCP tools (`search` + `execute`) that provide progressive disclosure of 19 operations. This reduces LLM context window overhead from ~19K tokens to ~1K tokens.
 
-#### Data Management (11 tools)
-- **upsert_person** - Create or update person records
-- **upsert_family** - Create or update family units
-- **upsert_event** - Create or update life events
-- **upsert_place** - Create or update geographic locations
-- **upsert_source** - Create or update source documents
-- **upsert_citation** - Create or update citations
-- **upsert_note** - Create or update textual notes
-- **upsert_media** - Create or update media files
-- **upsert_repository** - Create or update repository records
-- **upsert_tag** - Create tags (tags are immutable after creation in API 3.x; updates are not supported)
-- **delete** - Delete any entity type by handle (tag deletion uses the bulk operations endpoint)
+- **`search`** - Discover available operations by keyword (e.g., "find people", "create event", "delete")
+- **`execute`** - Run a named operation with parameters (e.g., `execute("upsert_person", {...})`)
 
-#### Analysis Tools (4 tools)
-- **get_tree_stats** - Get tree statistics and information
-- **get_descendants** - Find all descendants of a person
-- **get_ancestors** - Find all ancestors of a person
-- **get_recent_changes** - Track recent modifications to your data
+#### Available Operations (19)
+
+| Category | Operations |
+|----------|-----------|
+| **Search** (3) | `search` (GQL queries), `search_text` (full-text), `list_tags` |
+| **Read** (2) | `get` (entity details), `get_tree_stats` |
+| **Write** (10) | `upsert_person`, `upsert_family`, `upsert_event`, `upsert_place`, `upsert_source`, `upsert_citation`, `upsert_note`, `upsert_media`, `upsert_repository`, `upsert_tag` |
+| **Delete** (1) | `delete` (any entity type) |
+| **Analysis** (3) | `get_ancestors`, `get_descendants`, `get_recent_changes` |
 
 ## Installation
 
@@ -261,20 +251,20 @@ make docker-down   # Stop and remove containers
 
 ```
 src/gramps_mcp/
-|-- server.py           # MCP server with HTTP transport
-|-- tools.py            # Tool registry and exports
+|-- server.py           # MCP server (2 meta-tools: search + execute)
+|-- operations.py       # Operation registry (19 operations, single source of truth)
 |-- client.py           # Gramps Web API client
-|-- models.py           # Pydantic data models
 |-- auth.py             # JWT authentication
 |-- config.py           # Configuration management
-|-- tools/              # Modular tool implementations
-|   |-- search_basic.py
-|   |-- search_details.py
-|   |-- data_management.py
-|   |-- tree_management.py
-|   `-- analysis.py
+|-- tools/              # Tool implementations
+|   |-- meta_search.py     # 'search' meta-tool (operation discovery)
+|   |-- meta_execute.py    # 'execute' meta-tool (operation dispatch)
+|   |-- search_basic.py    # GQL search + text search handlers
+|   |-- search_details.py  # Entity detail handlers
+|   |-- data_management.py # CRUD operation handlers
+|   `-- analysis.py        # Tree analysis handlers
 |-- handlers/           # Data formatting handlers
-`-- client/             # API client modules
+`-- models/             # Pydantic data models
 ```
 
 ### Technology Stack

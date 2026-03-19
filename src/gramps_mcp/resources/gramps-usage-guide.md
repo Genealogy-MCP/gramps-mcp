@@ -1,5 +1,20 @@
 # Gramps MCP Tools - Proper Usage Guide
 
+## How to Use This Server
+
+This server exposes 2 MCP tools that provide access to 19 genealogy operations:
+
+1. **`search`** - Discover available operations: `search(query="find people")`
+2. **`execute`** - Run an operation: `execute(operation="search", params={...})`
+
+**Workflow:** Call `search` first to find the right operation and its parameters, then call `execute` to run it.
+
+**Example:**
+```
+search(query="create person")  ->  shows upsert_person operation with params
+execute(operation="upsert_person", params={"first_name": "John", ...})
+```
+
 ## Understanding Gramps Data Structure
 
 Gramps is fundamentally **source-focused** and **event-focused**. All genealogical information should be properly sourced and linked to verifiable events. This guide explains the correct order of operations when entering data.

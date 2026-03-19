@@ -57,7 +57,7 @@ class TestMCPServerSetup:
 
     @pytest.mark.asyncio
     async def test_tool_registration(self, mcp_server):
-        """Test that all expected tools are registered."""
+        """Test that Code Mode meta-tools are registered."""
         endpoint = f"{mcp_server}/mcp"
 
         async with streamable_http_client(endpoint) as client_streams:
@@ -69,11 +69,8 @@ class TestMCPServerSetup:
 
                 tools_result = await session.list_tools()
                 tools = tools_result.tools
-                # MCP-6: derive expected tools from TOOL_REGISTRY, not hardcoded
-                from src.gramps_mcp.server_tools import TOOL_REGISTRY
-
                 registered_tool_names = {tool.name for tool in tools}
-                assert registered_tool_names == set(TOOL_REGISTRY.keys())
+                assert registered_tool_names == {"search", "execute"}
 
     @pytest.mark.asyncio
     async def test_tool_descriptions(self, mcp_server):
@@ -106,10 +103,8 @@ class TestHTTPRoutes:
             assert response.status_code == 200
             data = response.json()
             assert data["service"] == "Gramps MCP Server"
-            # MCP-6: derive expected count from TOOL_REGISTRY
-            from src.gramps_mcp.server_tools import TOOL_REGISTRY
-
-            assert data["tools_count"] == len(TOOL_REGISTRY)
+            assert data["tools_count"] == 2
+            assert data["operations_count"] == 19
 
     @pytest.mark.asyncio
     async def test_health_endpoint(self, mcp_server):
@@ -120,6 +115,8 @@ class TestHTTPRoutes:
             data = response.json()
             assert data["status"] == "healthy"
             assert data["service"] == "Gramps MCP Server"
+            assert data["tools"] == 2
+            assert data["operations"] == 19
 
 
 @pytest.mark.server
@@ -128,7 +125,7 @@ class TestMCPProtocolCompliance:
 
     @pytest.mark.asyncio
     async def test_mcp_tools_list_request(self, mcp_server):
-        """Test MCP tools/list request."""
+        """Test MCP tools/list returns exactly 2 meta-tools."""
         endpoint = f"{mcp_server}/mcp"
 
         async with streamable_http_client(endpoint) as client_streams:
@@ -138,14 +135,11 @@ class TestMCPProtocolCompliance:
                 assert isinstance(result, InitializeResult)
 
                 tools_result = await session.list_tools()
-                # MCP-6: derive expected count from TOOL_REGISTRY
-                from src.gramps_mcp.server_tools import TOOL_REGISTRY
-
-                assert len(tools_result.tools) == len(TOOL_REGISTRY)
+                assert len(tools_result.tools) == 2
 
     @pytest.mark.asyncio
     async def test_mcp_tool_call_search_real_api(self, mcp_server):
-        """Test search tool call with real API integration."""
+        """Test execute(search) with real API integration."""
         endpoint = f"{mcp_server}/mcp"
 
         async with streamable_http_client(endpoint) as client_streams:
@@ -154,12 +148,15 @@ class TestMCPProtocolCompliance:
                 await session.initialize()
 
                 result = await session.call_tool(
-                    "search",
+                    "execute",
                     {
                         "arguments": {
-                            "type": "person",
-                            "gql": 'primary_name.first_name ~ "John"',
-                            "max_results": 20,
+                            "operation": "search",
+                            "params": {
+                                "type": "person",
+                                "gql": 'primary_name.first_name ~ "John"',
+                                "max_results": 20,
+                            },
                         }
                     },
                 )
@@ -194,14 +191,9 @@ class TestMCPProtocolCompliance:
                     error_str = str(e).lower()
                     assert "non_existent_tool" in error_str or "not found" in error_str
 
-
-@pytest.mark.server
-class TestToolIntegrationRealAPI:
-    """Test tool integration with real Gramps Web API."""
-
     @pytest.mark.asyncio
-    async def test_search_with_specific_query(self, mcp_server):
-        """Test search tool with specific query."""
+    async def test_mcp_search_discovers_operations(self, mcp_server):
+        """Test search meta-tool discovers operations from registry."""
         endpoint = f"{mcp_server}/mcp"
 
         async with streamable_http_client(endpoint) as client_streams:
@@ -211,11 +203,64 @@ class TestToolIntegrationRealAPI:
 
                 result = await session.call_tool(
                     "search",
+                    {"arguments": {"query": "person", "category": None}},
+                )
+
+                assert len(result.content) >= 1
+                assert isinstance(result.content[0], TextContent)
+                text = result.content[0].text
+                assert "upsert_person" in text
+
+    @pytest.mark.asyncio
+    async def test_mcp_execute_unknown_operation(self, mcp_server):
+        """Test execute with unknown operation returns error with suggestions."""
+        endpoint = f"{mcp_server}/mcp"
+
+        async with streamable_http_client(endpoint) as client_streams:
+            read_stream, write_stream, _ = client_streams
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+
+                result = await session.call_tool(
+                    "execute",
                     {
                         "arguments": {
-                            "type": "person",
-                            "gql": 'primary_name.surname_list.any.surname ~ "Smith"',
-                            "max_results": 20,
+                            "operation": "serch",
+                            "params": {},
+                        }
+                    },
+                )
+
+                assert len(result.content) >= 1
+                assert isinstance(result.content[0], TextContent)
+                text = result.content[0].text.lower()
+                assert "unknown" in text or "search" in text
+
+
+@pytest.mark.server
+class TestToolIntegrationRealAPI:
+    """Test tool integration with real Gramps Web API."""
+
+    @pytest.mark.asyncio
+    async def test_search_with_specific_query(self, mcp_server):
+        """Test search tool with specific query via execute."""
+        endpoint = f"{mcp_server}/mcp"
+
+        async with streamable_http_client(endpoint) as client_streams:
+            read_stream, write_stream, _ = client_streams
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+
+                result = await session.call_tool(
+                    "execute",
+                    {
+                        "arguments": {
+                            "operation": "search",
+                            "params": {
+                                "type": "person",
+                                "gql": 'primary_name.surname_list.any.surname ~ "Smith"',
+                                "max_results": 20,
+                            },
                         }
                     },
                 )
@@ -227,7 +272,7 @@ class TestToolIntegrationRealAPI:
 
     @pytest.mark.asyncio
     async def test_search_all_objects(self, mcp_server):
-        """Test search_text tool for comprehensive search."""
+        """Test search_text tool for comprehensive search via execute."""
         endpoint = f"{mcp_server}/mcp"
 
         async with streamable_http_client(endpoint) as client_streams:
@@ -236,7 +281,13 @@ class TestToolIntegrationRealAPI:
                 await session.initialize()
 
                 result = await session.call_tool(
-                    "search_text", {"arguments": {"query": "test", "pagesize": 3}}
+                    "execute",
+                    {
+                        "arguments": {
+                            "operation": "search_text",
+                            "params": {"query": "test", "pagesize": 3},
+                        }
+                    },
                 )
 
                 assert len(result.content) >= 1
@@ -249,7 +300,7 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_invalid_tree_id(self, mcp_server):
-        """Test handling of invalid tree ID."""
+        """Test handling of invalid tree ID via execute."""
         endpoint = f"{mcp_server}/mcp"
 
         async with streamable_http_client(endpoint) as client_streams:
@@ -258,12 +309,15 @@ class TestErrorHandling:
                 await session.initialize()
 
                 result = await session.call_tool(
-                    "search",
+                    "execute",
                     {
                         "arguments": {
-                            "type": "person",
-                            "gql": 'primary_name.first_name ~ "test"',
-                            "max_results": 1,
+                            "operation": "search",
+                            "params": {
+                                "type": "person",
+                                "gql": 'primary_name.first_name ~ "test"',
+                                "max_results": 1,
+                            },
                         }
                     },
                 )
@@ -273,7 +327,7 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_get_details_invalid_handle(self, mcp_server):
-        """Test get with invalid handle."""
+        """Test get with invalid handle via execute."""
         endpoint = f"{mcp_server}/mcp"
 
         async with streamable_http_client(endpoint) as client_streams:
@@ -282,8 +336,16 @@ class TestErrorHandling:
                 await session.initialize()
 
                 result = await session.call_tool(
-                    "get",
-                    {"arguments": {"type": "person", "handle": "invalid_handle_123"}},
+                    "execute",
+                    {
+                        "arguments": {
+                            "operation": "get",
+                            "params": {
+                                "type": "person",
+                                "handle": "invalid_handle_123",
+                            },
+                        }
+                    },
                 )
 
                 assert len(result.content) >= 1

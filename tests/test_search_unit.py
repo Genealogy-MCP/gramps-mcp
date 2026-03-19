@@ -764,9 +764,9 @@ class TestSearchToolDescription:
 
     def test_description_contains_person_name_hint(self):
         """Search tool description must mention primary_name paths."""
-        from src.gramps_mcp.server_tools import TOOL_REGISTRY
+        from src.gramps_mcp.operations import OPERATION_REGISTRY
 
-        desc = TOOL_REGISTRY["search"]["description"]
+        desc = OPERATION_REGISTRY["search"].description
         assert "primary_name.first_name" in desc
         assert "primary_name.surname_list[0].surname" in desc
 
