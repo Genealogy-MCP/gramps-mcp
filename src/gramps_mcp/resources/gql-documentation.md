@@ -107,6 +107,114 @@ All families with three daughters.
 
 
 
+## Quick Reference by Entity Type
+
+Copy-paste ready GQL examples for the most common searches.
+
+### Person
+
+```sql
+-- Find by first name
+primary_name.first_name ~ "Federico"
+
+-- Find by surname
+primary_name.surname_list[0].surname ~ "Smith"
+
+-- Find by both first name and surname
+primary_name.first_name ~ "John" and primary_name.surname_list[0].surname ~ "Smith"
+
+-- Find by gender (0=Female, 1=Male, 2=Unknown)
+gender = 1
+
+-- Find people with media
+media_list.length > 0
+```
+
+**Common mistake:** `name ~ "X"` or `surname ~ "X"` returns 0 results. Person objects do not have a top-level `name` or `surname` property -- use the `primary_name.*` paths above.
+
+### Family
+
+```sql
+-- Families with 3+ children
+child_ref_list.length >= 3
+
+-- Families by relationship type
+type.string = "Married"
+```
+
+### Event
+
+```sql
+-- Events by type
+type.string = "Birth"
+
+-- Events in a year range
+date.dateval[2] > 1850 and date.dateval[2] < 1900
+
+-- Events with a description containing text
+description ~ "church"
+```
+
+### Place
+
+```sql
+-- Places by name
+name.value ~ "Boston"
+
+-- Places by type
+place_type.string = "City"
+
+-- Places with coordinates
+lat and long
+```
+
+### Source
+
+```sql
+-- Sources by title
+title ~ "Census"
+
+-- Sources by author
+author ~ "Church"
+```
+
+### Citation
+
+```sql
+-- Citations by confidence level (0-4)
+confidence >= 3
+
+-- Citations referencing a specific page
+page ~ "Entry 15"
+```
+
+### Note
+
+```sql
+-- Notes containing text (note: GQL on notes may return HTTP 500 in some API versions)
+text.string ~ "research"
+```
+
+### Media
+
+```sql
+-- Media by description
+desc ~ "photo"
+
+-- Media by MIME type
+mime ~ "image"
+```
+
+### Repository
+
+```sql
+-- Repositories by name
+name ~ "Archive"
+
+-- Repositories by type
+type.string = "Archive"
+```
+
 ## Full list of Gramps Properties
 
 The following properties of Gramps objects exist as of Gramps 5.2.

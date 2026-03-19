@@ -125,7 +125,9 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "search": {
         "description": (
             "Search any entity type using GQL - read gql://documentation "
-            "resource first to understand syntax"
+            "resource first to understand syntax. "
+            "Note: person names use primary_name.first_name and "
+            "primary_name.surname_list[0].surname (NOT 'name' or 'surname')"
         ),
         "schema": SimpleFindParams,
         "handler": search_tool,
