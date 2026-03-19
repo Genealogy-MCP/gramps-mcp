@@ -627,6 +627,154 @@ class TestGetTypeTool:
 # Individual get_*_tool missing-handle branches (parametrized)
 # ============================================================================
 
+# ============================================================================
+# gql_hint (GQL discoverability helpers)
+# ============================================================================
+
+
+class TestGqlHint:
+    """Test GQL smart hints for common person-search mistakes."""
+
+    def test_bare_name_on_people(self):
+        """'name ~ X' on people suggests primary_name.first_name."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        hint = gql_hint("people", 'name ~ "Federico"')
+        assert "primary_name.first_name" in hint
+        assert "primary_name.surname_list[0].surname" in hint
+
+    def test_bare_surname_on_people(self):
+        """'surname ~ X' on people suggests correct path."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        hint = gql_hint("people", 'surname ~ "Smith"')
+        assert "primary_name.surname_list[0].surname" in hint
+
+    def test_bare_firstname_on_people(self):
+        """'firstname ~ X' on people suggests correct path."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        hint = gql_hint("people", 'firstname ~ "John"')
+        assert "primary_name.first_name" in hint
+
+    def test_bare_first_name_on_people(self):
+        """'first_name ~ X' (without dotted prefix) on people suggests correct path."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        hint = gql_hint("people", 'first_name ~ "Maria"')
+        assert "primary_name.first_name" in hint
+
+    def test_correct_first_name_path_no_hint(self):
+        """'primary_name.first_name ~ X' is correct — no hint."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        hint = gql_hint("people", 'primary_name.first_name ~ "Federico"')
+        assert hint == ""
+
+    def test_correct_surname_path_no_hint(self):
+        """'primary_name.surname_list[0].surname ~ X' is correct — no hint."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        hint = gql_hint("people", 'primary_name.surname_list[0].surname ~ "Smith"')
+        assert hint == ""
+
+    def test_non_person_entity_name_no_hint(self):
+        """'name ~ X' on places is valid — no hint."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        assert gql_hint("places", 'name ~ "Boston"') == ""
+        assert gql_hint("sources", 'title ~ "Census"') == ""
+
+    def test_empty_gql_no_hint(self):
+        """Empty GQL string — no hint."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        assert gql_hint("people", "") == ""
+
+    def test_unrelated_gql_no_hint(self):
+        """GQL without mistake patterns — no hint."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        assert gql_hint("people", "gender = 1") == ""
+
+    def test_name_at_start_of_gql(self):
+        """Pattern works when 'name' is the very first token."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        hint = gql_hint("people", "name = John")
+        assert "primary_name" in hint
+
+
+class TestSearchEntitiesGqlHint:
+    """Test that _search_entities includes GQL hint in empty results."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_settings(self):
+        with patch(_SETTINGS_PATCH, return_value=_mock_settings()):
+            yield
+
+    @pytest.mark.asyncio
+    async def test_empty_results_with_hint(self):
+        """Empty people search with bad GQL includes hint."""
+        from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
+        from src.gramps_mcp.tools.search_basic import _search_entities
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(return_value=[])
+        handler = AsyncMock()
+
+        result = await _search_entities(
+            client,
+            {"gql": 'name ~ "Federico"'},
+            BaseGetMultipleParams,
+            "GET_PEOPLE",
+            "people",
+            handler,
+        )
+        text = result[0].text
+        assert "No people found" in text
+        assert "Hint:" in text
+        assert "primary_name" in text
+
+    @pytest.mark.asyncio
+    async def test_empty_results_without_hint(self):
+        """Empty people search with correct GQL has no hint."""
+        from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
+        from src.gramps_mcp.tools.search_basic import _search_entities
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(return_value=[])
+        handler = AsyncMock()
+
+        result = await _search_entities(
+            client,
+            {"gql": 'primary_name.first_name ~ "Federico"'},
+            BaseGetMultipleParams,
+            "GET_PEOPLE",
+            "people",
+            handler,
+        )
+        text = result[0].text
+        assert "No people found" in text
+        assert "Hint:" not in text
+
+
+class TestSearchToolDescription:
+    """Test that search tool description includes person name hint."""
+
+    def test_description_contains_person_name_hint(self):
+        """Search tool description must mention primary_name paths."""
+        from src.gramps_mcp.server_tools import TOOL_REGISTRY
+
+        desc = TOOL_REGISTRY["search"]["description"]
+        assert "primary_name.first_name" in desc
+        assert "primary_name.surname_list[0].surname" in desc
+
+
+# ============================================================================
+# Individual get_*_tool missing-handle branches (parametrized)
+# ============================================================================
+
 _GET_TOOL_MISSING_HANDLE_CASES = [
     ("get_event_tool", "event details"),
     ("get_place_tool", "place details"),

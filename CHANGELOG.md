@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 2026-03-19 (GQL search discoverability)
+
+### Added
+- `tools/_gql_hints.py`: runtime smart hints for common GQL property-path mistakes.
+  `gql_hint(entity_type, gql)` returns a corrective message when the query uses bare
+  `name`, `surname`, or `firstname`/`first_name` on people (HTTP 200 silent zero-result
+  bug — these are not valid Person properties in GQL).
+- GQL documentation resource (`gql://documentation`) extended with a "Quick Reference
+  by Entity Type" section: copy-paste GQL examples for Person, Family, Event, Place,
+  Source, Citation, Note, Media, Repository.
+- Search tool description explicitly warns: use `primary_name.first_name` and
+  `primary_name.surname_list[0].surname` for person name searches (not bare `name`).
+
+### Changed
+- `_search_entities()` in `search_basic.py`: when results are empty, appends
+  `Hint: <corrective message>` to the response if a known GQL mistake is detected.
+- 13 new unit tests in `test_search_unit.py`: `TestGqlHint` (10 pure-function tests),
+  `TestSearchEntitiesGqlHint` (2 integration tests), `TestSearchToolDescription` (1 test).
+  `_gql_hints.py` has 100% branch coverage.
+
 ## 2026-03-17 (test suite quality)
 
 ### Changed

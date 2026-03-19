@@ -50,6 +50,7 @@ from ..models.parameters.repository_params import RepositoriesParams
 from ..models.parameters.search_params import SearchParams
 from ..models.parameters.source_params import SourceSearchParams
 from ._errors import McpToolError, raise_tool_error
+from ._gql_hints import gql_hint
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +175,11 @@ async def _search_entities(
             total_count = response.get("total_count", len(results))
 
         if not results:
-            formatted_results = f"No {entity_type} found"
+            hint = gql_hint(entity_type, arguments.get("gql", ""))
+            msg = f"No {entity_type} found"
+            if hint:
+                msg += f"\n\nHint: {hint}"
+            formatted_results = msg
         else:
             actual_total = total_count if total_count is not None else len(results)
 
