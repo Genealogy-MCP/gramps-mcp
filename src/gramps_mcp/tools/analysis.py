@@ -178,8 +178,9 @@ async def _fetch_report_with_retry(
     tree_id: str,
     report_id: str,
     filename: str,
-    max_retries: int = 3,
-    initial_delay: float = 0.5,
+    max_retries: int = 5,
+    initial_delay: float = 1.0,
+    max_delay: float = 5.0,
 ) -> str:
     """
     Download a processed report file, retrying on 404.
@@ -195,6 +196,7 @@ async def _fetch_report_with_retry(
         filename: Generated report filename from task result.
         max_retries: Maximum number of retry attempts on 404.
         initial_delay: Seconds to wait before first retry (doubles each time).
+        max_delay: Upper bound on backoff delay in seconds.
 
     Returns:
         Report content as a string (HTML).
@@ -228,7 +230,7 @@ async def _fetch_report_with_retry(
                 f"{1 + max_retries}), retrying in {delay}s..."
             )
             await asyncio.sleep(delay)
-            delay *= 2
+            delay = min(delay * 2, max_delay)
 
     raise AssertionError("Unreachable: loop always returns or raises")
 
