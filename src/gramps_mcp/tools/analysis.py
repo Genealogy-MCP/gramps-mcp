@@ -178,9 +178,9 @@ async def _fetch_report_with_retry(
     tree_id: str,
     report_id: str,
     filename: str,
-    max_retries: int = 5,
-    initial_delay: float = 1.0,
-    max_delay: float = 5.0,
+    max_retries: int = 8,
+    initial_delay: float = 2.0,
+    max_delay: float = 8.0,
 ) -> str:
     """
     Download a processed report file, retrying on 404.
