@@ -16,6 +16,7 @@ from src.gramps_mcp.client import (
     GrampsWebAPIClient,
     _normalise_url_keys,
 )
+from src.gramps_mcp.media_client import MediaClient
 from src.gramps_mcp.models.api_calls import ApiCalls
 
 # ---------------------------------------------------------------------------
@@ -525,44 +526,45 @@ class TestMakeApiCall:
 # ---------------------------------------------------------------------------
 
 
-class TestUploadMediaFile:
-    """Test upload_media_file."""
+class TestMediaClientUpload:
+    """Test MediaClient.upload_media_file."""
 
     @pytest.mark.asyncio
     async def test_happy_path(self):
-        client = GrampsWebAPIClient()
-        client.auth_manager = MagicMock()
-        client.auth_manager.get_token = AsyncMock()
-        client.auth_manager.get_headers = MagicMock(
+        api_client = GrampsWebAPIClient()
+        api_client.auth_manager = MagicMock()
+        api_client.auth_manager.get_token = AsyncMock()
+        api_client.auth_manager.get_headers = MagicMock(
             return_value={"Authorization": "Bearer test"}
         )
-        client.auth_manager.close = AsyncMock()
+        api_client.auth_manager.close = AsyncMock()
 
         resp = MagicMock()
         resp.status_code = 200
         resp.raise_for_status = MagicMock()
         resp.json.return_value = [{"new": {"handle": "m1"}}]
 
-        client.auth_manager.client = MagicMock()
-        client.auth_manager.client.request = AsyncMock(return_value=resp)
+        api_client.auth_manager.client = MagicMock()
+        api_client.auth_manager.client.request = AsyncMock(return_value=resp)
 
-        result = await client.upload_media_file(b"content", "image/jpeg")
+        media_client = MediaClient(api_client)
+        result = await media_client.upload_media_file(b"content", "image/jpeg")
         assert result == [{"new": {"handle": "m1"}}]
 
         # Verify Content-Type header was set
-        call_kwargs = client.auth_manager.client.request.call_args.kwargs
+        call_kwargs = api_client.auth_manager.client.request.call_args.kwargs
         assert call_kwargs["headers"]["Content-Type"] == "image/jpeg"
 
     @pytest.mark.asyncio
     async def test_413_payload_too_large(self):
         """413 from server propagates as HTTPStatusError."""
-        client = GrampsWebAPIClient()
-        client.auth_manager = MagicMock()
-        client.auth_manager.get_token = AsyncMock()
-        client.auth_manager.get_headers = MagicMock(
+        api_client = GrampsWebAPIClient()
+        api_client.auth_manager = MagicMock()
+        api_client.auth_manager.get_token = AsyncMock()
+        api_client.auth_manager.get_headers = MagicMock(
             return_value={"Authorization": "Bearer test"}
         )
-        client.auth_manager.close = AsyncMock()
+        api_client.auth_manager.close = AsyncMock()
 
         request = httpx.Request("POST", "http://test/api/media/")
         response = httpx.Response(413, request=request)
@@ -571,30 +573,32 @@ class TestUploadMediaFile:
         resp = MagicMock()
         resp.raise_for_status = MagicMock(side_effect=error)
 
-        client.auth_manager.client = MagicMock()
-        client.auth_manager.client.request = AsyncMock(return_value=resp)
+        api_client.auth_manager.client = MagicMock()
+        api_client.auth_manager.client.request = AsyncMock(return_value=resp)
 
+        media_client = MediaClient(api_client)
         with pytest.raises(httpx.HTTPStatusError):
-            await client.upload_media_file(b"huge" * 1000, "image/png")
+            await media_client.upload_media_file(b"huge" * 1000, "image/png")
 
     @pytest.mark.asyncio
     async def test_connection_error(self):
         """ConnectError during upload propagates."""
-        client = GrampsWebAPIClient()
-        client.auth_manager = MagicMock()
-        client.auth_manager.get_token = AsyncMock()
-        client.auth_manager.get_headers = MagicMock(
+        api_client = GrampsWebAPIClient()
+        api_client.auth_manager = MagicMock()
+        api_client.auth_manager.get_token = AsyncMock()
+        api_client.auth_manager.get_headers = MagicMock(
             return_value={"Authorization": "Bearer test"}
         )
-        client.auth_manager.close = AsyncMock()
+        api_client.auth_manager.close = AsyncMock()
 
-        client.auth_manager.client = MagicMock()
-        client.auth_manager.client.request = AsyncMock(
+        api_client.auth_manager.client = MagicMock()
+        api_client.auth_manager.client.request = AsyncMock(
             side_effect=httpx.ConnectError("Connection refused")
         )
 
+        media_client = MediaClient(api_client)
         with pytest.raises(httpx.ConnectError):
-            await client.upload_media_file(b"content", "image/jpeg")
+            await media_client.upload_media_file(b"content", "image/jpeg")
 
 
 # ---------------------------------------------------------------------------
@@ -657,3 +661,92 @@ class TestBulkDelete:
         assert "objects/delete/" in url
         json_data = call_kwargs.kwargs.get("json_data")
         assert json_data == [{"_class": "Tag", "handle": "t1"}]
+
+
+# ---------------------------------------------------------------------------
+# replace_media_file
+# ---------------------------------------------------------------------------
+
+
+class TestMediaClientReplace:
+    """Test MediaClient.replace_media_file() request building and error handling."""
+
+    def _make_api_client(self):
+        """Build a GrampsWebAPIClient with mocked internals."""
+        api_client = GrampsWebAPIClient()
+        api_client.auth_manager = MagicMock()
+        api_client.auth_manager.get_token = AsyncMock()
+        api_client.auth_manager.get_headers = MagicMock(
+            return_value={"Authorization": "Bearer test"}
+        )
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "{}"
+        mock_response.json.return_value = {}
+        mock_response.raise_for_status = MagicMock()
+        api_client.auth_manager.client = MagicMock()
+        api_client.auth_manager.client.request = AsyncMock(return_value=mock_response)
+        api_client.auth_manager.close = AsyncMock()
+        return api_client
+
+    @pytest.mark.asyncio
+    async def test_builds_correct_put_request(self):
+        """Sends PUT to media/{handle}/file with correct content-type."""
+        api_client = self._make_api_client()
+        media_client = MediaClient(api_client)
+
+        await media_client.replace_media_file(
+            file_content=b"image data",
+            handle="m1",
+            mime_type="image/jpeg",
+            tree_id="tree1",
+        )
+
+        call = api_client.auth_manager.client.request
+        call.assert_awaited_once()
+        call_kwargs = call.call_args[1]
+        assert call_kwargs["method"] == "PUT"
+        assert "media/m1/file" in call_kwargs["url"]
+        assert call_kwargs["content"] == b"image data"
+        assert call_kwargs["headers"]["Content-Type"] == "image/jpeg"
+
+    @pytest.mark.asyncio
+    async def test_empty_response_returns_dict(self):
+        """Empty response body returns empty dict."""
+        api_client = self._make_api_client()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "   "
+        mock_response.raise_for_status = MagicMock()
+        api_client.auth_manager.client.request = AsyncMock(return_value=mock_response)
+
+        media_client = MediaClient(api_client)
+        result = await media_client.replace_media_file(
+            file_content=b"data",
+            handle="m1",
+            mime_type="image/png",
+        )
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_http_error_raises_gramps_error(self):
+        """HTTP errors are converted to GrampsAPIError."""
+        api_client = self._make_api_client()
+        mock_response = MagicMock(spec=httpx.Response)
+        mock_response.status_code = 404
+        mock_response.text = "Not Found"
+        mock_request = MagicMock()
+        mock_request.url = "http://localhost/api/media/bad/file"
+        mock_response.request = mock_request
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Not Found", request=mock_request, response=mock_response
+        )
+        api_client.auth_manager.client.request = AsyncMock(return_value=mock_response)
+
+        media_client = MediaClient(api_client)
+        with pytest.raises(GrampsAPIError):
+            await media_client.replace_media_file(
+                file_content=b"data",
+                handle="bad",
+                mime_type="image/jpeg",
+            )

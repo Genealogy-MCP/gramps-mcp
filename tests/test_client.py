@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.gramps_mcp.client import GrampsWebAPIClient
+from src.gramps_mcp.media_client import MediaClient
 
 pytestmark = pytest.mark.integration
 from src.gramps_mcp.config import get_settings
@@ -145,6 +146,7 @@ class TestMediaFileUpload:
     async def test_upload_media_file(self):
         """Test uploading a media file to Gramps."""
         client = GrampsWebAPIClient()
+        media_client = MediaClient(client)
         settings = get_settings()
 
         try:
@@ -153,7 +155,7 @@ class TestMediaFileUpload:
             mime_type = "image/jpeg"
 
             # Upload the file
-            result = await client.upload_media_file(
+            result = await media_client.upload_media_file(
                 file_content=file_content,
                 mime_type=mime_type,
                 tree_id=settings.gramps_tree_id,
@@ -189,6 +191,7 @@ class TestPutMergeRequirement:
     async def test_media_put_should_preserve_existing_file_data(self):
         """Test that PUT operations should preserve existing file data when updating metadata."""
         client = GrampsWebAPIClient()
+        media_client = MediaClient(client)
         settings = get_settings()
 
         try:
@@ -196,7 +199,7 @@ class TestPutMergeRequirement:
             with open("tests/sample/33SQ-GP8N-NLK.jpg", "rb") as f:
                 file_content = f.read()
 
-            upload_result = await client.upload_media_file(
+            upload_result = await media_client.upload_media_file(
                 file_content=file_content,
                 mime_type="image/jpeg",
                 tree_id=settings.gramps_tree_id,
