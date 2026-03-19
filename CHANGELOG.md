@@ -7,9 +7,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 2026-03-17 (test suite quality)
+
+### Changed
+- `test_search_basic.py`: Removed redundant `load_dotenv()` (conftest.py owns env setup);
+  tightened assertions from `"Found" or "No X found"` to require `"Found"` — exposes a
+  known issue: several GQL queries return no results against the seed dataset (see TODO)
+- `test_auth_integration.py`: Removed silent-pass `try/except ValueError` from
+  `test_authentication_attempt` and `test_get_token_flow`; auth failure in integration
+  context is now a real test failure
+- `test_unified_api.py`: Extracted 3 pure URL-building tests (`test_build_url_*`) from
+  `@pytest.mark.integration` class into unmarked `TestUrlBuilding` — they now run without Docker
+- `test_auth_unit.py`: Added `TestConfigLoading` with 2 tests for settings/init that
+  were incorrectly integration-marked; removed redundant singleton test
+- `test_data_management.py`: Removed 2 validation-only tests already covered by
+  `test_data_management_unit.py::TestUpsertMediaTool`; added ordering comment
+- `test_complete_workflow.py`: Deleted dead `_create_or_find_person` legacy method
+- `conftest.py`: Added shared `extract_handle(text)` utility function
+- `pyproject.toml`: Removed `black>=26.3.1` from `[project.dependencies]` (was
+  incorrectly a runtime dep; remains in dev group); removed unused `pytest-rerunfailures`
+
+### Added
+- `tests/conftest.py`: `extract_handle(text: str) -> str` shared test utility
+
+
+
 ### Added
 - `.github/dependabot.yml`: monthly Dependabot updates for `pip`, `github-actions`,
   and `docker` ecosystems
+- API version validation: server verifies Gramps Web API >= 3.x on first connection
+  and raises a clear error for unsupported API 2.x instances
+- `GrampsWebAPIClient.bulk_delete()`: validated public method for bulk entity deletion
+  via `POST /objects/delete/` — replaces direct `_build_url`/`_make_request` calls in
+  `_delete_via_bulk` and `conftest.py`, fixing MCP-18 violation
+- `server_lifespan` FastMCP context manager in `server.py` — verifies API version
+  before accepting HTTP connections (complements existing stdio startup verification)
+- `DeletableEntityType` enum (10 types, including TAG) in `simple_params.py` —
+  `DeleteParams.type` now uses this; `EntityType` retains 9 searchable types (no TAG)
+  so LLMs cannot call `search(type="tag")` or `get(type="tag")` with invalid intent
+- `tests/test_search_unit.py`: unit tests for `search_tool` and `get_tool` error paths
+- `TestBulkDelete` in `test_client_unit.py`: 4 tests for `bulk_delete()` validation
+- `TestServerLifespan` in `test_api_version.py`: tests lifespan hook wiring
+
+### Changed
+- All plain-text error returns in `search_tool`, `get_tool`, `delete_tool` converted to
+  `raise McpToolError(...)` (MCP-8 compliance — LLMs now receive `isError=True`)
+- `_extract_entity_data()` raises `ValueError("API returned an empty response")`
+  instead of returning `None` — prevents silent `AttributeError` at call sites
+- `startup.py` import moved to top-level so tests can patch
+  `src.gramps_mcp.startup.GrampsWebAPIClient` (standard unittest.mock pattern)
+- `conftest.py` no longer imports private symbols `_ENTITY_CLASS_NAMES` or
+  `_delete_via_bulk`; uses `client.bulk_delete()` directly
+
+### Changed
+- Upgraded test Docker image from `grampsweb:v25.3.0` (Gramps 5.2) to `26.2.0`
+  (Gramps 6.0) — fixes seed import failure caused by XML 1.7.2 version mismatch
+- **Breaking**: Now requires Gramps Web API 3.x (Gramps Web 26.x or later);
+  API 2.x (Gramps Web 25.x) is no longer supported
+- Pagination changed from 0-based to 1-based to match API 3.x (`page=1` is now
+  the first page)
+- Tag deletion now uses bulk `POST /objects/delete/` endpoint (API 3.x removed
+  `DELETE /tags/{handle}`)
+- Tree stats formatting no longer shows media storage in MB (field removed in
+  API 3.x)
+- Test artifact sweep updated for 1-based pagination and bulk tag deletion
+
+### Removed
+- Diagnostic "Gramps plugin state" CI step (no longer needed)
+- Tag update support (`upsert_tag` with handle) — tags are immutable after
+  creation in API 3.x
 
 ## 2026-03-15 (test coverage)
 

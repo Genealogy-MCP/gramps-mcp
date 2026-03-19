@@ -59,7 +59,7 @@ class TestGetDescendantsTool:
     async def test_get_descendants_real_api(self):
         """Test get_descendants_tool with real API."""
 
-        # First search for a person with children to get a valid handle for descendants test
+        # Search for a person with children to get a valid handle
         from src.gramps_mcp.tools.search_basic import search_person_tool
 
         search_result = await search_person_tool(
@@ -186,7 +186,7 @@ class TestGetAncestorsTool:
             assert len(text) > 0
             assert len(text.strip()) > 50  # Should be substantial content
             assert "report generated successfully" not in text.lower()
-            # Report should contain genealogy-related content - check for "Generation" which appears in ancestor reports
+            # "Generation" appears in ancestor reports
             assert "generation" in text.lower()
 
     @pytest.mark.asyncio

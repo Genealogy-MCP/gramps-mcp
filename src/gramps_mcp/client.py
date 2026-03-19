@@ -35,7 +35,12 @@ from .config import get_settings
 from .models.api_calls import ApiCalls
 from .models.api_mapping import validate_api_call_params
 
+# JSON body type: single object or array of objects (e.g. bulk delete)
+JsonBody = Union[Dict, list]
+
 logger = logging.getLogger(__name__)
+
+MIN_API_MAJOR_VERSION = 3
 
 
 class GrampsAPIError(Exception):
@@ -78,6 +83,71 @@ class GrampsWebAPIClient:
         """Close the HTTP client and auth manager."""
         await self.auth_manager.close()
 
+    async def verify_api_version(self, tree_id: str = "default") -> str:
+        """Verify the Gramps Web API version is supported.
+
+        Calls GET /api/metadata/ to retrieve the server version. If the major
+        version is below MIN_API_MAJOR_VERSION, raises GrampsAPIError with an
+        actionable upgrade message. If the metadata endpoint is unreachable or
+        returns unexpected data, logs a warning and returns empty string
+        (graceful degradation).
+
+        Args:
+            tree_id: Tree identifier for URL building.
+
+        Returns:
+            The API version string (e.g. "3.7.1"), or empty string if the
+            version could not be determined.
+
+        Raises:
+            GrampsAPIError: If the API version is below 3.x.
+        """
+        try:
+            url = self._build_url(tree_id, "metadata/")
+            metadata = await self._make_request("GET", url=url)
+        except Exception as e:
+            logger.warning(f"Could not reach metadata endpoint: {e}")
+            return ""
+
+        if not isinstance(metadata, dict):
+            logger.warning("Metadata response is not a dict, skipping version check")
+            return ""
+
+        gramps_webapi = metadata.get("gramps_webapi")
+        if not isinstance(gramps_webapi, dict):
+            logger.warning(
+                "Metadata response missing 'gramps_webapi' key, skipping version check"
+            )
+            return ""
+
+        version_str = gramps_webapi.get("version")
+        if not isinstance(version_str, str):
+            logger.warning("Metadata missing version string, skipping version check")
+            return ""
+
+        # Parse major version, stripping optional 'v' prefix
+        raw = version_str.lstrip("v")
+        parts = raw.split(".")
+        try:
+            major = int(parts[0])
+        except (ValueError, IndexError):
+            logger.warning(
+                f"Could not parse major version from '{version_str}', "
+                "skipping version check"
+            )
+            return ""
+
+        if major < MIN_API_MAJOR_VERSION:
+            raise GrampsAPIError(
+                f"Gramps Web API version {version_str} is not supported. "
+                f"This MCP server requires API {MIN_API_MAJOR_VERSION}.x "
+                f"(Gramps Web 26.x or later). "
+                f"Please upgrade your Gramps Web instance."
+            )
+
+        logger.info(f"Gramps Web API version {version_str} verified")
+        return version_str
+
     async def _get_headers(self) -> Dict[str, str]:
         """Get authentication headers for API requests."""
         # Use the auth manager's method to get headers with valid token
@@ -96,7 +166,7 @@ class GrampsWebAPIClient:
         method: str,
         url: str,
         params: Optional[Dict] = None,
-        json_data: Optional[Dict] = None,
+        json_data: Optional[JsonBody] = None,
         retry_auth: bool = True,
         return_headers: bool = False,
     ) -> Any:
@@ -369,6 +439,43 @@ class GrampsWebAPIClient:
         response.raise_for_status()
         return response.json()
 
+    async def bulk_delete(
+        self, items: list[dict[str, str]], tree_id: str = "default"
+    ) -> dict:
+        """Delete entities via POST /objects/delete/ (bulk endpoint).
+
+        Used for entity types that lack a dedicated DELETE endpoint in API 3.x
+        (e.g. tags).
+
+        Args:
+            items: List of dicts, each with '_class' and 'handle' keys.
+                Example: [{"_class": "Tag", "handle": "abc123"}]
+            tree_id: Tree identifier.
+
+        Returns:
+            API response dict.
+
+        Raises:
+            ValueError: If items list is empty or items are malformed.
+            GrampsAPIError: If the API call fails.
+        """
+        if not items:
+            raise ValueError("bulk_delete requires a non-empty items list")
+
+        for item in items:
+            if (
+                not isinstance(item, dict)
+                or "_class" not in item
+                or "handle" not in item
+            ):
+                raise ValueError(
+                    "Each item must be a dict with "
+                    f"'_class' and 'handle' keys, got: {item}"
+                )
+
+        url = self._build_url(tree_id, "objects/delete/")
+        return await self._make_request(method="POST", url=url, json_data=items)
+
 
 # Export the main classes for easy import
-__all__ = ["GrampsWebAPIClient", "GrampsAPIError"]
+__all__ = ["GrampsWebAPIClient", "GrampsAPIError", "MIN_API_MAJOR_VERSION"]

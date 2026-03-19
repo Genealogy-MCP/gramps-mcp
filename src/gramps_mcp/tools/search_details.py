@@ -37,7 +37,7 @@ from ..handlers.person_detail_handler import format_person_detail
 from ..handlers.place_handler import format_place
 from ..handlers.repository_handler import format_repository
 from ..handlers.source_handler import format_source
-from ._errors import raise_tool_error
+from ._errors import McpToolError, raise_tool_error
 from .search_basic import with_client
 
 logger = logging.getLogger(__name__)
@@ -247,13 +247,10 @@ async def get_tool(arguments: Dict) -> List[TextContent]:
             handle = handle_match.group(1)
 
     if not handle:
-        return [
-            TextContent(
-                type="text",
-                text=f"Could not resolve handle for {entity_type} "
-                f"(gramps_id={gramps_id})",
-            )
-        ]
+        raise McpToolError(
+            f"Could not resolve handle for {entity_type} "
+            f"(gramps_id={gramps_id}). Use search to verify the ID exists."
+        )
 
     # Person and family use detailed handlers with timelines
     if entity_type == "person":
@@ -266,4 +263,8 @@ async def get_tool(arguments: Dict) -> List[TextContent]:
     if tool_func:
         return await tool_func({"handle": handle})
 
-    return [TextContent(type="text", text=f"Entity type '{entity_type}' not supported")]
+    valid_types = sorted(list(_GET_TOOL_DISPATCH.keys()) + ["person", "family"])
+    raise McpToolError(
+        f"Entity type '{entity_type}' not supported for get. "
+        f"Valid types: {', '.join(valid_types)}"
+    )

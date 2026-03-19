@@ -54,7 +54,7 @@ class PeopleTimelineParams(BaseModel):
     precision: int = Field(default=1, ge=1, le=3)
     discard_empty: bool = True
     omit_anchor: bool = True
-    page: int = Field(default=0, ge=0)
+    page: int = Field(default=1, ge=1)
     pagesize: int = Field(default=20, gt=0)
 
 
@@ -79,5 +79,5 @@ class FamiliesTimelineParams(BaseModel):
     event_classes: Optional[str] = None
     ratings: bool = False
     discard_empty: bool = True
-    page: int = Field(default=0, ge=0)
+    page: int = Field(default=1, ge=1)
     pagesize: int = Field(default=20, gt=0)

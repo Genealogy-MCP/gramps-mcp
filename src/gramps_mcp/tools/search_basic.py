@@ -49,7 +49,7 @@ from ..models.parameters.place_params import PlaceSearchParams
 from ..models.parameters.repository_params import RepositoriesParams
 from ..models.parameters.search_params import SearchParams
 from ..models.parameters.source_params import SourceSearchParams
-from ._errors import raise_tool_error
+from ._errors import McpToolError, raise_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -413,7 +413,8 @@ async def search_tool(arguments: Dict) -> List[TextContent]:
     max_results = arguments.get("max_results", 20)
 
     if not entity_type:
-        return [TextContent(type="text", text="Entity type is required")]
+        valid_types = ", ".join(sorted(_SEARCH_TOOL_DISPATCH.keys()))
+        raise McpToolError(f"Entity type is required. Valid types: {valid_types}")
 
     entity_type_str = (
         entity_type.value if hasattr(entity_type, "value") else entity_type
@@ -426,14 +427,10 @@ async def search_tool(arguments: Dict) -> List[TextContent]:
         return await tool_func(params)
 
     valid_types = ", ".join(sorted(_SEARCH_TOOL_DISPATCH.keys()))
-    return [
-        TextContent(
-            type="text",
-            text=(
-                f"Entity type '{entity_type}' not supported. Valid types: {valid_types}"
-            ),
-        )
-    ]
+    raise McpToolError(
+        f"Entity type '{entity_type}' not supported for search. "
+        f"Valid types: {valid_types}"
+    )
 
 
 @with_client

@@ -8,7 +8,7 @@ Unit tests only — no network required.
 import pytest
 
 from src.gramps_mcp.config import get_settings
-from src.gramps_mcp.server import (
+from src.gramps_mcp.server_tools import (
     _DELETE_ANNOTATIONS,
     _READ_ANNOTATIONS,
     _WRITE_ANNOTATIONS,
@@ -147,8 +147,11 @@ class TestSettingsValidation:
 class TestDispatchPatterns:
     """MCP-18: No globals() dispatch; use explicit dicts."""
 
-    def test_find_dispatch_covers_all_entity_types(self):
-        """_SEARCH_TOOL_DISPATCH must have an entry for every EntityType value."""
+    def test_find_dispatch_covers_all_searchable_entity_types(self):
+        """_SEARCH_TOOL_DISPATCH must cover all EntityType values.
+
+        EntityType excludes TAG by design — tags use list_tags, not GQL search.
+        """
         from src.gramps_mcp.models.parameters.simple_params import EntityType
 
         expected = {e.value for e in EntityType}
@@ -160,8 +163,12 @@ class TestDispatchPatterns:
         for name, func in _SEARCH_TOOL_DISPATCH.items():
             assert callable(func), f"Dispatch entry '{name}' is not callable"
 
-    def test_formatter_dispatch_covers_all_entity_types(self):
-        """FORMATTER_DISPATCH must have an entry for every EntityType value."""
+    def test_formatter_dispatch_covers_all_searchable_entity_types(self):
+        """FORMATTER_DISPATCH must cover all EntityType values.
+
+        EntityType excludes TAG by design — tags use list_tags, not the
+        generic search/format pipeline.
+        """
         from src.gramps_mcp.models.parameters.simple_params import EntityType
 
         expected = {e.value for e in EntityType}

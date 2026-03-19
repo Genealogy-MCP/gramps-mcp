@@ -11,14 +11,21 @@ import atexit
 import logging
 import os
 import re
+import socket
+import subprocess
+import sys
+import time
 from collections import defaultdict
 from typing import Dict, List, Optional, Set, Tuple
+from unittest.mock import AsyncMock
 
 import pytest
 
+from src.gramps_mcp.auth import AuthManager
 from src.gramps_mcp.client import GrampsAPIError, GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.models.api_calls import ApiCalls
+from src.gramps_mcp.tools.data_management_delete import DELETE_API_CALLS
 
 # ---------------------------------------------------------------------------
 # Default test instance — local Docker Gramps Web on port 5055.
@@ -38,8 +45,8 @@ def _is_docker_reachable(url: str) -> bool:
     Returns:
         True if the service responds with HTTP 200.
     """
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     try:
         urllib.request.urlopen(f"{url}/", timeout=3)
@@ -83,15 +90,121 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:
         )
 
     skip_marker = pytest.mark.skip(
-        reason=f"Gramps Web at {target} is unreachable (run: make test-integration)"
+        reason=f"Gramps Web at {target} is unreachable (run: make test)"
     )
     for item in items:
-        if "integration" in item.keywords:
+        if "integration" in item.keywords or "server" in item.keywords:
             item.add_marker(skip_marker)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def shared_auth_session():
+    """Authenticate once at session start; integration tests share the token.
+
+    The old per-test reset_auth_singleton fixture destroyed the cached JWT
+    before every test, forcing re-authentication.  With ~500 tests the
+    /api/token/ rate limiter (429) triggered after the first few requests,
+    cascading failures across the entire integration suite.
+
+    This session-scoped fixture lets the singleton persist so the token is
+    reused.  A single reset at session end prevents state leakage to other
+    pytest sessions.  Unit tests are unaffected because they mock the
+    client and never call AuthManager.authenticate().
+    """
+    yield
+    AuthManager.reset_instance()
+
+
+def _find_free_port() -> int:
+    """Find an available TCP port on localhost.
+
+    Returns:
+        An unused port number.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+_MCP_SERVER_STARTUP_TIMEOUT = 15  # seconds
+
+
+@pytest.fixture(scope="session")
+def mcp_server():
+    """Start MCP server as a subprocess for E2E server tests.
+
+    Finds a free port, starts the server process, polls /health until ready,
+    yields the base URL, and terminates the process on teardown.
+    Auto-skips if the Gramps Web Docker instance is unreachable.
+
+    Yields:
+        str: Base URL of the running MCP server (e.g. http://localhost:12345).
+    """
+    import urllib.error
+    import urllib.request
+
+    target = os.environ.get("GRAMPS_API_URL", _DEFAULT_API_URL)
+    if not _is_docker_reachable(target):
+        pytest.skip("Gramps Web API unreachable -- cannot start MCP server")
+
+    port = _find_free_port()
+    env = {**os.environ, "GRAMPS_MCP_PORT": str(port)}
+
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "src.gramps_mcp.server"],
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    base_url = f"http://localhost:{port}"
+    deadline = time.monotonic() + _MCP_SERVER_STARTUP_TIMEOUT
+
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            stderr = proc.stderr.read().decode() if proc.stderr else ""
+            pytest.fail(
+                f"MCP server exited with code {proc.returncode}: {stderr}"
+            )
+        try:
+            urllib.request.urlopen(f"{base_url}/health", timeout=1)
+            break
+        except (urllib.error.URLError, OSError):
+            time.sleep(0.5)
+    else:
+        proc.terminate()
+        stderr = proc.stderr.read().decode() if proc.stderr else ""
+        pytest.fail(
+            f"MCP server not healthy within {_MCP_SERVER_STARTUP_TIMEOUT}s: {stderr}"
+        )
+
+    yield base_url
+
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
 
 logger = logging.getLogger(__name__)
 
 TEST_PREFIX = "MCP_TEST_"
+
+
+def extract_handle(text: str) -> str:
+    """Extract hex handle from tool response text.
+
+    Args:
+        text: Tool response text containing a handle in [handle] format.
+
+    Returns:
+        The extracted handle string.
+    """
+    match = re.search(r"\[([a-f0-9]+)\]", text)
+    if not match:
+        pytest.fail(f"Could not extract handle from: {text}")
+    return match.group(1)
 
 # Deletion order respects referential integrity: entities that reference others
 # are deleted first. Families reference people/events, people reference events,
@@ -109,21 +222,9 @@ DELETION_PRIORITY: List[str] = [
     "tag",
 ]
 
-DELETE_API_CALLS: Dict[str, ApiCalls] = {
-    "person": ApiCalls.DELETE_PERSON,
-    "family": ApiCalls.DELETE_FAMILY,
-    "event": ApiCalls.DELETE_EVENT,
-    "place": ApiCalls.DELETE_PLACE,
-    "source": ApiCalls.DELETE_SOURCE,
-    "citation": ApiCalls.DELETE_CITATION,
-    "note": ApiCalls.DELETE_NOTE,
-    "media": ApiCalls.DELETE_MEDIA_ITEM,
-    "repository": ApiCalls.DELETE_REPOSITORY,
-    "tag": ApiCalls.DELETE_TAG,
-}
 
 # GQL filters per entity type for finding MCP_TEST_ prefixed records.
-# Note: notes are excluded because the demo server's GQL engine returns 500
+# Note: notes are excluded because Gramps Web's GQL engine returns 500
 # on any note query (even trivial ones like `private = false`). Notes are
 # swept via client-side filtering in _sweep_notes_fallback() instead.
 _SWEEP_GQL_FILTERS: Dict[str, str] = {
@@ -221,6 +322,25 @@ class HandleRegistry:
                 for handle in reversed(handles):
                     api_call = DELETE_API_CALLS.get(entity_type)
                     if not api_call:
+                        if entity_type == "tag":
+                            try:
+                                await client.bulk_delete(
+                                    items=[{"_class": "Tag", "handle": handle}],
+                                    tree_id=tree_id,
+                                )
+                                logger.info(
+                                    f"Deleted {entity_type} [{handle}] via bulk endpoint"
+                                )
+                            except Exception as e:
+                                if "404" in str(e) or "not found" in str(e).lower():
+                                    logger.info(
+                                        f"Already gone: {entity_type} [{handle}]"
+                                    )
+                                else:
+                                    logger.warning(
+                                        f"Failed to delete {entity_type} [{handle}]: {e}"
+                                    )
+                            continue
                         logger.warning(f"No delete API call for type '{entity_type}'")
                         continue
                     try:
@@ -310,7 +430,7 @@ async def _paginated_gql_query(
         Aggregated list of entity dicts across all pages.
     """
     all_results: List[dict] = []
-    page = 0
+    page = 1
     while True:
         response = await client.make_api_call(
             api_call=api_call,
@@ -416,6 +536,17 @@ async def sweep_test_artifacts() -> int:
                 except Exception as e:
                     logger.warning(f"Failed to sweep {entity_type} [{handle}]: {e}")
 
+        # Tags use bulk delete endpoint (API 3.x removed DELETE /tags/{handle})
+        for handle in to_delete.get("tag", []):
+            try:
+                await client.bulk_delete(
+                    items=[{"_class": "Tag", "handle": handle}], tree_id=tree_id
+                )
+                deleted_count += 1
+                logger.info(f"Swept tag [{handle}]")
+            except Exception as e:
+                logger.warning(f"Failed to sweep tag [{handle}]: {e}")
+
     finally:
         await client.close()
 
@@ -425,6 +556,8 @@ async def sweep_test_artifacts() -> int:
 
 # Module-level registry for atexit (needed for Ctrl+C recovery)
 _atexit_registry: Optional[HandleRegistry] = None
+# Set when cleanup_registry teardown runs — prevents redundant sessionfinish sweep
+_cleanup_registry_ran = False
 
 
 def _atexit_cleanup() -> None:
@@ -462,19 +595,53 @@ async def cleanup_registry():
     yield registry
 
     # Normal teardown path
+    global _cleanup_registry_ran
+    _cleanup_registry_ran = True
     await registry.cleanup_all()
 
 
 def pytest_sessionfinish(session, exitstatus):
-    """Sweep MCP_TEST_ artifacts after all tests and fixture teardowns complete.
+    """Sweep MCP_TEST_ artifacts when cleanup_registry didn't run.
 
-    This is the safety net that runs unconditionally — even when:
-    - Only unit tests ran (cleanup_registry fixture never triggered)
-    - Fixture cleanup missed some entities (server errors)
-    - Tests created entities without using the registry
+    Safety net for sessions where no integration tests used the
+    cleanup_registry fixture (e.g. unit-only runs that still have
+    Docker reachable).  Skips when cleanup_registry already handled
+    teardown — running both causes SQLite locking on the test container.
     """
+    if _cleanup_registry_ran:
+        return
+
+    target = os.environ.get("GRAMPS_API_URL", _DEFAULT_API_URL)
+    if not _is_docker_reachable(target):
+        return
+
     try:
         asyncio.run(sweep_test_artifacts())
     except Exception as e:
-        # Reason: non-fatal — cleanup failure must not mask test results
         logger.warning(f"Post-test sweep failed (non-fatal): {e}")
+
+
+def _mock_client(responses):
+    """Create a mock client returning predefined responses by API call name.
+
+    Keys should be enum names like "GET_NOTE", "GET_SOURCE", etc.
+    Values can be a dict (same response every time) or a list of dicts
+    (returns each in sequence, repeating the last for extra calls).
+    """
+    client = AsyncMock()
+    call_count = {}
+
+    async def mock_api_call(api_call, tree_id=None, handle=None, params=None):
+        key = api_call.name if hasattr(api_call, "name") else str(api_call)
+        call_count.setdefault(key, 0)
+        if key in responses:
+            val = responses[key]
+            if isinstance(val, list):
+                idx = min(call_count[key], len(val) - 1)
+                call_count[key] += 1
+                return val[idx]
+            return val
+        return {}
+
+    client.make_api_call = AsyncMock(side_effect=mock_api_call)
+    return client

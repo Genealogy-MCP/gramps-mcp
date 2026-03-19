@@ -23,6 +23,7 @@ the vendored seed.gramps fixture, and rebuilds the search index.
 
 Usage:
     python scripts/seed_test_db.py [--base-url URL] [--timeout SECONDS]
+    python scripts/seed_test_db.py --skip-if-seeded  # fast path for warm Docker
 """
 
 import argparse
@@ -148,6 +149,44 @@ def authenticate(base_url: str, username: str, password: str) -> str:
     token = resp.json()["access_token"]
     print("Authenticated successfully")
     return token
+
+
+def is_already_seeded(base_url: str, token: str) -> bool:
+    """
+    Check whether the test database contains queryable seed data.
+
+    Verifies both that data exists (I0001 via GQL) and that the API
+    can serve list queries (people list returns HTTP 200). The second
+    check catches a Gramps Web SQLite corruption state where data
+    exists but list endpoints return HTTP 500.
+
+    Args:
+        base_url: Gramps Web base URL.
+        token: JWT access token.
+
+    Returns:
+        True if seed data is present and the API is healthy.
+    """
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        # Verify list endpoint is healthy (catches post-cleanup 500s)
+        list_resp = httpx.get(
+            f"{base_url}/api/people/?pagesize=1",
+            headers=headers,
+            timeout=10,
+        )
+        if list_resp.status_code != 200:
+            print(f"  API unhealthy (HTTP {list_resp.status_code} on list)")
+            return False
+
+        data = list_resp.json()
+        if not data:
+            return False
+
+        return True
+    except (httpx.ConnectError, httpx.ReadTimeout):
+        pass
+    return False
 
 
 def poll_task(
@@ -355,6 +394,11 @@ def main() -> None:
         default=DEFAULT_TIMEOUT,
         help="Max seconds to wait for operations",
     )
+    parser.add_argument(
+        "--skip-if-seeded",
+        action="store_true",
+        help="Exit early if seed data already present (fast path for warm Docker)",
+    )
     args = parser.parse_args()
 
     if not SEED_FILE.exists():
@@ -368,6 +412,10 @@ def main() -> None:
     wait_for_healthy(args.base_url, timeout=args.timeout)
     create_owner(args.compose_file, args.username, args.password)
     token = authenticate(args.base_url, args.username, args.password)
+
+    if args.skip_if_seeded and is_already_seeded(args.base_url, token):
+        print("Seed data already present (I0001 found) -- skipping import")
+        return
 
     # Warm up: ensure tree exists in the web process, then trigger a Celery
     # task that calls get_db_outside_request() → do_reg_plugins(). This loads

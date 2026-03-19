@@ -20,6 +20,8 @@ from src.gramps_mcp.models.parameters.base_params import (
     BaseGetMultipleParams,
     BaseGetSingleParams,
 )
+from src.gramps_mcp.models.parameters.search_params import SearchParams
+from src.gramps_mcp.models.parameters.transactions_params import TransactionHistoryParams
 
 
 class TestApiMapping:
@@ -60,6 +62,21 @@ class TestApiMapping:
         assert result.page == 1
         assert result.pagesize == 10
 
+    def test_validate_api_call_params_page_zero_rejected(self):
+        """API 3.x uses 1-based pagination; page=0 must be rejected."""
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            validate_api_call_params(ApiCalls.GET_PEOPLE, {"page": 0})
+
+    def test_validate_api_call_params_page_negative_rejected(self):
+        """Negative page numbers must be rejected."""
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            validate_api_call_params(ApiCalls.GET_PEOPLE, {"page": -1})
+
+    def test_validate_api_call_params_page_one_accepted(self):
+        """page=1 is the minimum valid page for API 3.x."""
+        result = validate_api_call_params(ApiCalls.GET_PEOPLE, {"page": 1})
+        assert result.page == 1
+
     def test_validate_api_call_params_invalid(self):
         """Test parameter validation with invalid parameters."""
         # Test with invalid parameters - invalid extend choice
@@ -81,22 +98,37 @@ class TestApiMapping:
             validate_api_call_params(ApiCalls.DELETE_PERSON, {"page": 1})
 
 
-@pytest.mark.integration
-class TestUnifiedApiCall:
-    """Test the unified API call functionality with real API integration."""
+class TestPaginationConstraints:
+    """Verify all pagination models reject page=0 (API 3.x is 1-based)."""
 
-    @pytest.fixture
-    async def client(self):
-        """Create a real GrampsWebAPIClient for integration testing."""
-        client = GrampsWebAPIClient()
-        yield client
-        await client.close()
+    def test_search_params_page_zero_rejected(self):
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            SearchParams(query="test", page=0)
+
+    def test_search_params_page_one_accepted(self):
+        params = SearchParams(query="test", page=1)
+        assert params.page == 1
+
+    def test_transaction_history_params_page_zero_rejected(self):
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            TransactionHistoryParams(page=0)
+
+    def test_transaction_history_params_page_one_accepted(self):
+        params = TransactionHistoryParams(page=1)
+        assert params.page == 1
+
+    def test_base_get_multiple_page_zero_rejected(self):
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            BaseGetMultipleParams(page=0)
+
+
+class TestUrlBuilding:
+    """Test URL building logic — pure string manipulation, no API calls."""
 
     def test_build_url_with_substitution(self):
         """Test URL building with parameter substitution."""
         client = GrampsWebAPIClient()
 
-        # Test URL substitution
         url = client._build_url_with_substitution(
             tree_id="test_tree",
             endpoint="people/{handle}/timeline",
@@ -111,7 +143,6 @@ class TestUnifiedApiCall:
         """Test URL building with multiple parameter substitutions."""
         client = GrampsWebAPIClient()
 
-        # Test multiple parameter substitution
         url = client._build_url_with_substitution(
             tree_id="test_tree",
             endpoint="relations/{handle1}/{handle2}",
@@ -128,13 +159,24 @@ class TestUnifiedApiCall:
         """Test URL building with missing parameters."""
         client = GrampsWebAPIClient()
 
-        # Test missing parameters
         with pytest.raises(ValueError, match="Missing required URL parameters"):
             client._build_url_with_substitution(
                 tree_id="test_tree",
                 endpoint="people/{handle}/timeline",
-                url_params={},  # Missing handle
+                url_params={},
             )
+
+
+@pytest.mark.integration
+class TestUnifiedApiCall:
+    """Test the unified API call functionality with real API integration."""
+
+    @pytest.fixture
+    async def client(self):
+        """Create a real GrampsWebAPIClient for integration testing."""
+        client = GrampsWebAPIClient()
+        yield client
+        await client.close()
 
     @pytest.mark.asyncio
     async def test_make_api_call_parameter_validation(self, client):

@@ -57,7 +57,7 @@ class BaseGetMultipleParams(BaseModel):
         None, description="An alternate user managed identifier"
     )
     page: Optional[int] = Field(
-        None, description="Page number representing a subset of results"
+        None, ge=1, description="Page number (1-based) representing a subset of results"
     )
     pagesize: Optional[int] = Field(
         None, description="The number of items that constitute a page"

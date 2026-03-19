@@ -59,6 +59,12 @@ class TestNormaliseUrlKeys:
         assert data["urls"][0] == "not-a-dict"
         assert data["urls"][1]["desc"] == "X"
 
+    def test_none_urls_is_noop(self):
+        """urls=None should be treated as falsy (no-op)."""
+        data = {"urls": None}
+        _normalise_url_keys(data)
+        assert data == {"urls": None}
+
 
 # ---------------------------------------------------------------------------
 # _format_http_error
@@ -337,6 +343,18 @@ class TestMakeRequest:
             await client._make_request("GET", "http://test/api/people/")
 
     @pytest.mark.asyncio
+    async def test_generic_exception(self):
+        """Non-httpx exceptions are caught and wrapped in GrampsAPIError."""
+        client = self._setup_client()
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.client.request = AsyncMock(
+            side_effect=RuntimeError("something unexpected")
+        )
+
+        with pytest.raises(GrampsAPIError, match="Unexpected error"):
+            await client._make_request("GET", "http://test/api/people/")
+
+    @pytest.mark.asyncio
     async def test_json_with_return_headers(self):
         """Valid JSON + return_headers returns (data, headers)."""
         client = self._setup_client()
@@ -404,7 +422,7 @@ class TestMakeApiCall:
 
             await client.make_api_call(
                 api_call=ApiCalls.GET_PEOPLE,
-                params={"pagesize": 10, "page": 0},
+                params={"pagesize": 10, "page": 1},
             )
 
             call_kwargs = mock_req.call_args.kwargs
@@ -534,3 +552,108 @@ class TestUploadMediaFile:
         # Verify Content-Type header was set
         call_kwargs = client.auth_manager.client.request.call_args.kwargs
         assert call_kwargs["headers"]["Content-Type"] == "image/jpeg"
+
+    @pytest.mark.asyncio
+    async def test_413_payload_too_large(self):
+        """413 from server propagates as HTTPStatusError."""
+        client = GrampsWebAPIClient()
+        client.auth_manager = MagicMock()
+        client.auth_manager.get_token = AsyncMock()
+        client.auth_manager.get_headers = MagicMock(
+            return_value={"Authorization": "Bearer test"}
+        )
+        client.auth_manager.close = AsyncMock()
+
+        request = httpx.Request("POST", "http://test/api/media/")
+        response = httpx.Response(413, request=request)
+        error = httpx.HTTPStatusError("413", request=request, response=response)
+
+        resp = MagicMock()
+        resp.raise_for_status = MagicMock(side_effect=error)
+
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.client.request = AsyncMock(return_value=resp)
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await client.upload_media_file(b"huge" * 1000, "image/png")
+
+    @pytest.mark.asyncio
+    async def test_connection_error(self):
+        """ConnectError during upload propagates."""
+        client = GrampsWebAPIClient()
+        client.auth_manager = MagicMock()
+        client.auth_manager.get_token = AsyncMock()
+        client.auth_manager.get_headers = MagicMock(
+            return_value={"Authorization": "Bearer test"}
+        )
+        client.auth_manager.close = AsyncMock()
+
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.client.request = AsyncMock(
+            side_effect=httpx.ConnectError("Connection refused")
+        )
+
+        with pytest.raises(httpx.ConnectError):
+            await client.upload_media_file(b"content", "image/jpeg")
+
+
+# ---------------------------------------------------------------------------
+# bulk_delete
+# ---------------------------------------------------------------------------
+
+
+class TestBulkDelete:
+    """Test bulk_delete() input validation and request building."""
+
+    def _make_client(self):
+        """Build a GrampsWebAPIClient with mocked internals."""
+        client = GrampsWebAPIClient()
+        client.auth_manager = MagicMock()
+        client.auth_manager.get_token = AsyncMock()
+        client.auth_manager.get_headers = MagicMock(
+            return_value={"Authorization": "Bearer test"}
+        )
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.client.request = AsyncMock()
+        client.auth_manager.close = AsyncMock()
+        return client
+
+    @pytest.mark.asyncio
+    async def test_rejects_empty_list(self):
+        """Empty items list raises ValueError."""
+        client = self._make_client()
+        with pytest.raises(ValueError, match="non-empty"):
+            await client.bulk_delete(items=[])
+
+    @pytest.mark.asyncio
+    async def test_rejects_malformed_items(self):
+        """Items missing _class or handle raise ValueError."""
+        client = self._make_client()
+        with pytest.raises(ValueError, match="_class"):
+            await client.bulk_delete(items=[{"handle": "h1"}])
+
+    @pytest.mark.asyncio
+    async def test_rejects_non_dict_items(self):
+        """Non-dict items raise ValueError."""
+        client = self._make_client()
+        with pytest.raises(ValueError, match="_class"):
+            await client.bulk_delete(items=["not a dict"])
+
+    @pytest.mark.asyncio
+    async def test_builds_correct_request(self):
+        """Successful call posts to objects/delete/ with correct payload."""
+        client = self._make_client()
+        client._make_request = AsyncMock(return_value={})
+
+        await client.bulk_delete(
+            items=[{"_class": "Tag", "handle": "t1"}], tree_id="mytree"
+        )
+
+        client._make_request.assert_called_once()
+        call_kwargs = client._make_request.call_args
+        method = call_kwargs.kwargs.get("method") or call_kwargs.args[0]
+        assert method == "POST"
+        url = call_kwargs.kwargs.get("url") or call_kwargs.args[1]
+        assert "objects/delete/" in url
+        json_data = call_kwargs.kwargs.get("json_data")
+        assert json_data == [{"_class": "Tag", "handle": "t1"}]

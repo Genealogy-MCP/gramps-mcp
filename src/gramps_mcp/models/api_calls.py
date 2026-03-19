@@ -145,6 +145,9 @@ class ApiCalls(Enum):
     # PARSERS operations
     POST_PARSERS_DNA_MATCH = ("POST", "parsers/dna-match")
 
+    # BULK operations
+    POST_OBJECTS_DELETE = ("POST", "objects/delete/")
+
     # TREES operations
     GET_TREES = ("GET", "trees/")
     GET_TREE = ("GET", "trees/{tree_id}")

@@ -17,7 +17,7 @@ import pytest
 from src.gramps_mcp.tools._errors import McpToolError
 
 pytestmark = pytest.mark.integration
-from src.gramps_mcp.tools.data_management import (
+from src.gramps_mcp.tools import (
     delete_tool,
     upsert_citation_tool,
     upsert_event_tool,
@@ -32,9 +32,12 @@ from src.gramps_mcp.tools.data_management import (
 )
 from src.gramps_mcp.tools.search_basic import list_tags_tool
 
-from .conftest import TEST_PREFIX
+from .conftest import TEST_PREFIX, extract_handle
 
-# Store handles for chaining tests following proper Gramps workflow
+# Store handles for chaining tests following proper Gramps workflow.
+# These module-level globals enable entity chaining across test classes
+# (note -> repository -> source -> citation -> place -> event -> person -> family).
+# Tests MUST run in declaration order; pytest-randomly will break the suite.
 test_note_handle = None
 test_media_handle = None
 test_repository_handle = None
@@ -43,14 +46,6 @@ test_citation_handle = None
 test_place_handle = None
 test_event_handle = None
 test_person_handles = []
-
-
-def _extract_handle(text: str) -> str:
-    """Extract hex handle from tool response text."""
-    match = re.search(r"\[([a-f0-9]+)\]", text)
-    if not match:
-        pytest.fail(f"Could not extract handle from: {text}")
-    return match.group(1)
 
 
 class TestCreateNoteTool:
@@ -79,28 +74,16 @@ class TestCreateNoteTool:
             f"Expected note type 'Research' in output but got: {text}"
         )
 
-        test_note_handle = _extract_handle(text)
+        test_note_handle = extract_handle(text)
         cleanup_registry.track("note", test_note_handle)
 
 
 class TestCreateMediaToolValidation:
-    """Unit-style integration tests for upsert_media_tool input validation."""
+    """Integration tests for upsert_media_tool that require API access.
 
-    @pytest.mark.asyncio
-    async def test_create_without_file_location_raises_error(self):
-        """Creating media without file_location raises McpToolError."""
-        with pytest.raises(McpToolError) as exc_info:
-            await upsert_media_tool({"desc": "No file provided"})
-        assert "file_location is required" in str(exc_info.value)
-
-    @pytest.mark.asyncio
-    async def test_create_with_nonexistent_file_raises_error(self):
-        """A non-existent file_location raises McpToolError with 'File not found'."""
-        with pytest.raises(McpToolError) as exc_info:
-            await upsert_media_tool(
-                {"desc": "Missing file", "file_location": "/nonexistent/path/photo.jpg"}
-            )
-        assert "File not found" in str(exc_info.value)
+    Validation-only tests (no file_location, nonexistent file) live in
+    test_data_management_unit.py::TestUpsertMediaTool.
+    """
 
     @pytest.mark.asyncio
     async def test_update_media_without_file_location(self, cleanup_registry):
@@ -115,10 +98,8 @@ class TestCreateMediaToolValidation:
             }
         )
         create_text = create_result[0].text
-        assert "successfully" in create_text.lower(), (
-            f"Create failed: {create_text}"
-        )
-        handle = _extract_handle(create_text)
+        assert "successfully" in create_text.lower(), f"Create failed: {create_text}"
+        handle = extract_handle(create_text)
         cleanup_registry.track("media", handle)
 
         # Now update with only desc — no file_location
@@ -159,7 +140,7 @@ class TestCreateMediaTool:
             f"Expected formatted date '15 January 2024' in output but got: {text}"
         )
 
-        test_media_handle = _extract_handle(text)
+        test_media_handle = extract_handle(text)
         cleanup_registry.track("media", test_media_handle)
 
 
@@ -267,7 +248,7 @@ class TestCreateSourceTool:
             f"Expected publication info in output but got: {text}"
         )
 
-        test_source_handle = _extract_handle(text)
+        test_source_handle = extract_handle(text)
         cleanup_registry.track("source", test_source_handle)
 
 
@@ -317,7 +298,7 @@ class TestCreateCitationTool:
             f"Expected full citation date with modifier and quality in output but got: {text}"
         )
 
-        test_citation_handle = _extract_handle(text)
+        test_citation_handle = extract_handle(text)
         cleanup_registry.track("citation", test_citation_handle)
 
 
@@ -334,7 +315,7 @@ class TestCreatePlaceTool:
             {"name": {"value": f"{TEST_PREFIX}United States"}, "place_type": "Country"}
         )
 
-        country_handle = _extract_handle(country_result[0].text)
+        country_handle = extract_handle(country_result[0].text)
         cleanup_registry.track("place", country_handle)
 
         # Create state enclosed by country
@@ -346,7 +327,7 @@ class TestCreatePlaceTool:
             }
         )
 
-        state_handle = _extract_handle(state_result[0].text)
+        state_handle = extract_handle(state_result[0].text)
         cleanup_registry.track("place", state_handle)
 
         # Create city enclosed by state
@@ -387,7 +368,7 @@ class TestCreatePlaceTool:
             f"Expected URL description in output but got: {text}"
         )
 
-        test_place_handle = _extract_handle(text)
+        test_place_handle = extract_handle(text)
         cleanup_registry.track("place", test_place_handle)
 
 
@@ -430,7 +411,7 @@ class TestCreateEventTool:
             f"Expected linked place in output but got: {text}"
         )
 
-        test_event_handle = _extract_handle(text)
+        test_event_handle = extract_handle(text)
         cleanup_registry.track("event", test_event_handle)
 
 
@@ -450,7 +431,9 @@ class TestCreatePersonTool:
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}John",
-                    "surname_list": [{"surname": f"{TEST_PREFIX}Smith", "primary": True}],
+                    "surname_list": [
+                        {"surname": f"{TEST_PREFIX}Smith", "primary": True}
+                    ],
                 },
                 "gender": 1,  # Male
                 "event_ref_list": [{"ref": test_event_handle, "role": "Primary"}]
@@ -491,7 +474,7 @@ class TestCreatePersonTool:
             f"Expected URL description in output but got: {text}"
         )
 
-        john_handle = _extract_handle(text)
+        john_handle = extract_handle(text)
         test_person_handles.append(john_handle)
         cleanup_registry.track("person", john_handle)
 
@@ -503,34 +486,36 @@ class TestCreatePersonTool:
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}Update",
-                    "surname_list": [{"surname": f"{TEST_PREFIX}Issue9", "primary": True}],
+                    "surname_list": [
+                        {"surname": f"{TEST_PREFIX}Issue9", "primary": True}
+                    ],
                 },
                 "gender": 1,  # Male
             }
         )
 
-        person_handle = _extract_handle(person_result[0].text)
+        person_handle = extract_handle(person_result[0].text)
         cleanup_registry.track("person", person_handle)
 
         # Step 2: Create a simple note for our citation
         note_result = await upsert_note_tool(
             {"text": f"{TEST_PREFIX}note for Issue #9 update test", "type": "General"}
         )
-        note_handle = _extract_handle(note_result[0].text)
+        note_handle = extract_handle(note_result[0].text)
         cleanup_registry.track("note", note_handle)
 
         # Step 3: Create a simple source
         source_result = await upsert_source_tool(
             {"title": f"{TEST_PREFIX}Source for Issue 9"}
         )
-        source_handle = _extract_handle(source_result[0].text)
+        source_handle = extract_handle(source_result[0].text)
         cleanup_registry.track("source", source_handle)
 
         # Step 4: Create a citation
         citation_result = await upsert_citation_tool(
             {"source_handle": source_handle, "page": f"{TEST_PREFIX}Test Page"}
         )
-        citation_handle = _extract_handle(citation_result[0].text)
+        citation_handle = extract_handle(citation_result[0].text)
         cleanup_registry.track("citation", citation_handle)
 
         # Step 5: Create first event (Birth)
@@ -543,7 +528,7 @@ class TestCreatePersonTool:
             }
         )
 
-        birth_event_handle = _extract_handle(birth_event_result[0].text)
+        birth_event_handle = extract_handle(birth_event_result[0].text)
         cleanup_registry.track("event", birth_event_handle)
 
         # Step 6: Update person with first event
@@ -552,7 +537,9 @@ class TestCreatePersonTool:
                 "handle": person_handle,
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}Update",
-                    "surname_list": [{"surname": f"{TEST_PREFIX}Issue9", "primary": True}],
+                    "surname_list": [
+                        {"surname": f"{TEST_PREFIX}Issue9", "primary": True}
+                    ],
                 },
                 "gender": 1,
                 "event_ref_list": [{"ref": birth_event_handle, "role": "Primary"}],
@@ -569,7 +556,7 @@ class TestCreatePersonTool:
             }
         )
 
-        death_event_handle = _extract_handle(death_event_result[0].text)
+        death_event_handle = extract_handle(death_event_result[0].text)
         cleanup_registry.track("event", death_event_handle)
 
         # Step 8: Update person with BOTH events (issue #9 scenario)
@@ -578,7 +565,9 @@ class TestCreatePersonTool:
                 "handle": person_handle,
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}Update",
-                    "surname_list": [{"surname": f"{TEST_PREFIX}Issue9", "primary": True}],
+                    "surname_list": [
+                        {"surname": f"{TEST_PREFIX}Issue9", "primary": True}
+                    ],
                 },
                 "gender": 1,
                 "event_ref_list": [
@@ -607,7 +596,9 @@ class TestCreatePersonTool:
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}Mary",
-                    "surname_list": [{"surname": f"{TEST_PREFIX}Johnson", "primary": True}],
+                    "surname_list": [
+                        {"surname": f"{TEST_PREFIX}Johnson", "primary": True}
+                    ],
                 },
                 "gender": 0,  # Female
                 "media_list": [{"ref": test_media_handle}] if test_media_handle else [],
@@ -641,7 +632,7 @@ class TestCreatePersonTool:
             f"Expected URL description in output but got: {text}"
         )
 
-        mary_handle = _extract_handle(text)
+        mary_handle = extract_handle(text)
         test_person_handles.append(mary_handle)
         cleanup_registry.track("person", mary_handle)
 
@@ -696,7 +687,7 @@ class TestCreateFamilyTool:
             f"Expected URL description in output but got: {text}"
         )
 
-        family_handle = _extract_handle(text)
+        family_handle = extract_handle(text)
         cleanup_registry.track("family", family_handle)
 
 
@@ -710,24 +701,24 @@ class TestListModeReplace:
         note1_result = await upsert_note_tool(
             {"text": f"{TEST_PREFIX}First note for list_mode test", "type": "General"}
         )
-        note1_handle = _extract_handle(note1_result[0].text)
+        note1_handle = extract_handle(note1_result[0].text)
         cleanup_registry.track("note", note1_handle)
 
         note2_result = await upsert_note_tool(
             {"text": f"{TEST_PREFIX}Second note for list_mode test", "type": "General"}
         )
-        note2_handle = _extract_handle(note2_result[0].text)
+        note2_handle = extract_handle(note2_result[0].text)
         cleanup_registry.track("note", note2_handle)
 
         # Create a source and citation for the event (required)
         source_result = await upsert_source_tool(
             {"title": f"{TEST_PREFIX}Source for list_mode test"}
         )
-        source_handle = _extract_handle(source_result[0].text)
+        source_handle = extract_handle(source_result[0].text)
         cleanup_registry.track("source", source_handle)
 
         citation_result = await upsert_citation_tool({"source_handle": source_handle})
-        citation_handle = _extract_handle(citation_result[0].text)
+        citation_handle = extract_handle(citation_result[0].text)
         cleanup_registry.track("citation", citation_handle)
 
         # Create event with first note
@@ -741,7 +732,7 @@ class TestListModeReplace:
         )
         event_text = event_result[0].text
         assert "Error:" not in event_text
-        event_handle = _extract_handle(event_text)
+        event_handle = extract_handle(event_text)
         cleanup_registry.track("event", event_handle)
 
         # Update event with second note only, using list_mode='replace'
@@ -760,13 +751,29 @@ class TestListModeReplace:
         assert "Error:" not in replace_text
         assert "updated" in replace_text.lower()
 
-        # Verify: the first note should NOT be present (replaced, not merged)
-        from src.gramps_mcp.tools.search_details import get_tool
+        # Verify via raw API: note_list should contain only note2
+        from src.gramps_mcp.client import GrampsWebAPIClient
+        from src.gramps_mcp.config import get_settings
+        from src.gramps_mcp.models.api_calls import ApiCalls
 
-        get_result = await get_tool({"type": "event", "handle": event_handle})
-        get_text = get_result[0].text
-
-        assert f"{TEST_PREFIX}Second note for list_mode test" in get_text or note2_handle in get_text
+        client = GrampsWebAPIClient()
+        try:
+            settings = get_settings()
+            event_data = await client.make_api_call(
+                api_call=ApiCalls.GET_EVENT,
+                tree_id=settings.gramps_tree_id,
+                handle=event_handle,
+            )
+            note_list = event_data.get("note_list", [])
+            assert note2_handle in note_list, (
+                f"Expected note2 ({note2_handle}) in note_list, "
+                f"got: {note_list}"
+            )
+            assert note1_handle not in note_list, (
+                f"note1 ({note1_handle}) should have been replaced"
+            )
+        finally:
+            await client.close()
 
 
 class TestDeleteTypeTool:
@@ -782,7 +789,7 @@ class TestDeleteTypeTool:
         text = create_result[0].text
         assert "Error:" not in text
 
-        note_handle = _extract_handle(text)
+        note_handle = extract_handle(text)
         # Reason: no need to track — we delete it immediately in this test
 
         # Delete it
@@ -796,9 +803,7 @@ class TestDeleteTypeTool:
     async def test_delete_invalid_handle(self):
         """Test delete with invalid handle raises McpToolError."""
         with pytest.raises(McpToolError):
-            await delete_tool(
-                {"type": "note", "handle": "nonexistent_handle_xyz"}
-            )
+            await delete_tool({"type": "note", "handle": "nonexistent_handle_xyz"})
 
 
 class TestCreateTagTool:
@@ -818,18 +823,18 @@ class TestCreateTagTool:
         assert f"{TEST_PREFIX}Tag" in text
         assert "#FF5733" in text
 
-        tag_handle = _extract_handle(text)
+        tag_handle = extract_handle(text)
         cleanup_registry.track("tag", tag_handle)
 
-        # Test update
-        update_result = await upsert_tag_tool(
-            {"handle": tag_handle, "name": f"{TEST_PREFIX}Tag Updated", "color": "#00FF00"}
-        )
-        update_text = update_result[0].text
-
-        assert "Error:" not in update_text
-        assert "updated" in update_text.lower()
-        assert f"{TEST_PREFIX}Tag Updated" in update_text
+        # Update should raise error (API 3.x doesn't support tag PUT)
+        with pytest.raises(McpToolError):
+            await upsert_tag_tool(
+                {
+                    "handle": tag_handle,
+                    "name": f"{TEST_PREFIX}Tag Updated",
+                    "color": "#00FF00",
+                }
+            )
 
     @pytest.mark.asyncio
     async def test_find_tags(self):

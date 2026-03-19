@@ -31,20 +31,21 @@ from .analysis import (
     get_tree_stats_tool,
 )
 
-# Data Management Tools
+# Data Management Tools -- split across submodules by responsibility:
+# data_management (CRUD), data_management_delete (delete + tags),
+# data_management_media (media upload).
 from .data_management import (
-    delete_tool,
     upsert_citation_tool,
     upsert_event_tool,
     upsert_family_tool,
-    upsert_media_tool,
     upsert_note_tool,
     upsert_person_tool,
     upsert_place_tool,
     upsert_repository_tool,
     upsert_source_tool,
-    upsert_tag_tool,
 )
+from .data_management_delete import delete_tool, upsert_tag_tool
+from .data_management_media import upsert_media_tool
 from .search_basic import (
     list_tags_tool,
     search_citation_tool,

@@ -17,11 +17,17 @@ from src.gramps_mcp.auth import AuthManager
 
 
 @pytest.fixture(autouse=True)
-def reset_auth_singleton():
-    """Reset AuthManager singleton before and after each test."""
-    AuthManager.reset_instance()
+def _isolate_auth_singleton():
+    """Save and restore the AuthManager singleton around each test.
+
+    Auth unit tests call reset_instance() and create fresh instances.
+    Without this guard, they destroy the shared token that integration
+    tests rely on when both run in the same session.
+    """
+    saved = AuthManager._instance
+    AuthManager._instance = None
     yield
-    AuthManager.reset_instance()
+    AuthManager._instance = saved
 
 
 # ---------------------------------------------------------------------------
@@ -50,17 +56,33 @@ class TestSingleton:
 
 
 class TestClientProperty:
-    """Test the httpx.AsyncClient lifecycle in AuthManager."""
+    """Test the httpx.AsyncClient lifecycle in AuthManager.
+
+    Patches httpx.AsyncClient to avoid environment-dependent proxy config
+    (e.g. SOCKS proxy) that would cause ImportError in CI or local envs.
+    """
 
     @pytest.mark.asyncio
-    async def test_creates_client_on_first_access(self):
+    @patch("src.gramps_mcp.auth.httpx.AsyncClient")
+    async def test_creates_client_on_first_access(self, mock_cls):
+        mock_instance = MagicMock()
+        mock_instance.is_closed = False
+        mock_instance.aclose = AsyncMock()
+        mock_cls.return_value = mock_instance
+
         mgr = AuthManager()
         client = mgr.client
-        assert isinstance(client, httpx.AsyncClient)
+        assert client is mock_instance
         await mgr.close()
 
     @pytest.mark.asyncio
-    async def test_returns_cached_client(self):
+    @patch("src.gramps_mcp.auth.httpx.AsyncClient")
+    async def test_returns_cached_client(self, mock_cls):
+        mock_instance = MagicMock()
+        mock_instance.is_closed = False
+        mock_instance.aclose = AsyncMock()
+        mock_cls.return_value = mock_instance
+
         mgr = AuthManager()
         c1 = mgr.client
         c2 = mgr.client
@@ -68,12 +90,26 @@ class TestClientProperty:
         await mgr.close()
 
     @pytest.mark.asyncio
-    async def test_recreates_closed_client(self):
+    @patch("src.gramps_mcp.auth.httpx.AsyncClient")
+    async def test_recreates_closed_client(self, mock_cls):
+        first_client = MagicMock()
+        first_client.is_closed = False
+        first_client.aclose = AsyncMock()
+
+        second_client = MagicMock()
+        second_client.is_closed = False
+        second_client.aclose = AsyncMock()
+
+        mock_cls.side_effect = [first_client, second_client]
+
         mgr = AuthManager()
         c1 = mgr.client
         await c1.aclose()
+        first_client.is_closed = True
+
         c2 = mgr.client
         assert c1 is not c2
+        assert c2 is second_client
         await mgr.close()
 
 
@@ -292,13 +328,19 @@ class TestClose:
     """Test close cleans up resources."""
 
     @pytest.mark.asyncio
-    async def test_closes_open_client(self):
+    @patch("src.gramps_mcp.auth.httpx.AsyncClient")
+    async def test_closes_open_client(self, mock_cls):
+        mock_instance = MagicMock()
+        mock_instance.is_closed = False
+        mock_instance.aclose = AsyncMock()
+        mock_cls.return_value = mock_instance
+
         mgr = AuthManager()
-        # Access client to create it
         _ = mgr.client
         assert mgr._client is not None
         await mgr.close()
         assert mgr._client is None
+        mock_instance.aclose.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_close_without_client(self):
@@ -306,3 +348,31 @@ class TestClose:
         mgr._client = None
         await mgr.close()
         assert mgr._client is None
+
+
+# ---------------------------------------------------------------------------
+# Config + initialization (no API calls, only env vars from conftest)
+# ---------------------------------------------------------------------------
+
+
+class TestConfigLoading:
+    """Test configuration loading from env vars set by conftest.py."""
+
+    def test_get_settings_loads_from_env(self):
+        """Settings load from env vars set by pytest_configure."""
+        from src.gramps_mcp.config import get_settings
+
+        settings = get_settings()
+
+        assert settings.gramps_api_url is not None
+        assert settings.gramps_username is not None
+        assert settings.gramps_password is not None
+        assert settings.gramps_tree_id is not None
+
+    def test_auth_manager_initialization(self):
+        """Auth manager initializes with settings from env vars."""
+        auth = AuthManager()
+
+        assert auth.settings.gramps_api_url is not None
+        assert auth.settings.gramps_username is not None
+        assert auth.settings.gramps_password is not None
