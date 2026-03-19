@@ -766,8 +766,7 @@ class TestListModeReplace:
             )
             note_list = event_data.get("note_list", [])
             assert note2_handle in note_list, (
-                f"Expected note2 ({note2_handle}) in note_list, "
-                f"got: {note_list}"
+                f"Expected note2 ({note2_handle}) in note_list, got: {note_list}"
             )
             assert note1_handle not in note_list, (
                 f"note1 ({note1_handle}) should have been replaced"

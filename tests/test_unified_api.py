@@ -21,7 +21,9 @@ from src.gramps_mcp.models.parameters.base_params import (
     BaseGetSingleParams,
 )
 from src.gramps_mcp.models.parameters.search_params import SearchParams
-from src.gramps_mcp.models.parameters.transactions_params import TransactionHistoryParams
+from src.gramps_mcp.models.parameters.transactions_params import (
+    TransactionHistoryParams,
+)
 
 
 class TestApiMapping:

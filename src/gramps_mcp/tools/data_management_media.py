@@ -28,6 +28,7 @@ from mcp.types import TextContent
 
 from ..client import GrampsAPIError, GrampsWebAPIClient
 from ..config import get_settings
+from ..media_client import MediaClient
 from ..models.api_calls import ApiCalls
 from ..models.parameters.media_params import MediaSaveParams
 from ._data_helpers import _extract_entity_data, _format_save_response
@@ -51,8 +52,25 @@ async def upsert_media_tool(arguments: Dict) -> List[TextContent]:
         tree_id = settings.gramps_tree_id
 
         client = GrampsWebAPIClient()
+        media_client = MediaClient(client)
         try:
             if params and params.handle:
+                # File replacement: upload new file before metadata update
+                if file_location:
+                    if not os.path.isfile(file_location):
+                        raise FileNotFoundError(f"File not found: {file_location}")
+                    with open(file_location, "rb") as f:
+                        file_content = f.read()
+                    mime_type, _ = mimetypes.guess_type(file_location)
+                    if not mime_type:
+                        mime_type = "application/octet-stream"
+                    await media_client.replace_media_file(
+                        file_content=file_content,
+                        handle=params.handle,
+                        mime_type=mime_type,
+                        tree_id=tree_id,
+                    )
+
                 result = await client.make_api_call(
                     api_call=ApiCalls.PUT_MEDIA_ITEM,
                     params=params,
@@ -73,7 +91,7 @@ async def upsert_media_tool(arguments: Dict) -> List[TextContent]:
                 if not mime_type:
                     mime_type = "application/octet-stream"
 
-                upload_result = await client.upload_media_file(
+                upload_result = await media_client.upload_media_file(
                     file_content, mime_type, tree_id
                 )
 

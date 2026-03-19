@@ -163,9 +163,7 @@ def mcp_server():
     while time.monotonic() < deadline:
         if proc.poll() is not None:
             stderr = proc.stderr.read().decode() if proc.stderr else ""
-            pytest.fail(
-                f"MCP server exited with code {proc.returncode}: {stderr}"
-            )
+            pytest.fail(f"MCP server exited with code {proc.returncode}: {stderr}")
         try:
             urllib.request.urlopen(f"{base_url}/health", timeout=1)
             break
@@ -205,6 +203,7 @@ def extract_handle(text: str) -> str:
     if not match:
         pytest.fail(f"Could not extract handle from: {text}")
     return match.group(1)
+
 
 # Deletion order respects referential integrity: entities that reference others
 # are deleted first. Families reference people/events, people reference events,

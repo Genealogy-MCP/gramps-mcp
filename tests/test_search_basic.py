@@ -65,8 +65,7 @@ class TestFindFamilyTool:
             f"Error found in response: {result[0].text}"
         )
         assert "Found" in result[0].text, (
-            "Expected families with children but got: "
-            f"{result[0].text}"
+            f"Expected families with children but got: {result[0].text}"
         )
 
         result_count = result[0].text.count("* **")
@@ -183,8 +182,7 @@ class TestFindCitationTool:
             f"Error found in response: {result[0].text}"
         )
         assert "Found" in result[0].text, (
-            "Expected citations with confidence=3 but got: "
-            f"{result[0].text}"
+            f"Expected citations with confidence=3 but got: {result[0].text}"
         )
 
         result_count = result[0].text.count("* **")

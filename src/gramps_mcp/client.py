@@ -425,20 +425,6 @@ class GrampsWebAPIClient:
             return_headers=with_headers,
         )
 
-    async def upload_media_file(
-        self, file_content: bytes, mime_type: str, tree_id: str = "default"
-    ):
-        """Upload a media file to Gramps."""
-        url = self._build_url(tree_id, "media/")
-        headers = await self._get_headers()
-        headers["Content-Type"] = mime_type
-
-        response = await self.auth_manager.client.request(
-            method="POST", url=url, content=file_content, headers=headers
-        )
-        response.raise_for_status()
-        return response.json()
-
     async def bulk_delete(
         self, items: list[dict[str, str]], tree_id: str = "default"
     ) -> dict:

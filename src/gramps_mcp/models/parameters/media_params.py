@@ -67,7 +67,8 @@ class MediaSaveParams(BaseDataModel):
         description=(
             "Absolute local file path to upload (e.g. '/home/user/photo.jpg'). "
             "Required when creating new media (no handle provided). "
-            "Omit when updating an existing media record. "
+            "When updating an existing record (handle provided), set this to "
+            "replace the file while preserving the media record's identity. "
             "This is the upload source, not the Gramps-relative storage path."
         ),
     )

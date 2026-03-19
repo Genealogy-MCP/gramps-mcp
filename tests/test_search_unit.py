@@ -411,9 +411,7 @@ class TestFindAnythingTool:
         from src.gramps_mcp.tools.search_basic import search_text_tool
 
         client_inst = _mock_client_instance()
-        client_inst.make_api_call = AsyncMock(
-            return_value=([], {"x-total-count": "0"})
-        )
+        client_inst.make_api_call = AsyncMock(return_value=([], {"x-total-count": "0"}))
         mock_client_cls.return_value = client_inst
 
         result = await search_text_tool({"query": "test"})
