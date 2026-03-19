@@ -34,7 +34,7 @@ class TestValidateApiCallParams:
 
     def test_valid_params(self):
         result = validate_api_call_params(
-            ApiCalls.GET_PEOPLE, {"pagesize": 10, "page": 0}
+            ApiCalls.GET_PEOPLE, {"pagesize": 10, "page": 1}
         )
         assert result is not None
         assert hasattr(result, "pagesize")

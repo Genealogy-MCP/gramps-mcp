@@ -33,7 +33,9 @@ from pydantic import BaseModel, Field
 class TagSearchParams(BaseModel):
     """Parameters for searching tags."""
 
-    page: Optional[int] = Field(None, description="Page number for pagination", ge=0)
+    page: Optional[int] = Field(
+        None, description="Page number for pagination (1-based)", ge=1
+    )
     pagesize: Optional[int] = Field(
         None, description="Number of results per page", ge=1, le=100
     )

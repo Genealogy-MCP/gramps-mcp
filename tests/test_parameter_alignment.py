@@ -17,6 +17,7 @@ from src.gramps_mcp.models.parameters.people_params import PersonData
 from src.gramps_mcp.models.parameters.place_params import PlaceSaveParams
 from src.gramps_mcp.models.parameters.repository_params import RepositoryData
 from src.gramps_mcp.models.parameters.simple_params import (
+    DeletableEntityType,
     EntityType,
     SimpleFindParams,
     SimpleGetParams,
@@ -539,9 +540,9 @@ class TestParameterAlignment:
             "SimpleGetParams should have 'gramps_id' field"
         )
 
-        # Test EntityType enum exists and has all types
+        # EntityType has 9 searchable types (TAG excluded — tags use list_tags)
         entity_types = {e.value for e in EntityType}
-        expected_types = {
+        expected_searchable = {
             "person",
             "family",
             "event",
@@ -552,7 +553,15 @@ class TestParameterAlignment:
             "repository",
             "note",
         }
-        assert entity_types == expected_types, "EntityType should have all entity types"
+        assert entity_types == expected_searchable, (
+            "EntityType should have all searchable entity types (no tag)"
+        )
+
+        # DeletableEntityType has all 10 types including TAG
+        deletable_types = {e.value for e in DeletableEntityType}
+        assert deletable_types == expected_searchable | {"tag"}, (
+            "DeletableEntityType should include tag"
+        )
 
         # SimpleGetParams.type uses EntityType (GetEntityType was removed as duplicate)
         get_params_type_field = SimpleGetParams.model_fields["type"]

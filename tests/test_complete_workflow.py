@@ -22,17 +22,17 @@ import pytest
 
 pytestmark = pytest.mark.integration
 
-from src.gramps_mcp.tools.data_management import (
+from src.gramps_mcp.tools import (
     upsert_citation_tool,
     upsert_event_tool,
     upsert_family_tool,
-    upsert_media_tool,
     upsert_note_tool,
     upsert_person_tool,
     upsert_place_tool,
     upsert_repository_tool,
     upsert_source_tool,
 )
+from src.gramps_mcp.tools.data_management_media import upsert_media_tool
 from src.gramps_mcp.tools.search_basic import (
     search_citation_tool,
     search_event_tool,
@@ -44,14 +44,6 @@ from src.gramps_mcp.tools.search_basic import (
 )
 
 from .conftest import TEST_PREFIX
-
-
-def _extract_handle(text: str) -> str:
-    """Extract hex handle from tool response text."""
-    match = re.search(r"\[([a-f0-9]+)\]", text)
-    if not match:
-        pytest.fail(f"Could not extract handle from: {text}")
-    return match.group(1)
 
 
 class TestCompleteWorkflow:
@@ -399,7 +391,10 @@ class TestCompleteWorkflow:
         await self._create_place_hierarchy(workflow_data)
 
         find_result = await search_event_tool(
-            {"query": f"marriage {TEST_PREFIX}John {TEST_PREFIX}Smith 1878", "pagesize": 5}
+            {
+                "query": f"marriage {TEST_PREFIX}John {TEST_PREFIX}Smith 1878",
+                "pagesize": 5,
+            }
         )
 
         assert isinstance(find_result, list) and len(find_result) == 1
@@ -470,7 +465,10 @@ class TestCompleteWorkflow:
         registry = workflow_data["_registry"]
 
         find_result = await search_family_tool(
-            {"query": f"{TEST_PREFIX}John {TEST_PREFIX}Smith {TEST_PREFIX}Mary {TEST_PREFIX}Jones", "pagesize": 5}
+            {
+                "query": f"{TEST_PREFIX}John {TEST_PREFIX}Smith {TEST_PREFIX}Mary {TEST_PREFIX}Jones",
+                "pagesize": 5,
+            }
         )
 
         assert isinstance(find_result, list) and len(find_result) == 1
@@ -576,52 +574,6 @@ class TestCompleteWorkflow:
             registry.track("person", person_handle)
             return person_handle
 
-    async def _create_or_find_person(
-        self,
-        workflow_data: Dict[str, Any],
-        given_name: str,
-        surname: str,
-        gender: int,
-        birth_year: str,
-        context: str,
-    ) -> str:
-        """Create or find a person following the workflow guidelines (legacy method)."""
-        registry = workflow_data["_registry"]
-
-        search_query = f"{given_name} {surname} {birth_year} {context}"
-        find_result = await search_person_tool({"query": search_query, "pagesize": 5})
-
-        assert isinstance(find_result, list) and len(find_result) == 1
-        result_text = find_result[0].text
-
-        existing_handle = None
-        if "No people found" not in result_text:
-            if (
-                given_name.lower() in result_text.lower()
-                and surname.lower() in result_text.lower()
-            ):
-                handle_match = re.search(r"\[([a-f0-9]+)\]", result_text)
-                if handle_match:
-                    existing_handle = handle_match.group(1)
-
-        if existing_handle:
-            return existing_handle
-        else:
-            create_result = await upsert_person_tool(
-                {
-                    "primary_name": {"given_name": given_name, "surname": surname},
-                    "gender": gender,
-                }
-            )
-
-            assert isinstance(create_result, list) and len(create_result) == 1
-            create_text = create_result[0].text
-            handle_match = re.search(r"\[([a-f0-9]+)\]", create_text)
-            assert handle_match, f"No handle found in: {create_text}"
-            person_handle = handle_match.group(1)
-            registry.track("person", person_handle)
-            return person_handle
-
     async def _create_place_hierarchy(self, workflow_data: Dict[str, Any]):
         """Create place hierarchy: Country -> State -> City -> Church."""
         country_handle = await self._create_or_find_place(
@@ -640,7 +592,10 @@ class TestCompleteWorkflow:
         workflow_data["city_handle"] = city_handle
 
         church_handle = await self._create_or_find_place(
-            workflow_data, f"{TEST_PREFIX}St Marys Catholic Church", "Church", city_handle
+            workflow_data,
+            f"{TEST_PREFIX}St Marys Catholic Church",
+            "Church",
+            city_handle,
         )
         workflow_data["church_handle"] = church_handle
 

@@ -65,5 +65,7 @@ class FamilyTimelineParams(BaseModel):
         None, description="Include citation count and highest confidence score"
     )
     discard_empty: Optional[bool] = Field(None, description="Discard undated events")
-    page: Optional[int] = Field(None, ge=0, description="Page number for pagination")
+    page: Optional[int] = Field(
+        None, ge=1, description="Page number for pagination (1-based)"
+    )
     pagesize: Optional[int] = Field(None, ge=1, description="Number of items per page")

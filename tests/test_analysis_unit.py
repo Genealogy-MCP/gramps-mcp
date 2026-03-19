@@ -1,6 +1,6 @@
 """
 Unit tests for tools/analysis.py — formatting functions, task polling,
-tree stats, and report tools.
+tree stats, report tools, and report download retry logic.
 
 Tests mock GrampsWebAPIClient to avoid network calls.
 """
@@ -12,6 +12,7 @@ import pytest
 from src.gramps_mcp.client import GrampsAPIError
 from src.gramps_mcp.tools._errors import McpToolError
 from src.gramps_mcp.tools.analysis import (
+    _fetch_report_with_retry,
     _format_recent_changes,
     _format_tree_info,
     _wait_for_task_completion,
@@ -268,14 +269,12 @@ class TestFormatTreeInfo:
             "name": "Smith Family",
             "description": "Three generations",
             "usage_people": 2157,
-            "usage_media": 104857600,
         }
         result = _format_tree_info(tree)
         assert "Smith Family" in result
         assert "tree1" in result
         assert "Three generations" in result
         assert "2,157" in result
-        assert "MB" in result
 
     def test_no_description(self):
         tree = {
@@ -292,11 +291,10 @@ class TestFormatTreeInfo:
         result = _format_tree_info(tree)
         assert "Statistics not available" in result
 
-    def test_only_media_usage(self):
-        tree = {"id": "t4", "name": "Media Only", "usage_media": 5242880}
+    def test_no_stats_available(self):
+        tree = {"id": "t4", "name": "No Stats"}
         result = _format_tree_info(tree)
-        assert "MB" in result
-        assert "People" not in result
+        assert "Statistics not available" in result
 
 
 # ---------------------------------------------------------------------------
@@ -637,3 +635,90 @@ class TestGetAncestorsTool:
 
         with pytest.raises(McpToolError):
             await get_ancestors_tool({"gramps_id": "I0001"})
+
+
+# ---------------------------------------------------------------------------
+# _fetch_report_with_retry
+# ---------------------------------------------------------------------------
+
+
+class TestFetchReportWithRetry:
+    """Test retry logic for processed report file downloads.
+
+    After a Celery task completes, the generated file may not be immediately
+    available via the web endpoint. This helper retries on 404 with
+    exponential backoff to handle the race condition.
+    """
+
+    @pytest.mark.asyncio
+    async def test_immediate_success(self):
+        """First call succeeds — no retry needed."""
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(
+            return_value={"raw_content": "<h1>Report</h1>"}
+        )
+
+        result = await _fetch_report_with_retry(
+            client, "tree1", "descend_report", "output.html"
+        )
+        assert result == "<h1>Report</h1>"
+        assert client.make_api_call.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_retry_on_404_then_success(self):
+        """First call gets 404, second succeeds."""
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(
+            side_effect=[
+                GrampsAPIError("Record not found at /reports/descend_report/file"),
+                {"raw_content": "<h1>Descendants</h1>"},
+            ]
+        )
+
+        result = await _fetch_report_with_retry(
+            client,
+            "tree1",
+            "descend_report",
+            "output.html",
+            initial_delay=0.01,
+        )
+        assert result == "<h1>Descendants</h1>"
+        assert client.make_api_call.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_exhausted_retries_raises(self):
+        """All attempts return 404 — raises GrampsAPIError."""
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(
+            side_effect=GrampsAPIError("Record not found at /reports/file")
+        )
+
+        with pytest.raises(GrampsAPIError, match="not found"):
+            await _fetch_report_with_retry(
+                client,
+                "tree1",
+                "descend_report",
+                "output.html",
+                max_retries=2,
+                initial_delay=0.01,
+            )
+        # 1 initial + 2 retries = 3 calls
+        assert client.make_api_call.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_non_404_error_not_retried(self):
+        """Non-404 errors (e.g. 500) raise immediately without retry."""
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(
+            side_effect=GrampsAPIError("Server error at /reports/file")
+        )
+
+        with pytest.raises(GrampsAPIError, match="Server error"):
+            await _fetch_report_with_retry(
+                client,
+                "tree1",
+                "descend_report",
+                "output.html",
+                initial_delay=0.01,
+            )
+        assert client.make_api_call.call_count == 1

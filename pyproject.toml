@@ -4,7 +4,6 @@ version = "1.1.1"
 description = "AI-Powered Genealogy Research & Management - MCP server for Gramps Web API"
 requires-python = ">=3.10"
 dependencies = [
-    "black>=26.3.1",
     "fastapi>=0.120.0",
     "httpx>=0.25.0",
     "markdownify>=0.11.6",
@@ -38,7 +37,6 @@ dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
-    "pytest-rerunfailures>=16.1",
     "requests>=2.31.0",
     "ruff>=0.1.0",
     "tdd-guard-pytest>=0.1.2",
@@ -51,6 +49,7 @@ include = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -61,8 +60,12 @@ markers = [
     "timeout: marks tests with specific timeout values",
     "server: marks tests requiring a running MCP server (skipped by default)",
 ]
-addopts = "--verbose --strict-markers --tb=short --cov=src --cov-branch --cov-report=term-missing --cov-fail-under=80 -m 'not server' --reruns 3 --reruns-delay 2"
+addopts = "--verbose --strict-markers --tb=short --cov=src --cov-branch --cov-report=term-missing --cov-fail-under=80"
 asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::pydantic.json_schema.PydanticJsonSchemaWarning",
+    "ignore::jwt.warnings.InsecureKeyLengthWarning",
+]
 
 [tool.coverage.run]
 omit = [

@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 
 
 class EntityType(str, Enum):
-    """All searchable entity types in Gramps."""
+    """Searchable entity types in Gramps (excludes TAG — tags use list_tags)."""
 
     PERSON = "person"
     FAMILY = "family"
@@ -37,6 +37,21 @@ class EntityType(str, Enum):
     MEDIA = "media"
     REPOSITORY = "repository"
     NOTE = "note"
+
+
+class DeletableEntityType(str, Enum):
+    """All entity types that can be deleted (includes TAG)."""
+
+    PERSON = "person"
+    FAMILY = "family"
+    EVENT = "event"
+    PLACE = "place"
+    SOURCE = "source"
+    CITATION = "citation"
+    MEDIA = "media"
+    REPOSITORY = "repository"
+    NOTE = "note"
+    TAG = "tag"
 
 
 class SimpleFindParams(BaseModel):
@@ -67,5 +82,5 @@ class SimpleGetParams(BaseModel):
 class DeleteParams(BaseModel):
     """Parameters for deleting an entity."""
 
-    type: EntityType = Field(description="Entity type to delete")
+    type: DeletableEntityType = Field(description="Entity type to delete")
     handle: str = Field(description="Handle of the entity to delete")

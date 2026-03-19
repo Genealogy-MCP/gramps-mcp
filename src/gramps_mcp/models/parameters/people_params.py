@@ -122,7 +122,9 @@ class PersonTimelineParams(BaseModel):
     omit_anchor: Optional[bool] = Field(
         None, description="Omit person info for events pertaining to that person"
     )
-    page: Optional[int] = Field(None, ge=0, description="Page number for pagination")
+    page: Optional[int] = Field(
+        None, ge=1, description="Page number for pagination (1-based)"
+    )
     pagesize: Optional[int] = Field(None, ge=1, description="Number of items per page")
 
 
