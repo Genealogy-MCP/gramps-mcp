@@ -5,6 +5,7 @@ tree stats, report tools, and report download retry logic.
 Tests mock GrampsWebAPIClient to avoid network calls.
 """
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -722,3 +723,41 @@ class TestFetchReportWithRetry:
                 initial_delay=0.01,
             )
         assert client.make_api_call.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_max_delay_caps_backoff(self):
+        """Backoff delay never exceeds max_delay."""
+        client = AsyncMock()
+        # 4 consecutive 404s then success on attempt 5
+        client.make_api_call = AsyncMock(
+            side_effect=[
+                GrampsAPIError("404 not found"),
+                GrampsAPIError("404 not found"),
+                GrampsAPIError("404 not found"),
+                GrampsAPIError("404 not found"),
+                {"raw_content": "<h1>OK</h1>"},
+            ]
+        )
+
+        sleep_values: list[float] = []
+        original_sleep = asyncio.sleep
+
+        async def _capture_sleep(seconds: float) -> None:
+            sleep_values.append(seconds)
+            await original_sleep(0)  # yield without real delay
+
+        with patch("src.gramps_mcp.tools.analysis.asyncio.sleep", _capture_sleep):
+            result = await _fetch_report_with_retry(
+                client,
+                "tree1",
+                "descend_report",
+                "output.html",
+                max_retries=5,
+                initial_delay=2.0,
+                max_delay=3.0,
+            )
+
+        assert result == "<h1>OK</h1>"
+        assert client.make_api_call.call_count == 5
+        # Delays: 2.0, 3.0, 3.0, 3.0 (capped at max_delay=3.0)
+        assert sleep_values == [2.0, 3.0, 3.0, 3.0]
