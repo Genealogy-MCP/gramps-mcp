@@ -9,7 +9,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 COPY src/ src/
 
-FROM python:3.11-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 # Add OCI labels
 LABEL org.opencontainers.image.title="Gramps MCP"
