@@ -25,6 +25,7 @@ import logging
 
 from ..models.api_calls import ApiCalls
 from .date_handler import format_date
+from .name_utils import join_surnames
 from .place_handler import format_place
 
 logger = logging.getLogger(__name__)
@@ -202,7 +203,7 @@ def _extract_person_name(person_data: dict) -> str:
     if primary_name:
         given_name = primary_name.get("first_name", "")
         surname_list = primary_name.get("surname_list", [])
-        surname = surname_list[0].get("surname", "") if surname_list else ""
+        surname = join_surnames(surname_list)
         full_name = f"{given_name} {surname}".strip()
         return full_name if full_name else ""
     return ""

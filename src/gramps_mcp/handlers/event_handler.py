@@ -25,6 +25,7 @@ import logging
 
 from ..models.api_calls import ApiCalls
 from .date_handler import format_date
+from .name_utils import join_surnames
 from .place_handler import format_place
 
 logger = logging.getLogger(__name__)
@@ -94,7 +95,7 @@ async def format_event(
                 person_name = person.get("primary_name", {})
                 first_name = person_name.get("first_name", "")
                 surname_list = person_name.get("surname_list", [])
-                surname = surname_list[0].get("surname", "") if surname_list else ""
+                surname = join_surnames(surname_list)
                 full_name = f"{first_name} {surname}".strip()
 
                 # Find the role for this specific event
@@ -137,11 +138,7 @@ async def format_event(
                             father_name = father_data.get("primary_name", {})
                             first_name = father_name.get("first_name", "")
                             surname_list = father_name.get("surname_list", [])
-                            surname = (
-                                surname_list[0].get("surname", "")
-                                if surname_list
-                                else ""
-                            )
+                            surname = join_surnames(surname_list)
                             full_name = f"{first_name} {surname}".strip()
 
                             family_participants.append(full_name)
@@ -163,11 +160,7 @@ async def format_event(
                             mother_name = mother_data.get("primary_name", {})
                             first_name = mother_name.get("first_name", "")
                             surname_list = mother_name.get("surname_list", [])
-                            surname = (
-                                surname_list[0].get("surname", "")
-                                if surname_list
-                                else ""
-                            )
+                            surname = join_surnames(surname_list)
                             full_name = f"{first_name} {surname}".strip()
 
                             family_participants.append(full_name)
