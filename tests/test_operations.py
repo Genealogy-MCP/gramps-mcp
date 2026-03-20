@@ -14,13 +14,14 @@ from src.gramps_mcp.operations import (
     summarize_params,
 )
 
-# Expected operation names — all 19 from the current tool set
+# Expected operation names — all 20 from the current tool set
 EXPECTED_OPERATIONS = {
     "search",
     "search_text",
     "list_tags",
     "get",
     "get_tree_stats",
+    "download_media",
     "get_descendants",
     "get_ancestors",
     "get_recent_changes",
@@ -43,9 +44,9 @@ VALID_CATEGORIES = {"search", "read", "write", "delete", "analysis"}
 class TestOperationRegistry:
     """Tests for OPERATION_REGISTRY completeness and correctness."""
 
-    def test_all_19_operations_registered(self):
-        """Registry must contain exactly 19 operations."""
-        assert len(OPERATION_REGISTRY) == 19
+    def test_all_20_operations_registered(self):
+        """Registry must contain exactly 20 operations."""
+        assert len(OPERATION_REGISTRY) == 20
 
     def test_operation_names_match_expected(self):
         """Registry keys must match the expected operation names."""
@@ -81,6 +82,7 @@ class TestOperationRegistry:
             "list_tags",
             "get",
             "get_tree_stats",
+            "download_media",
             "get_descendants",
             "get_ancestors",
             "get_recent_changes",
@@ -125,13 +127,13 @@ class TestOperationRegistry:
             assert isinstance(entry, OperationEntry), f"{name}: not an OperationEntry"
 
     def test_category_distribution(self):
-        """Verify expected distribution: 3 search, 2 read, 10 write, 1 delete, 3 analysis."""
+        """Verify expected distribution: 3 search, 3 read, 10 write, 1 delete, 3 analysis."""
         counts = {}
         for entry in OPERATION_REGISTRY.values():
             counts[entry.category] = counts.get(entry.category, 0) + 1
         assert counts == {
             "search": 3,
-            "read": 2,
+            "read": 3,
             "write": 10,
             "delete": 1,
             "analysis": 3,

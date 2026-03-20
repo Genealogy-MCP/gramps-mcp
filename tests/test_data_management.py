@@ -19,6 +19,7 @@ from src.gramps_mcp.tools._errors import McpToolError
 pytestmark = pytest.mark.integration
 from src.gramps_mcp.tools import (
     delete_tool,
+    download_media_tool,
     upsert_citation_tool,
     upsert_event_tool,
     upsert_family_tool,
@@ -142,6 +143,41 @@ class TestCreateMediaTool:
 
         test_media_handle = extract_handle(text)
         cleanup_registry.track("media", test_media_handle)
+
+
+class TestDownloadMediaTool:
+    """Test download_media_tool using media created by TestCreateMediaTool."""
+
+    @pytest.mark.asyncio
+    async def test_download_media_by_handle(self, tmp_path):
+        """Download by handle writes file to disk."""
+        global test_media_handle
+        if not test_media_handle:
+            pytest.fail(
+                "No media handle available from previous test - run tests in order"
+            )
+
+        dest = str(tmp_path / "downloaded.jpg")
+        result = await download_media_tool(
+            {"handle": test_media_handle, "destination": dest}
+        )
+
+        import os
+
+        text = result[0].text
+        assert "Error:" not in text, f"Expected success but got error: {text}"
+        assert os.path.isfile(dest)
+        assert os.path.getsize(dest) > 0
+        assert test_media_handle in text
+
+    @pytest.mark.asyncio
+    async def test_download_media_invalid_handle(self, tmp_path):
+        """Non-existent handle raises McpToolError."""
+        dest = str(tmp_path / "should_not_exist.jpg")
+        with pytest.raises(McpToolError):
+            await download_media_tool(
+                {"handle": "nonexistent_handle_12345678", "destination": dest}
+            )
 
 
 class TestCreateRepositoryTool:

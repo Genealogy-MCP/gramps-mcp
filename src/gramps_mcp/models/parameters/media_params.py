@@ -30,9 +30,35 @@ API calls supported in this category:
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .base_params import BaseDataModel, BaseGetMultipleParams
+
+
+class MediaDownloadParams(BaseModel):
+    """Parameters for downloading a media file to local disk."""
+
+    handle: Optional[str] = Field(
+        None, min_length=8, description="Media handle identifier"
+    )
+    gramps_id: Optional[str] = Field(
+        None,
+        description="Gramps ID (e.g. 'O0001') - resolved to handle before download",
+    )
+    destination: str = Field(
+        ...,
+        min_length=1,
+        description="Absolute local file path to save the downloaded file",
+    )
+
+    @model_validator(mode="after")
+    def validate_identifier(self) -> "MediaDownloadParams":
+        """Ensure at least one identifier is provided."""
+        if not self.handle and not self.gramps_id:
+            raise ValueError(
+                "At least one of 'handle' or 'gramps_id' must be provided."
+            )
+        return self
 
 
 class MediaSearchParams(BaseGetMultipleParams):

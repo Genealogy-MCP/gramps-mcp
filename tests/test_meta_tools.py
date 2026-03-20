@@ -49,7 +49,7 @@ class TestSearchOperationsTool:
         assert len(result) >= 1
         text = result[0].text
         assert (
-            "no operations matched" in text.lower() or "19 operations" in text.lower()
+            "no operations matched" in text.lower() or "20 operations" in text.lower()
         )
 
     @pytest.mark.asyncio

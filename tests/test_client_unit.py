@@ -668,6 +668,81 @@ class TestBulkDelete:
 # ---------------------------------------------------------------------------
 
 
+class TestMediaClientDownload:
+    """Test MediaClient.download_media_file() request building and error handling."""
+
+    def _make_api_client(self):
+        """Build a GrampsWebAPIClient with mocked internals."""
+        api_client = GrampsWebAPIClient()
+        api_client.auth_manager = MagicMock()
+        api_client.auth_manager.get_token = AsyncMock()
+        api_client.auth_manager.get_headers = MagicMock(
+            return_value={"Authorization": "Bearer test"}
+        )
+        api_client.auth_manager.client = MagicMock()
+        api_client.auth_manager.close = AsyncMock()
+        return api_client
+
+    @pytest.mark.asyncio
+    async def test_happy_path(self):
+        """Successful download returns (bytes, content_type)."""
+        api_client = self._make_api_client()
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b"binary file data"
+        mock_response.headers = {"content-type": "image/jpeg"}
+        mock_response.raise_for_status = MagicMock()
+        api_client.auth_manager.client.request = AsyncMock(
+            return_value=mock_response
+        )
+
+        media_client = MediaClient(api_client)
+        file_bytes, content_type = await media_client.download_media_file(
+            "m1handle1"
+        )
+
+        assert file_bytes == b"binary file data"
+        assert content_type == "image/jpeg"
+
+        # Verify GET request to correct URL
+        call_kwargs = api_client.auth_manager.client.request.call_args[1]
+        assert call_kwargs["method"] == "GET"
+        assert "media/m1handle1/file" in call_kwargs["url"]
+
+    @pytest.mark.asyncio
+    async def test_404_raises_gramps_error(self):
+        """404 from server wraps as GrampsAPIError."""
+        api_client = self._make_api_client()
+        mock_response = MagicMock(spec=httpx.Response)
+        mock_response.status_code = 404
+        mock_response.text = "Not Found"
+        mock_request = MagicMock()
+        mock_request.url = "http://localhost/api/media/bad/file"
+        mock_response.request = mock_request
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "Not Found", request=mock_request, response=mock_response
+        )
+        api_client.auth_manager.client.request = AsyncMock(
+            return_value=mock_response
+        )
+
+        media_client = MediaClient(api_client)
+        with pytest.raises(GrampsAPIError):
+            await media_client.download_media_file("badhandle")
+
+    @pytest.mark.asyncio
+    async def test_connection_error_propagates(self):
+        """ConnectError during download propagates."""
+        api_client = self._make_api_client()
+        api_client.auth_manager.client.request = AsyncMock(
+            side_effect=httpx.ConnectError("Connection refused")
+        )
+
+        media_client = MediaClient(api_client)
+        with pytest.raises(httpx.ConnectError):
+            await media_client.download_media_file("m1handle1")
+
+
 class TestMediaClientReplace:
     """Test MediaClient.replace_media_file() request building and error handling."""
 
