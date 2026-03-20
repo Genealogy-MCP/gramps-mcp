@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0](https://github.com/Genealogy-MCP/gramps-mcp/compare/v2.0.0...v3.0.0) (2026-03-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* MCP tool call signature changed. Old: call_tool("upsert_person", {"first_name": "John", ...}) New: call_tool("execute", {"operation": "upsert_person", "params": {...}})
+
+### Bug Fixes
+
+* sync release-please manifest to v2.0.0 ([#26](https://github.com/Genealogy-MCP/gramps-mcp/issues/26)) ([c436cf1](https://github.com/Genealogy-MCP/gramps-mcp/commit/c436cf19ae4340ed587e397d847c572ccd553b7e))
+
 ## [Unreleased]
 
 ## [2.0.0] - 2026-03-19 (Code Mode architecture)
