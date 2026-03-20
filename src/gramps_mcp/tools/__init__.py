@@ -45,7 +45,7 @@ from .data_management import (
     upsert_source_tool,
 )
 from .data_management_delete import delete_tool, upsert_tag_tool
-from .data_management_media import upsert_media_tool
+from .data_management_media import download_media_tool, upsert_media_tool
 
 # Meta-tools (Code Mode) are NOT re-exported here to avoid circular
 # imports: meta_execute/meta_search depend on operations.py, which
@@ -91,6 +91,7 @@ __all__ = [
     "upsert_citation_tool",
     "upsert_note_tool",
     "upsert_media_tool",
+    "download_media_tool",
     "upsert_repository_tool",
     "delete_tool",
     "upsert_tag_tool",

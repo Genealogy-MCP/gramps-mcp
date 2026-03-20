@@ -22,6 +22,7 @@ READ_TOOLS = {
     "list_tags",
     "get",
     "get_tree_stats",
+    "download_media",
     "get_descendants",
     "get_ancestors",
     "get_recent_changes",

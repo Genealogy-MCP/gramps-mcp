@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field
 from .models.parameters.citation_params import CitationData
 from .models.parameters.event_params import EventSaveParams
 from .models.parameters.family_params import FamilySaveParams
-from .models.parameters.media_params import MediaSaveParams
+from .models.parameters.media_params import MediaDownloadParams, MediaSaveParams
 from .models.parameters.note_params import NoteSaveParams
 from .models.parameters.people_params import PersonData
 from .models.parameters.place_params import PlaceSaveParams
@@ -66,7 +66,7 @@ from .tools.data_management import (
     upsert_source_tool,
 )
 from .tools.data_management_delete import delete_tool, upsert_tag_tool
-from .tools.data_management_media import upsert_media_tool
+from .tools.data_management_media import download_media_tool, upsert_media_tool
 from .tools.search_basic import list_tags_tool, search_text_tool, search_tool
 from .tools.search_details import get_tool
 
@@ -134,7 +134,7 @@ class OperationEntry:
 
 
 # ---------------------------------------------------------------------------
-# OPERATION_REGISTRY — 19 operations
+# OPERATION_REGISTRY — 20 operations
 # ---------------------------------------------------------------------------
 
 OPERATION_REGISTRY: dict[str, OperationEntry] = {
@@ -177,7 +177,7 @@ OPERATION_REGISTRY: dict[str, OperationEntry] = {
         read_only=True,
         destructive=False,
     ),
-    # --- read (2) ---
+    # --- read (3) ---
     "get": OperationEntry(
         name="get",
         summary="Get full details for any entity by handle or gramps_id",
@@ -198,6 +198,20 @@ OPERATION_REGISTRY: dict[str, OperationEntry] = {
         category="read",
         params_schema=TreeInfoParams,
         handler=get_tree_stats_tool,
+        read_only=True,
+        destructive=False,
+    ),
+    "download_media": OperationEntry(
+        name="download_media",
+        summary="Download a media file from Gramps Web to local disk",
+        description=(
+            "Download a media file (photo, document, etc.) from Gramps Web to a "
+            "local file path. Provide either the media handle or gramps_id, plus "
+            "an absolute destination path. The parent directory must exist."
+        ),
+        category="read",
+        params_schema=MediaDownloadParams,
+        handler=download_media_tool,
         read_only=True,
         destructive=False,
     ),

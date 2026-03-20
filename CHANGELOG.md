@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-03-20
+
+### Added
+- `download_media` operation: download media files from Gramps Web to local disk.
+  Accepts handle or gramps_id plus an absolute destination path. Includes path
+  security validation (absolute path required, no traversal, parent must exist).
+  Category: read, read_only: true. (Closes #30)
+- `MediaClient.download_media_file()`: binary download method returning
+  `(bytes, content_type)` via `GET /media/{handle}/file`.
+- `MediaDownloadParams` Pydantic model with cross-field validator (handle or
+  gramps_id required).
+- `tests/test_download_media_unit.py`: 9 unit tests for handler validation and
+  mocked download flows.
+- `TestMediaClientDownload` in `test_client_unit.py`: 3 unit tests for binary
+  download request building and error handling.
+- `TestDownloadMediaTool` in `test_data_management.py`: 2 integration tests.
+
+### Changed
+- Operation count: 19 -> 20 (2 meta-tools, 20 operations).
+- Read category: 2 -> 3 operations (`get`, `get_tree_stats`, `download_media`).
+
 ## [2.0.0] - 2026-03-19 (Code Mode architecture)
 
 ### Breaking

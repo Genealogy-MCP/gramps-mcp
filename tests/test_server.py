@@ -18,6 +18,8 @@ from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import InitializeResult, TextContent
 
+from src.gramps_mcp.operations import OPERATION_REGISTRY
+
 
 class TestServerBuild:
     """Test that the server builds and imports correctly."""
@@ -104,7 +106,7 @@ class TestHTTPRoutes:
             data = response.json()
             assert data["service"] == "Gramps MCP Server"
             assert data["tools_count"] == 2
-            assert data["operations_count"] == 19
+            assert data["operations_count"] == len(OPERATION_REGISTRY)
 
     @pytest.mark.asyncio
     async def test_health_endpoint(self, mcp_server):
@@ -116,7 +118,7 @@ class TestHTTPRoutes:
             assert data["status"] == "healthy"
             assert data["service"] == "Gramps MCP Server"
             assert data["tools"] == 2
-            assert data["operations"] == 19
+            assert data["operations"] == len(OPERATION_REGISTRY)
 
 
 @pytest.mark.server

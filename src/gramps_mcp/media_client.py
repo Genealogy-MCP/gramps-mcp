@@ -26,7 +26,7 @@ from .client import GrampsAPIError
 
 
 class MediaClient:
-    """Handles media file upload and replacement operations."""
+    """Handles media file upload, replacement, and download operations."""
 
     def __init__(self, api_client):
         """Initialize MediaClient with reference to main API client."""
@@ -57,6 +57,37 @@ class MediaClient:
         )
         response.raise_for_status()
         return response.json()
+
+    async def download_media_file(
+        self, handle: str, tree_id: str = "default"
+    ) -> tuple[bytes, str]:
+        """Download a media file from Gramps.
+
+        Args:
+            handle: Media object handle.
+            tree_id: Tree identifier.
+
+        Returns:
+            Tuple of (file_bytes, content_type).
+
+        Raises:
+            GrampsAPIError: If the API call fails.
+        """
+        url = self.client._build_url(tree_id, f"media/{handle}/file")
+        headers = await self.client._get_headers()
+
+        try:
+            response = await self.client.auth_manager.client.request(
+                method="GET", url=url, headers=headers
+            )
+            response.raise_for_status()
+            content_type = response.headers.get(
+                "content-type", "application/octet-stream"
+            )
+            return response.content, content_type
+        except httpx.HTTPStatusError as e:
+            error_msg = self.client._format_http_error(e)
+            raise GrampsAPIError(error_msg) from e
 
     async def replace_media_file(
         self,
