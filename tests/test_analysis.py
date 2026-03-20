@@ -23,7 +23,6 @@ load_dotenv()
 pytestmark = pytest.mark.integration
 
 # Test constants
-TEST_PAGESIZE = 3
 TEST_MAX_GENERATIONS = 2
 INVALID_GRAMPS_ID = "INVALID99999"
 
@@ -33,45 +32,34 @@ class TestGetDescendantsTool:
 
     @pytest.mark.asyncio
     async def test_get_descendants_real_api(self):
-        """Test get_descendants_tool with real API."""
+        """Test get_descendants_tool with real API.
 
-        # Use specific person I0044 (Lewis Anderson Garner) — known to have
-        # descendants in seed data and produces a small, fast report.
-        gramps_id = "I0044"
-
-        # Test with explicit max_generations
-        result_explicit = await get_descendants_tool(
-            {"gramps_id": gramps_id, "max_generations": TEST_MAX_GENERATIONS}
+        Uses I0044 (Lewis Anderson Garner) with max_generations=2 to keep the
+        report small and fast. Default max_generations logic is unit-tested.
+        """
+        result = await get_descendants_tool(
+            {"gramps_id": "I0044", "max_generations": TEST_MAX_GENERATIONS}
         )
 
-        # Test with default max_generations (should be 5)
-        result_default = await get_descendants_tool({"gramps_id": gramps_id})
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
 
-        # Both should return valid TextContent
-        for result in [result_explicit, result_default]:
-            assert isinstance(result, list)
-            assert len(result) == 1
-            assert isinstance(result[0], TextContent)
-
-        text_explicit = result_explicit[0].text
-        text_default = result_default[0].text
-
-        # Both should contain actual descendants data
-        for text in [text_explicit, text_default]:
-            assert len(text.strip()) > 50
-            assert "report generated successfully" not in text.lower()
-            assert any(
-                keyword in text.lower()
-                for keyword in [
-                    "person",
-                    "name",
-                    "birth",
-                    "death",
-                    "descendant",
-                    "child",
-                    "family",
-                ]
-            )
+        text = result[0].text
+        assert len(text.strip()) > 50
+        assert "report generated successfully" not in text.lower()
+        assert any(
+            keyword in text.lower()
+            for keyword in [
+                "person",
+                "name",
+                "birth",
+                "death",
+                "descendant",
+                "child",
+                "family",
+            ]
+        )
 
     @pytest.mark.asyncio
     async def test_get_descendants_invalid_gramps_id(self):
@@ -86,52 +74,23 @@ class TestGetAncestorsTool:
 
     @pytest.mark.asyncio
     async def test_get_ancestors_real_api(self):
-        """Test get_ancestors_tool with real API."""
+        """Test get_ancestors_tool with real API.
 
-        # Use specific person I0001 for ancestor testing (known to have ancestors)
-        gramps_id = "I0001"
-
-        # Test with explicit max_generations
-        result_explicit = await get_ancestors_tool(
-            {"gramps_id": gramps_id, "max_generations": TEST_MAX_GENERATIONS}
+        Uses I0001 with max_generations=2 to keep the report small and fast.
+        Default max_generations logic is unit-tested.
+        """
+        result = await get_ancestors_tool(
+            {"gramps_id": "I0001", "max_generations": TEST_MAX_GENERATIONS}
         )
 
-        # Test with default max_generations (should be 5)
-        result_default = await get_ancestors_tool({"gramps_id": gramps_id})
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert isinstance(result[0], TextContent)
 
-        # Test explicit result
-        assert isinstance(result_explicit, list)
-        assert len(result_explicit) == 1
-        assert isinstance(result_explicit[0], TextContent)
-
-        text_explicit = result_explicit[0].text
-        explicit_lines = text_explicit.split("\n")
-        print("\n=== ANCESTORS TEST OUTPUT (EXPLICIT) ===")
-        print(f"Person gramps_id used: {gramps_id}")
-        print(f"Max generations: {TEST_MAX_GENERATIONS}")
-        print(f"Total lines: {len(explicit_lines)}")
-
-        # Test default result
-        assert isinstance(result_default, list)
-        assert len(result_default) == 1
-        assert isinstance(result_default[0], TextContent)
-
-        text_default = result_default[0].text
-        default_lines = text_default.split("\n")
-        print("\n=== ANCESTORS TEST OUTPUT (DEFAULT) ===")
-        print(f"Person gramps_id used: {gramps_id}")
-        print("Max generations: DEFAULT (should be 5)")
-        print(f"Total lines: {len(default_lines)}")
-        print("=" * 50)
-
-        # Both should contain actual ancestors data
-        for text in [text_explicit, text_default]:
-            assert isinstance(text, str)
-            assert len(text) > 0
-            assert len(text.strip()) > 50  # Should be substantial content
-            assert "report generated successfully" not in text.lower()
-            # "Generation" appears in ancestor reports
-            assert "generation" in text.lower()
+        text = result[0].text
+        assert len(text.strip()) > 50
+        assert "report generated successfully" not in text.lower()
+        assert "generation" in text.lower()
 
     @pytest.mark.asyncio
     async def test_get_ancestors_invalid_gramps_id(self):
