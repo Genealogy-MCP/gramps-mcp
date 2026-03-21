@@ -58,7 +58,13 @@ class SimpleFindParams(BaseModel):
     """Simplified parameters for type-based search."""
 
     type: EntityType = Field(description="Entity type to search")
-    gql: str = Field(description="Gramps Query Language filter")
+    gql: str = Field(
+        description=(
+            "Gramps Query Language filter. "
+            'Multi-word values MUST be quoted: name.value ~ "New York". '
+            "Property paths vary by type -- read gql://documentation resource."
+        )
+    )
     max_results: int = Field(default=20, description="Maximum results to return")
 
 

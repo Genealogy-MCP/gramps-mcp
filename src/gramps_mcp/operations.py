@@ -146,8 +146,13 @@ OPERATION_REGISTRY: dict[str, OperationEntry] = {
         description=(
             "Search any entity type using GQL - read gql://documentation "
             "resource first to understand syntax. "
-            "Note: person names use primary_name.first_name and "
-            "primary_name.surname_list[0].surname (NOT 'name' or 'surname')"
+            "Key GQL property paths: "
+            "People: primary_name.first_name, "
+            "primary_name.surname_list[0].surname (NOT 'name'). "
+            "Places: name.value (NOT 'name'), place_type.string (NOT 'type'). "
+            "Events/Families/Repositories: type.string (NOT 'type'). "
+            "Notes: text.string (NOT 'text'). "
+            'Multi-word values MUST be quoted: name.value ~ "New York".'
         ),
         category="search",
         params_schema=SimpleFindParams,

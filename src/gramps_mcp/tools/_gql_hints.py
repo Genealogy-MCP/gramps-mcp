@@ -17,9 +17,9 @@
 """
 GQL smart hints for common search mistakes.
 
-When a GQL query returns zero results, these hints detect likely property-path
-errors and suggest the correct path. Only fires on known mistake patterns --
-returns empty string when the query looks correct.
+When a GQL query returns zero results or errors, these hints detect likely
+property-path errors and suggest the correct path. Only fires on known
+mistake patterns -- returns empty string when the query looks correct.
 """
 
 import re
@@ -53,26 +53,98 @@ _GQL_HINTS: Dict[str, List[Tuple[re.Pattern, str]]] = {
             ),
         ),
     ],
+    "places": [
+        (
+            re.compile(r"(?<!\.)(?<!\w)\bname\b(?!\.value)", re.IGNORECASE),
+            (
+                "Place names use 'name.value' (not bare 'name'). "
+                'Example: name.value ~ "Boston"'
+            ),
+        ),
+        (
+            re.compile(r"(?<!\.)(?<!\w)\btype\b(?!\.string)", re.IGNORECASE),
+            (
+                "Place types use 'place_type.string' (not 'type'). "
+                "Example: place_type.string = City"
+            ),
+        ),
+    ],
+    "events": [
+        (
+            re.compile(r"(?<!\.)(?<!\w)\btype\b(?!\.string)", re.IGNORECASE),
+            (
+                "Event types use 'type.string' (not bare 'type'). "
+                "Example: type.string = Birth"
+            ),
+        ),
+    ],
+    "families": [
+        (
+            re.compile(r"(?<!\.)(?<!\w)\btype\b(?!\.string)", re.IGNORECASE),
+            (
+                "Family relationship types use 'type.string' (not bare 'type'). "
+                "Example: type.string = Married"
+            ),
+        ),
+    ],
+    "repositories": [
+        (
+            re.compile(r"(?<!\.)(?<!\w)\btype\b(?!\.string)", re.IGNORECASE),
+            (
+                "Repository types use 'type.string' (not bare 'type'). "
+                "Example: type.string = Archive"
+            ),
+        ),
+    ],
+    "notes": [
+        (
+            re.compile(r"(?<!\.)(?<!\w)\btext\b(?!\.string)", re.IGNORECASE),
+            (
+                "Note text uses 'text.string' (not bare 'text'). "
+                'Example: text.string ~ "research"'
+            ),
+        ),
+    ],
 }
+
+# Cross-entity patterns that apply to all entity types.
+# Detects unquoted multi-word values after the ~ operator.
+_GLOBAL_GQL_HINTS: List[Tuple[re.Pattern, str]] = [
+    (
+        re.compile(r'~\s+(?!")(\w+)\s+(?!and\b|or\b)(\w+)', re.IGNORECASE),
+        (
+            "Multi-word GQL values must be quoted. "
+            'Example: name.value ~ "Capital Federal" (not name.value ~ Capital Federal)'
+        ),
+    ),
+]
 
 
 def gql_hint(entity_type: str, gql: str) -> str:
     """
-    Return a corrective hint if the GQL query contains a known mistake.
+    Return corrective hints if the GQL query contains known mistakes.
+
+    Collects all matching hints (entity-specific and global) and joins
+    them with newlines.
 
     Args:
         entity_type: The plural entity type (e.g. "people", "places").
         gql: The raw GQL query string.
 
     Returns:
-        A hint message if a known mistake is detected, empty string otherwise.
+        Joined hint messages if known mistakes are detected, empty string otherwise.
     """
     if not gql:
         return ""
 
-    patterns = _GQL_HINTS.get(entity_type, [])
-    for regex, hint in patterns:
-        if regex.search(gql):
-            return hint
+    hints: List[str] = []
 
-    return ""
+    for regex, hint in _GQL_HINTS.get(entity_type, []):
+        if regex.search(gql):
+            hints.append(hint)
+
+    for regex, hint in _GLOBAL_GQL_HINTS:
+        if regex.search(gql):
+            hints.append(hint)
+
+    return "\n".join(hints)

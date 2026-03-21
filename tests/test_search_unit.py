@@ -678,12 +678,98 @@ class TestGqlHint:
         hint = gql_hint("people", 'primary_name.surname_list[0].surname ~ "Smith"')
         assert hint == ""
 
-    def test_non_person_entity_name_no_hint(self):
-        """'name ~ X' on places is valid — no hint."""
+    def test_bare_name_on_places_triggers_hint(self):
+        """'name ~ X' on places suggests name.value."""
         from src.gramps_mcp.tools._gql_hints import gql_hint
 
-        assert gql_hint("places", 'name ~ "Boston"') == ""
+        hint = gql_hint("places", 'name ~ "Boston"')
+        assert "name.value" in hint
+
+    def test_title_on_sources_no_hint(self):
+        """'title ~ X' on sources is valid — no hint."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
         assert gql_hint("sources", 'title ~ "Census"') == ""
+
+    def test_bare_type_on_places(self):
+        """'type = City' on places suggests place_type.string."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        hint = gql_hint("places", "type = City")
+        assert "place_type.string" in hint
+
+    def test_correct_place_type_no_hint(self):
+        """'place_type.string = City' on places — no hint."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        assert gql_hint("places", "place_type.string = City") == ""
+
+    def test_bare_type_on_events(self):
+        """'type = Birth' on events suggests type.string."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        hint = gql_hint("events", "type = Birth")
+        assert "type.string" in hint
+
+    def test_correct_type_string_no_hint(self):
+        """'type.string = Birth' on events — no hint."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        assert gql_hint("events", "type.string = Birth") == ""
+
+    def test_bare_type_on_families(self):
+        """'type = Married' on families suggests type.string."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        hint = gql_hint("families", "type = Married")
+        assert "type.string" in hint
+
+    def test_bare_type_on_repositories(self):
+        """'type = Archive' on repositories suggests type.string."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        hint = gql_hint("repositories", "type = Archive")
+        assert "type.string" in hint
+
+    def test_bare_text_on_notes(self):
+        """'text ~ "research"' on notes suggests text.string."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        hint = gql_hint("notes", 'text ~ "research"')
+        assert "text.string" in hint
+
+    def test_correct_text_string_no_hint(self):
+        """'text.string ~ "research"' on notes — no hint."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        assert gql_hint("notes", 'text.string ~ "research"') == ""
+
+    def test_unquoted_multiword(self):
+        """Unquoted multi-word value after ~ triggers quoting hint."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        hint = gql_hint("places", "name.value ~ Capital Federal")
+        assert "quoted" in hint.lower()
+
+    def test_quoted_multiword_no_hint(self):
+        """Quoted multi-word value after ~ — no quoting hint."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        assert gql_hint("sources", 'title ~ "Capital Federal"') == ""
+
+    def test_multiple_hints_collected(self):
+        """Query with wrong path + unquoted value collects both hints."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        hint = gql_hint("places", "name ~ Capital Federal")
+        assert "name.value" in hint
+        assert "quoted" in hint.lower()
+
+    def test_name_on_repositories_no_hint(self):
+        """'name ~ "Archives"' on repositories — no hint (repos use plain name)."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        assert gql_hint("repositories", 'name ~ "Archives"') == ""
 
     def test_empty_gql_no_hint(self):
         """Empty GQL string — no hint."""
@@ -706,7 +792,7 @@ class TestGqlHint:
 
 
 class TestSearchEntitiesGqlHint:
-    """Test that _search_entities includes GQL hint in empty results."""
+    """Test that _search_entities includes GQL hint in empty results and errors."""
 
     @pytest.fixture(autouse=True)
     def _patch_settings(self):
@@ -758,9 +844,30 @@ class TestSearchEntitiesGqlHint:
         assert "No people found" in text
         assert "Hint:" not in text
 
+    @pytest.mark.asyncio
+    async def test_error_includes_gql_hint(self):
+        """API error with bad GQL includes hint in McpToolError message."""
+        from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
+        from src.gramps_mcp.tools.search_basic import _search_entities
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=RuntimeError("API error"))
+        handler = AsyncMock()
+
+        with pytest.raises(McpToolError) as exc_info:
+            await _search_entities(
+                client,
+                {"gql": "type = Birth"},
+                BaseGetMultipleParams,
+                "GET_EVENTS",
+                "events",
+                handler,
+            )
+        assert "type.string" in str(exc_info.value)
+
 
 class TestSearchToolDescription:
-    """Test that search tool description includes person name hint."""
+    """Test that search tool description includes all entity GQL hints."""
 
     def test_description_contains_person_name_hint(self):
         """Search tool description must mention primary_name paths."""
@@ -769,6 +876,35 @@ class TestSearchToolDescription:
         desc = OPERATION_REGISTRY["search"].description
         assert "primary_name.first_name" in desc
         assert "primary_name.surname_list[0].surname" in desc
+
+    def test_description_contains_place_hints(self):
+        """Search tool description must mention name.value and place_type.string."""
+        from src.gramps_mcp.operations import OPERATION_REGISTRY
+
+        desc = OPERATION_REGISTRY["search"].description
+        assert "name.value" in desc
+        assert "place_type.string" in desc
+
+    def test_description_contains_type_string_hint(self):
+        """Description must mention type.string for events/families/repos."""
+        from src.gramps_mcp.operations import OPERATION_REGISTRY
+
+        desc = OPERATION_REGISTRY["search"].description
+        assert "type.string" in desc
+
+    def test_description_contains_text_string_hint(self):
+        """Search tool description must mention text.string for notes."""
+        from src.gramps_mcp.operations import OPERATION_REGISTRY
+
+        desc = OPERATION_REGISTRY["search"].description
+        assert "text.string" in desc
+
+    def test_description_contains_quoting_hint(self):
+        """Search tool description must mention quoting multi-word values."""
+        from src.gramps_mcp.operations import OPERATION_REGISTRY
+
+        desc = OPERATION_REGISTRY["search"].description
+        assert "quoted" in desc.lower() or '"New York"' in desc
 
 
 # ============================================================================

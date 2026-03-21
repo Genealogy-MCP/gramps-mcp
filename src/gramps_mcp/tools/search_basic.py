@@ -215,7 +215,11 @@ async def _search_entities(
         return [TextContent(type="text", text=formatted_results)]
 
     except Exception as e:
-        raise_tool_error(e, f"{entity_type} search")
+        hint = gql_hint(entity_type, arguments.get("gql", ""))
+        context = f"{entity_type} search"
+        if hint:
+            context += f"\n\nGQL hint: {hint}"
+        raise_tool_error(e, context)
 
 
 @with_client

@@ -235,6 +235,11 @@ class GrampsWebAPIClient:
             return "Authentication failed. Please check your credentials."
         elif status_code == 403:
             return f"Permission denied for {url_path}."
+        elif status_code == 400:
+            return (
+                f"Bad request at {url_path}. "
+                "Check query syntax (e.g., multi-word GQL values must be quoted)."
+            )
         elif status_code == 404:
             return f"Record not found at {url_path}. Use find_type to search first."
         elif status_code == 422:
