@@ -668,3 +668,446 @@ class TestFormatPersonDetailExtended:
         assert "Photo (O0001)" in result
         assert "Research:" in result
         assert "..." in result
+
+
+class TestFormatPersonPrimaryNameCitations:
+    """Test primary name citation display in format_person."""
+
+    @pytest.mark.asyncio
+    async def test_primary_name_with_citations(self):
+        """Primary name citations resolved from extended.citations appear on name line."""
+        client = _mock_client(
+            {
+                "GET_PERSON": {
+                    "gramps_id": "I0001",
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                        "citation_list": ["cit_h1", "cit_h2"],
+                    },
+                    "gender": 1,
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "event_ref_list": [],
+                    "family_list": [],
+                    "parent_family_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "extended": {
+                        "events": [],
+                        "families": [],
+                        "parent_families": [],
+                        "citations": [
+                            {"handle": "cit_h1", "gramps_id": "C0042"},
+                            {"handle": "cit_h2", "gramps_id": "C0043"},
+                        ],
+                    },
+                },
+            }
+        )
+        result = await format_person(client, TREE_ID, "handle123")
+        assert "[C0042, C0043]" in result
+
+    @pytest.mark.asyncio
+    async def test_primary_name_no_citations_no_brackets(self):
+        """No citation handles on primary name means no brackets on name line."""
+        client = _mock_client(
+            {
+                "GET_PERSON": {
+                    "gramps_id": "I0001",
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "gender": 1,
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "event_ref_list": [],
+                    "family_list": [],
+                    "parent_family_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "extended": {
+                        "events": [],
+                        "families": [],
+                        "parent_families": [],
+                    },
+                },
+            }
+        )
+        result = await format_person(client, TREE_ID, "handle123")
+        first_line = result.split("\n")[0]
+        # Should end with [handle123] and no extra citation brackets
+        assert first_line.endswith("[handle123]")
+
+
+class TestFormatPersonAlternateNames:
+    """Test alternate name display in format_person."""
+
+    @pytest.mark.asyncio
+    async def test_single_alternate_name_dict_type(self):
+        """Alternate name with dict-format type field."""
+        client = _mock_client(
+            {
+                "GET_PERSON": {
+                    "gramps_id": "I0001",
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "gender": 1,
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "event_ref_list": [],
+                    "family_list": [],
+                    "parent_family_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "alternate_names": [
+                        {
+                            "first_name": "Pascual",
+                            "surname_list": [{"surname": "Civitilli"}],
+                            "type": {
+                                "_class": "NameType",
+                                "string": "Also Known As",
+                            },
+                        }
+                    ],
+                    "extended": {
+                        "events": [],
+                        "families": [],
+                        "parent_families": [],
+                    },
+                },
+            }
+        )
+        result = await format_person(client, TREE_ID, "handle123")
+        assert "Alternate names:\n" in result
+        assert "  - Also Known As: Pascual Civitilli\n" in result
+
+    @pytest.mark.asyncio
+    async def test_alternate_name_with_citations(self):
+        """Alternate name citations resolved via handle->gramps_id map."""
+        client = _mock_client(
+            {
+                "GET_PERSON": {
+                    "gramps_id": "I0001",
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "gender": 1,
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "event_ref_list": [],
+                    "family_list": [],
+                    "parent_family_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "alternate_names": [
+                        {
+                            "first_name": "Giovanni",
+                            "surname_list": [{"surname": "Rossi"}],
+                            "type": {
+                                "_class": "NameType",
+                                "string": "Birth Name",
+                            },
+                            "citation_list": ["cit_h1"],
+                        }
+                    ],
+                    "extended": {
+                        "events": [],
+                        "families": [],
+                        "parent_families": [],
+                        "citations": [
+                            {"handle": "cit_h1", "gramps_id": "C0184"},
+                        ],
+                    },
+                },
+            }
+        )
+        result = await format_person(client, TREE_ID, "handle123")
+        assert "  - Birth Name: Giovanni Rossi [C0184]\n" in result
+
+    @pytest.mark.asyncio
+    async def test_multiple_alternate_names(self):
+        """Multiple alternate names each on their own line."""
+        client = _mock_client(
+            {
+                "GET_PERSON": {
+                    "gramps_id": "I0001",
+                    "primary_name": {
+                        "first_name": "Maria",
+                        "surname_list": [{"surname": "Garcia"}],
+                    },
+                    "gender": 0,
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "event_ref_list": [],
+                    "family_list": [],
+                    "parent_family_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "alternate_names": [
+                        {
+                            "first_name": "Mary",
+                            "surname_list": [{"surname": "Garcia"}],
+                            "type": {"_class": "NameType", "string": "Also Known As"},
+                        },
+                        {
+                            "first_name": "Maria",
+                            "surname_list": [{"surname": "Lopez"}],
+                            "type": {"_class": "NameType", "string": "Married Name"},
+                        },
+                    ],
+                    "extended": {
+                        "events": [],
+                        "families": [],
+                        "parent_families": [],
+                    },
+                },
+            }
+        )
+        result = await format_person(client, TREE_ID, "handle123")
+        assert "  - Also Known As: Mary Garcia\n" in result
+        assert "  - Married Name: Maria Lopez\n" in result
+
+    @pytest.mark.asyncio
+    async def test_no_alternate_names_absent(self):
+        """No alternate names -> 'Alternate names:' absent from output."""
+        client = _mock_client(
+            {
+                "GET_PERSON": {
+                    "gramps_id": "I0001",
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "gender": 1,
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "event_ref_list": [],
+                    "family_list": [],
+                    "parent_family_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "extended": {
+                        "events": [],
+                        "families": [],
+                        "parent_families": [],
+                    },
+                },
+            }
+        )
+        result = await format_person(client, TREE_ID, "handle123")
+        assert "Alternate names:" not in result
+
+    @pytest.mark.asyncio
+    async def test_type_as_plain_string(self):
+        """API 3.x may return type as plain string, not dict."""
+        client = _mock_client(
+            {
+                "GET_PERSON": {
+                    "gramps_id": "I0001",
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "gender": 1,
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "event_ref_list": [],
+                    "family_list": [],
+                    "parent_family_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "alternate_names": [
+                        {
+                            "first_name": "Jon",
+                            "surname_list": [{"surname": "Smith"}],
+                            "type": "Also Known As",
+                        }
+                    ],
+                    "extended": {
+                        "events": [],
+                        "families": [],
+                        "parent_families": [],
+                    },
+                },
+            }
+        )
+        result = await format_person(client, TREE_ID, "handle123")
+        assert "  - Also Known As: Jon Smith\n" in result
+
+    @pytest.mark.asyncio
+    async def test_missing_type_field(self):
+        """Missing type field -> name shown without prefix."""
+        client = _mock_client(
+            {
+                "GET_PERSON": {
+                    "gramps_id": "I0001",
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "gender": 1,
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "event_ref_list": [],
+                    "family_list": [],
+                    "parent_family_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "alternate_names": [
+                        {
+                            "first_name": "Johann",
+                            "surname_list": [{"surname": "Schmidt"}],
+                        }
+                    ],
+                    "extended": {
+                        "events": [],
+                        "families": [],
+                        "parent_families": [],
+                    },
+                },
+            }
+        )
+        result = await format_person(client, TREE_ID, "handle123")
+        assert "  - Johann Schmidt\n" in result
+
+
+class TestFormatPersonDetailAlternateNames:
+    """Test alternate name display in format_person_detail."""
+
+    @pytest.mark.asyncio
+    async def test_detail_single_alternate_name(self):
+        """Alternate name appears in detail output."""
+
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            name = api_call.name
+            if name == "GET_PERSON":
+                return {
+                    "gramps_id": "I0001",
+                    "gender": 1,
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "parent_family_list": [],
+                    "family_list": [],
+                    "alternate_names": [
+                        {
+                            "first_name": "Jon",
+                            "surname_list": [{"surname": "Smyth"}],
+                            "type": {
+                                "_class": "NameType",
+                                "string": "Also Known As",
+                            },
+                        }
+                    ],
+                    "extended": {"events": [], "media": [], "notes": []},
+                }
+            if name == "GET_PERSON_TIMELINE":
+                return []
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_person_detail(client, TREE_ID, "h1")
+        assert "Alternate names:\n" in result
+        assert "  - Also Known As: Jon Smyth\n" in result
+
+    @pytest.mark.asyncio
+    async def test_detail_alternate_name_with_citations(self):
+        """Alternate name citations resolved in detail view."""
+
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            name = api_call.name
+            if name == "GET_PERSON":
+                return {
+                    "gramps_id": "I0001",
+                    "gender": 1,
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                    },
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "parent_family_list": [],
+                    "family_list": [],
+                    "alternate_names": [
+                        {
+                            "first_name": "Giovanni",
+                            "surname_list": [{"surname": "Fabbro"}],
+                            "type": {
+                                "_class": "NameType",
+                                "string": "Birth Name",
+                            },
+                            "citation_list": ["cit_h1"],
+                        }
+                    ],
+                    "extended": {
+                        "events": [],
+                        "media": [],
+                        "notes": [],
+                        "citations": [
+                            {"handle": "cit_h1", "gramps_id": "C0099"},
+                        ],
+                    },
+                }
+            if name == "GET_PERSON_TIMELINE":
+                return []
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_person_detail(client, TREE_ID, "h1")
+        assert "  - Birth Name: Giovanni Fabbro [C0099]\n" in result
+
+    @pytest.mark.asyncio
+    async def test_detail_primary_name_citations_on_header(self):
+        """Primary name citations shown on header line in detail view."""
+
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            name = api_call.name
+            if name == "GET_PERSON":
+                return {
+                    "gramps_id": "I0001",
+                    "gender": 1,
+                    "primary_name": {
+                        "first_name": "John",
+                        "surname_list": [{"surname": "Smith"}],
+                        "citation_list": ["cit_h1"],
+                    },
+                    "birth_ref_index": -1,
+                    "death_ref_index": -1,
+                    "parent_family_list": [],
+                    "family_list": [],
+                    "extended": {
+                        "events": [],
+                        "media": [],
+                        "notes": [],
+                        "citations": [
+                            {"handle": "cit_h1", "gramps_id": "C0055"},
+                        ],
+                    },
+                }
+            if name == "GET_PERSON_TIMELINE":
+                return []
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_person_detail(client, TREE_ID, "h1")
+        first_data_line = result.split("\n")[1]
+        assert "[C0055]" in first_data_line
