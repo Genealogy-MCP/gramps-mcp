@@ -24,6 +24,7 @@ behavioral hints. The ``search`` meta-tool queries this registry; the
 """
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Callable, Optional
 
 from pydantic import BaseModel, Field
@@ -180,8 +181,16 @@ OPERATION_REGISTRY: dict[str, OperationEntry] = {
     # --- read (3) ---
     "get": OperationEntry(
         name="get",
-        summary="Get full details for any entity by handle or gramps_id",
-        description="Get full details for any entity by handle or gramps_id",
+        summary=(
+            "Get full details for any entity (person, family, event, place, "
+            "source, citation, media, repository, note) by handle or gramps_id. "
+            "There are no per-type get operations."
+        ),
+        description=(
+            "Get full details for any entity (person, family, event, place, "
+            "source, citation, media, repository, note) by handle or gramps_id. "
+            "There are no per-type get operations."
+        ),
         category="read",
         params_schema=SimpleGetParams,
         handler=get_tool,
@@ -460,6 +469,9 @@ def summarize_params(schema: type) -> list[dict[str, Any]]:
     for name, field_info in schema.model_fields.items():
         annotation = field_info.annotation
         type_str = getattr(annotation, "__name__", str(annotation))
+        if isinstance(annotation, type) and issubclass(annotation, Enum):
+            values = [e.value for e in annotation]
+            type_str = f"{type_str}: {', '.join(values)}"
         result.append(
             {
                 "name": name,

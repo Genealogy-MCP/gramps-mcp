@@ -72,7 +72,12 @@ class SimpleSearchParams(BaseModel):
 class SimpleGetParams(BaseModel):
     """Simplified parameters for getting entity details."""
 
-    type: EntityType = Field(description="Entity type (person or family)")
+    type: EntityType = Field(
+        description=(
+            "Entity type: person, family, event, place, source, "
+            "citation, media, repository, note"
+        )
+    )
     handle: Optional[str] = Field(default=None, description="Entity handle")
     gramps_id: Optional[str] = Field(
         default=None, description="Gramps ID (e.g., I0001 or F0001)"
