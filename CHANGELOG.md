@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-03-20
+
+### Fixed
+- `upsert_media` now gracefully handles 409 Conflict when replacing a media file with
+  identical content (same checksum). The duplicate upload is skipped and the metadata-only
+  update proceeds normally. Previously this caused a hard failure.
+
 ### Changed
 - `summarize_params()` in `operations.py` now surfaces enum member values in type strings,
   so `search` results show `EntityType: person, family, event, ...` instead of just
@@ -41,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 4 prefix suggestion tests in `test_meta_tools.py`: verify `get_media`, `search_person`,
   `delete_event` all surface the correct generic operation name in the error message
 - `test_get_description_mentions_type_parameter` in `test_search_unit.py`
+- 2 unit tests for 409 Conflict handling in `test_data_management_unit.py`:
+  `test_update_media_409_skips_upload` and `test_update_media_non_409_error_propagates`
 
 ## [2.1.0] - 2026-03-20
 
