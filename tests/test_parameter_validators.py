@@ -221,9 +221,13 @@ class TestMediaSaveParams:
         # description is a no-op duplicate of desc — it must not appear
         assert "description" not in MediaSaveParams.model_fields
 
-    def test_desc_is_required(self):
+    def test_desc_is_create_required(self):
+        """desc is Optional at field level but enforced on create by model_validator."""
         field = MediaSaveParams.model_fields["desc"]
-        assert field.is_required()
+        assert not field.is_required()
+        # Create without desc (no handle) should fail
+        with pytest.raises(ValueError, match="desc"):
+            MediaSaveParams()
 
     def test_instantiation_without_file_location_succeeds(self):
         # Update path: only metadata, no file upload

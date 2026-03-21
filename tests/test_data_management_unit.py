@@ -14,6 +14,14 @@ from src.gramps_mcp.tools._data_helpers import (
     _format_save_response,
     _handle_crud_operation,
 )
+from src.gramps_mcp.models.parameters.citation_params import CitationData
+from src.gramps_mcp.models.parameters.event_params import EventSaveParams
+from src.gramps_mcp.models.parameters.media_params import MediaSaveParams
+from src.gramps_mcp.models.parameters.note_params import NoteSaveParams
+from src.gramps_mcp.models.parameters.people_params import PersonData
+from src.gramps_mcp.models.parameters.place_params import PlaceSaveParams
+from src.gramps_mcp.models.parameters.repository_params import RepositoryData
+from src.gramps_mcp.models.parameters.source_params import SourceSaveParams
 from src.gramps_mcp.tools._errors import McpToolError
 from src.gramps_mcp.tools.data_management import (
     upsert_family_tool,
@@ -521,3 +529,64 @@ class TestUpsertMediaTool:
             await upsert_media_tool(
                 {"file_location": "/nonexistent/file.jpg", "desc": "test"}
             )
+
+
+class TestUpsertPartialUpdate:
+    """Verify that upsert models allow partial updates (handle present)
+    but enforce required fields on create (handle absent).
+
+    Pure Pydantic validation — no mocks, no network.
+    """
+
+    def test_media_update_without_desc(self):
+        """Update media without desc should succeed."""
+        params = MediaSaveParams(handle="h1234567", private=True)
+        assert params.desc is None
+
+    def test_media_create_missing_desc_raises(self):
+        """Create media without desc should fail."""
+        with pytest.raises(ValueError, match="desc"):
+            MediaSaveParams()
+
+    def test_person_update_without_required(self):
+        """Update person without primary_name/gender should succeed."""
+        params = PersonData(handle="h1234567", private=True)
+        assert params.primary_name is None
+        assert params.gender is None
+
+    def test_person_create_missing_required_raises(self):
+        """Create person without required fields should fail."""
+        with pytest.raises(ValueError, match="primary_name, gender"):
+            PersonData()
+
+    def test_event_update_without_type(self):
+        """Update event without type should succeed."""
+        params = EventSaveParams(handle="h1234567", description="x")
+        assert params.type is None
+
+    def test_place_update_without_place_type(self):
+        """Update place without place_type should succeed."""
+        params = PlaceSaveParams(handle="h1234567", lat="42")
+        assert params.place_type is None
+
+    def test_source_update_without_title(self):
+        """Update source without title should succeed."""
+        params = SourceSaveParams(handle="h1234567", author="X")
+        assert params.title is None
+
+    def test_citation_update_without_source(self):
+        """Update citation without source_handle should succeed."""
+        params = CitationData(handle="h1234567", page="p5")
+        assert params.source_handle is None
+
+    def test_note_update_without_text_type(self):
+        """Update note without text/type should succeed."""
+        params = NoteSaveParams(handle="h1234567")
+        assert params.text is None
+        assert params.type is None
+
+    def test_repo_update_without_name_type(self):
+        """Update repository without name/type should succeed."""
+        params = RepositoryData(handle="h1234567", private=True)
+        assert params.name is None
+        assert params.type is None

@@ -194,3 +194,30 @@ class TestExecuteOperationTool:
         """Params should default to empty dict."""
         params = ExecuteOperationParams(operation="search")
         assert params.params == {}
+
+    @pytest.mark.asyncio
+    async def test_prefix_suggests_get_for_get_media(self):
+        """'get_media' should suggest 'get' via prefix matching."""
+        with pytest.raises(McpToolError, match="get"):
+            await execute_operation_tool({"operation": "get_media", "params": {}})
+
+    @pytest.mark.asyncio
+    async def test_prefix_suggests_search_for_search_person(self):
+        """'search_person' should suggest 'search' via prefix matching."""
+        with pytest.raises(McpToolError, match="search"):
+            await execute_operation_tool({"operation": "search_person", "params": {}})
+
+    @pytest.mark.asyncio
+    async def test_prefix_suggests_delete_for_delete_event(self):
+        """'delete_event' should suggest 'delete' via prefix matching."""
+        with pytest.raises(McpToolError, match="delete"):
+            await execute_operation_tool({"operation": "delete_event", "params": {}})
+
+    @pytest.mark.asyncio
+    async def test_no_prefix_for_unrelated_name(self):
+        """Totally unrelated name should not get prefix matches."""
+        with pytest.raises(McpToolError) as exc_info:
+            await execute_operation_tool({"operation": "foobar", "params": {}})
+        # Should not suggest any prefix-based operations
+        msg = str(exc_info.value)
+        assert "get," not in msg or "Did you mean" not in msg

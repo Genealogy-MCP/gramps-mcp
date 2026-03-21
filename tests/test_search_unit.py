@@ -877,6 +877,13 @@ class TestSearchToolDescription:
         assert "primary_name.first_name" in desc
         assert "primary_name.surname_list[0].surname" in desc
 
+    def test_get_description_mentions_type_parameter(self):
+        """Get operation description must mention params.type."""
+        from src.gramps_mcp.operations import OPERATION_REGISTRY
+
+        desc = OPERATION_REGISTRY["get"].description
+        assert "params.type" in desc
+
     def test_description_contains_place_hints(self):
         """Search tool description must mention name.value and place_type.string."""
         from src.gramps_mcp.operations import OPERATION_REGISTRY

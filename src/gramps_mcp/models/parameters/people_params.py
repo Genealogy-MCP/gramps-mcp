@@ -30,7 +30,7 @@ API calls supported in this category:
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .base_params import BaseDataModel
 
@@ -45,12 +45,32 @@ class EventReference(BaseModel):
 class PersonData(BaseDataModel):
     """Model for creating or updating a person in Gramps API."""
 
-    primary_name: Dict[str, Any] = Field(
-        ..., description="Person's primary name object with first_name and surname_list"
+    primary_name: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Person's primary name object with first_name and surname_list. "
+            "Required when creating (no handle)."
+        ),
     )
-    gender: int = Field(
-        ..., ge=0, le=2, description="Gender (0=Female, 1=Male, 2=Unknown)"
+    gender: Optional[int] = Field(
+        None,
+        ge=0,
+        le=2,
+        description=(
+            "Gender (0=Female, 1=Male, 2=Unknown). Required when creating (no handle)."
+        ),
     )
+
+    @model_validator(mode="after")
+    def _validate_create_required(self) -> "PersonData":
+        """Enforce required fields when creating (no handle = new entity)."""
+        if self.handle is not None:
+            return self
+        missing = [f for f in ("primary_name", "gender") if getattr(self, f) is None]
+        if missing:
+            raise ValueError(f"Required when creating: {', '.join(missing)}")
+        return self
+
     event_ref_list: Optional[List[EventReference]] = Field(
         None, description="List of references to events the person participated in"
     )

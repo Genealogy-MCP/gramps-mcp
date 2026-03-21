@@ -31,34 +31,28 @@ class TestParameterAlignment:
 
     def test_repository_parameters_alignment(self):
         """Test RepositoryData parameters match usage guide requirements."""
-        # From usage guide: Repository requires name, type
-        # Optional: URL, note, handle (for updates)
+        # From usage guide: Repository requires name, type on create
+        # Optional on update (model_validator enforces on create)
         model = RepositoryData
         fields = model.model_fields
 
-        # Required fields according to guide
-        required_fields = {"name", "type"}
-
-        # Check all required fields are present and required
-        for field_name in required_fields:
+        # Create-required fields (enforced by model_validator, not field-level)
+        create_required = {"name", "type"}
+        for field_name in create_required:
             assert field_name in fields, (
-                f"Required field '{field_name}' missing from RepositoryData"
-            )
-            assert fields[field_name].is_required(), (
-                f"Field '{field_name}' should be required"
+                f"Create-required field '{field_name}' missing from RepositoryData"
             )
 
-        # Check no extra required fields beyond what guide specifies
+        # No fields should be Pydantic-required (all Optional for update support)
         actual_required = {
             name for name, field in fields.items() if field.is_required()
         }
-        extra_required = actual_required - required_fields
-        assert not extra_required, (
-            f"RepositoryData has extra required fields not in guide: {extra_required}"
+        assert not actual_required, (
+            f"RepositoryData has field-level required fields: {actual_required}"
         )
 
         # Check no extra fields beyond what guide allows (plus system fields from BaseDataModel)
-        guide_fields = required_fields | {
+        guide_fields = create_required | {
             "url",
             "note",
             "urls",
@@ -83,34 +77,28 @@ class TestParameterAlignment:
 
     def test_source_parameters_alignment(self):
         """Test SourceSaveParams parameters match current implementation."""
-        # Current implementation: Source requires title
+        # Source requires title on create (model_validator enforced)
         # Optional: reporef_list, author, pubinfo, plus BaseDataModel fields
         model = SourceSaveParams
         fields = model.model_fields
 
-        # Required fields in current implementation
-        required_fields = {"title"}
-
-        # Check all required fields are present and required
-        for field_name in required_fields:
+        # Create-required fields (enforced by model_validator, not field-level)
+        create_required = {"title"}
+        for field_name in create_required:
             assert field_name in fields, (
-                f"Required field '{field_name}' missing from SourceSaveParams"
-            )
-            assert fields[field_name].is_required(), (
-                f"Field '{field_name}' should be required"
+                f"Create-required field '{field_name}' missing from SourceSaveParams"
             )
 
-        # Check no extra required fields beyond current implementation
+        # No fields should be Pydantic-required (all Optional for update support)
         actual_required = {
             name for name, field in fields.items() if field.is_required()
         }
-        extra_required = actual_required - required_fields
-        assert not extra_required, (
-            f"SourceSaveParams has extra required fields: {extra_required}"
+        assert not actual_required, (
+            f"SourceSaveParams has field-level required fields: {actual_required}"
         )
 
         # Check fields match current implementation
-        implementation_fields = required_fields | {"reporef_list", "author", "pubinfo"}
+        implementation_fields = create_required | {"reporef_list", "author", "pubinfo"}
         system_fields = {
             "handle",
             "gramps_id",
@@ -129,34 +117,28 @@ class TestParameterAlignment:
 
     def test_citation_parameters_alignment(self):
         """Test CitationData parameters match usage guide requirements."""
-        # From usage guide: Citation requires source link (source_handle in model)
+        # Citation requires source_handle on create (model_validator enforced)
         # Optional: page, date, media, URLs, notes
         model = CitationData
         fields = model.model_fields
 
-        # Required fields according to guide (using actual field names)
-        required_fields = {"source_handle"}
-
-        # Check all required fields are present and required
-        for field_name in required_fields:
+        # Create-required fields (enforced by model_validator, not field-level)
+        create_required = {"source_handle"}
+        for field_name in create_required:
             assert field_name in fields, (
-                f"Required field '{field_name}' missing from CitationData"
-            )
-            assert fields[field_name].is_required(), (
-                f"Field '{field_name}' should be required"
+                f"Create-required field '{field_name}' missing from CitationData"
             )
 
-        # Check no extra required fields beyond what guide specifies
+        # No fields should be Pydantic-required (all Optional for update support)
         actual_required = {
             name for name, field in fields.items() if field.is_required()
         }
-        extra_required = actual_required - required_fields
-        assert not extra_required, (
-            f"CitationData has extra required fields not in guide: {extra_required}"
+        assert not actual_required, (
+            f"CitationData has field-level required fields: {actual_required}"
         )
 
         # Check no extra fields beyond what guide allows (plus system fields from BaseDataModel)
-        guide_fields = required_fields | {"page", "date", "media", "urls"}
+        guide_fields = create_required | {"page", "date", "media", "urls"}
         system_fields = {
             "handle",
             "gramps_id",
@@ -177,34 +159,28 @@ class TestParameterAlignment:
 
     def test_event_parameters_alignment(self):
         """Test EventSaveParams parameters match current implementation."""
-        # Current implementation: Event requires type, citation_list
+        # Event requires type, citation_list on create (model_validator enforced)
         # Optional: handle, date, description, place, note_list
         model = EventSaveParams
         fields = model.model_fields
 
-        # Required fields in current implementation
-        required_fields = {"type", "citation_list"}
-
-        # Check all required fields are present and required
-        for field_name in required_fields:
+        # Create-required fields (enforced by model_validator, not field-level)
+        create_required = {"type", "citation_list"}
+        for field_name in create_required:
             assert field_name in fields, (
-                f"Required field '{field_name}' missing from EventSaveParams"
-            )
-            assert fields[field_name].is_required(), (
-                f"Field '{field_name}' should be required"
+                f"Create-required field '{field_name}' missing from EventSaveParams"
             )
 
-        # Check no extra required fields beyond current implementation
+        # No fields should be Pydantic-required (all Optional for update support)
         actual_required = {
             name for name, field in fields.items() if field.is_required()
         }
-        extra_required = actual_required - required_fields
-        assert not extra_required, (
-            f"EventSaveParams has extra required fields: {extra_required}"
+        assert not actual_required, (
+            f"EventSaveParams has field-level required fields: {actual_required}"
         )
 
         # Check fields match current implementation (plus system fields from BaseDataModel)
-        implementation_fields = required_fields | {
+        implementation_fields = create_required | {
             "date",
             "description",
             "place",
@@ -227,31 +203,25 @@ class TestParameterAlignment:
 
     def test_person_parameters_alignment(self):
         """Test PersonData parameters match current implementation."""
-        # Current implementation: Person requires primary_name, gender
+        # Person requires primary_name, gender on create (model_validator enforced)
         # Optional: event_ref_list, family_list, parent_family_list, urls, plus BaseDataModel fields
         # Birth/Death info should NOT be direct fields (should be events)
         model = PersonData
         fields = model.model_fields
 
-        # Required fields in current implementation
-        required_fields = {"primary_name", "gender"}
-
-        # Check all required fields are present and required
-        for field_name in required_fields:
+        # Create-required fields (enforced by model_validator, not field-level)
+        create_required = {"primary_name", "gender"}
+        for field_name in create_required:
             assert field_name in fields, (
-                f"Required field '{field_name}' missing from PersonData"
-            )
-            assert fields[field_name].is_required(), (
-                f"Field '{field_name}' should be required"
+                f"Create-required field '{field_name}' missing from PersonData"
             )
 
-        # Check no extra required fields beyond current implementation
+        # No fields should be Pydantic-required (all Optional for update support)
         actual_required = {
             name for name, field in fields.items() if field.is_required()
         }
-        extra_required = actual_required - required_fields
-        assert not extra_required, (
-            f"PersonData has extra required fields: {extra_required}"
+        assert not actual_required, (
+            f"PersonData has field-level required fields: {actual_required}"
         )
 
         # Birth/death info should NOT be direct fields (should be events)
@@ -274,7 +244,7 @@ class TestParameterAlignment:
             )
 
         # Check fields match current implementation
-        implementation_fields = required_fields | {
+        implementation_fields = create_required | {
             "event_ref_list",
             "family_list",
             "parent_family_list",
@@ -353,34 +323,28 @@ class TestParameterAlignment:
 
     def test_place_parameters_alignment(self):
         """Test PlaceSaveParams parameters match current implementation."""
-        # Current implementation: Place requires place_type
+        # Place requires place_type on create (model_validator enforced)
         # Optional: handle, gramps_id, name, code, alt_loc, placeref_list, alt_names, lat, long, urls, media_list, citation_list, note_list, tag_list, private
         model = PlaceSaveParams
         fields = model.model_fields
 
-        # Required fields in current implementation
-        required_fields = {"place_type"}
-
-        # Check all required fields are present and required
-        for field_name in required_fields:
+        # Create-required fields (enforced by model_validator, not field-level)
+        create_required = {"place_type"}
+        for field_name in create_required:
             assert field_name in fields, (
-                f"Required field '{field_name}' missing from PlaceSaveParams"
-            )
-            assert fields[field_name].is_required(), (
-                f"Field '{field_name}' should be required"
+                f"Create-required field '{field_name}' missing from PlaceSaveParams"
             )
 
-        # Check no extra required fields beyond current implementation
+        # No fields should be Pydantic-required (all Optional for update support)
         actual_required = {
             name for name, field in fields.items() if field.is_required()
         }
-        extra_required = actual_required - required_fields
-        assert not extra_required, (
-            f"PlaceSaveParams has extra required fields: {extra_required}"
+        assert not actual_required, (
+            f"PlaceSaveParams has field-level required fields: {actual_required}"
         )
 
         # Check fields match current implementation
-        implementation_fields = required_fields | {
+        implementation_fields = create_required | {
             "handle",
             "gramps_id",
             "name",
@@ -404,33 +368,27 @@ class TestParameterAlignment:
 
     def test_note_parameters_alignment(self):
         """Test NoteSaveParams parameters match usage guide requirements."""
-        # From usage guide: Note requires text, type
+        # Note requires text, type on create (model_validator enforced)
         model = NoteSaveParams
         fields = model.model_fields
 
-        # Required fields according to guide
-        required_fields = {"text", "type"}
-
-        # Check all required fields are present and required
-        for field_name in required_fields:
+        # Create-required fields (enforced by model_validator, not field-level)
+        create_required = {"text", "type"}
+        for field_name in create_required:
             assert field_name in fields, (
-                f"Required field '{field_name}' missing from NoteSaveParams"
-            )
-            assert fields[field_name].is_required(), (
-                f"Field '{field_name}' should be required"
+                f"Create-required field '{field_name}' missing from NoteSaveParams"
             )
 
-        # Check no extra required fields beyond what guide specifies
+        # No fields should be Pydantic-required (all Optional for update support)
         actual_required = {
             name for name, field in fields.items() if field.is_required()
         }
-        extra_required = actual_required - required_fields
-        assert not extra_required, (
-            f"NoteSaveParams has extra required fields not in guide: {extra_required}"
+        assert not actual_required, (
+            f"NoteSaveParams has field-level required fields: {actual_required}"
         )
 
         # Check no extra fields beyond what guide allows (plus system fields from BaseDataModel)
-        guide_fields = required_fields
+        guide_fields = create_required
         system_fields = {
             "handle",
             "gramps_id",
@@ -450,36 +408,28 @@ class TestParameterAlignment:
 
     def test_media_parameters_alignment(self):
         """Test MediaSaveParams parameters match usage guide requirements."""
-        # From usage guide: Media requires file, title
+        # Media requires desc on create (model_validator enforced)
         # Optional: date
         model = MediaSaveParams
         fields = model.model_fields
 
-        # Required fields according to guide (using actual field names from model)
-        required_fields = {
-            "desc"
-        }  # desc=title; path=file is provided differently (file upload)
-
-        # Check all required fields are present and required
-        for field_name in required_fields:
+        # Create-required fields (enforced by model_validator, not field-level)
+        create_required = {"desc"}
+        for field_name in create_required:
             assert field_name in fields, (
-                f"Required field '{field_name}' missing from MediaSaveParams"
-            )
-            assert fields[field_name].is_required(), (
-                f"Field '{field_name}' should be required"
+                f"Create-required field '{field_name}' missing from MediaSaveParams"
             )
 
-        # Check no extra required fields beyond what guide specifies
+        # No fields should be Pydantic-required (all Optional for update support)
         actual_required = {
             name for name, field in fields.items() if field.is_required()
         }
-        extra_required = actual_required - required_fields
-        assert not extra_required, (
-            f"MediaSaveParams has extra required fields not in guide: {extra_required}"
+        assert not actual_required, (
+            f"MediaSaveParams has field-level required fields: {actual_required}"
         )
 
         # Check no extra fields beyond what guide allows (plus system fields and media-specific fields)
-        guide_fields = required_fields | {
+        guide_fields = create_required | {
             "date",
             "path",
         }  # path is optional since file provided via upload

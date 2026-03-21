@@ -26,7 +26,7 @@ API calls supported in this category:
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .base_params import BaseGetMultipleParams, BaseGetSingleParams
 
@@ -64,8 +64,22 @@ class NoteSaveParams(BaseModel):
         None,
         description="Note's handle (for updates; omit for new note)",
     )
-    text: str = Field(..., description="Note text content")
-    type: str = Field(..., description="The type of note")
+    text: str | None = Field(
+        None, description="Note text content. Required when creating (no handle)."
+    )
+    type: str | None = Field(
+        None, description="The type of note. Required when creating (no handle)."
+    )
+
+    @model_validator(mode="after")
+    def _validate_create_required(self) -> "NoteSaveParams":
+        """Enforce required fields when creating (no handle = new entity)."""
+        if self.handle is not None:
+            return self
+        missing = [f for f in ("text", "type") if getattr(self, f) is None]
+        if missing:
+            raise ValueError(f"Required when creating: {', '.join(missing)}")
+        return self
 
     def model_dump(self, **kwargs: Any) -> dict[str, Any]:
         """Convert to API format with StyledText structure."""

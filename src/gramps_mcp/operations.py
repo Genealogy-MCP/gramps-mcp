@@ -142,7 +142,10 @@ OPERATION_REGISTRY: dict[str, OperationEntry] = {
     # --- search (3) ---
     "search": OperationEntry(
         name="search",
-        summary="Search any entity type using GQL queries",
+        summary=(
+            "Search any entity type using GQL queries. "
+            "Do NOT use 'search_person' -- use this with params.type."
+        ),
         description=(
             "Search any entity type using GQL - read gql://documentation "
             "resource first to understand syntax. "
@@ -187,14 +190,15 @@ OPERATION_REGISTRY: dict[str, OperationEntry] = {
     "get": OperationEntry(
         name="get",
         summary=(
-            "Get full details for any entity (person, family, event, place, "
-            "source, citation, media, repository, note) by handle or gramps_id. "
-            "There are no per-type get operations."
+            "Get full details for any entity by handle or gramps_id. "
+            "Pass params.type to specify the entity kind. "
+            "Do NOT use 'get_person' or 'get_media' -- use 'get' with params.type."
         ),
         description=(
             "Get full details for any entity (person, family, event, place, "
             "source, citation, media, repository, note) by handle or gramps_id. "
-            "There are no per-type get operations."
+            "Pass params.type to specify the entity kind. "
+            "Do NOT use 'get_person' or 'get_media' -- use 'get' with params.type."
         ),
         category="read",
         params_schema=SimpleGetParams,
@@ -346,8 +350,14 @@ OPERATION_REGISTRY: dict[str, OperationEntry] = {
     # --- delete (1) ---
     "delete": OperationEntry(
         name="delete",
-        summary="Delete any entity by type and handle",
-        description="Delete any entity by type and handle",
+        summary=(
+            "Delete any entity by type and handle. "
+            "Do NOT use 'delete_person' -- use 'delete' with params.type."
+        ),
+        description=(
+            "Delete any entity by type and handle. "
+            "Do NOT use 'delete_person' -- use 'delete' with params.type."
+        ),
         category="delete",
         params_schema=DeleteParams,
         handler=delete_tool,

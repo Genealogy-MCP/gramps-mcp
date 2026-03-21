@@ -27,7 +27,7 @@ API calls supported in this category:
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from .base_params import BaseDataModel, BaseGetMultipleParams, BaseGetSingleParams
 
@@ -116,7 +116,22 @@ class SourceSaveParams(BaseDataModel):
     Used for POST /sources and PUT /sources/{handle} endpoints.
     """
 
-    title: str = Field(..., description="Source title", min_length=1)
+    title: Optional[str] = Field(
+        None,
+        description="Source title. Required when creating (no handle).",
+        min_length=1,
+    )
+
+    @model_validator(mode="after")
+    def _validate_create_required(self) -> "SourceSaveParams":
+        """Enforce required fields when creating (no handle = new entity)."""
+        if self.handle is not None:
+            return self
+        missing = [f for f in ("title",) if getattr(self, f) is None]
+        if missing:
+            raise ValueError(f"Required when creating: {', '.join(missing)}")
+        return self
+
     reporef_list: Optional[List[Dict[str, Any]]] = Field(
         None, description="List of repository references for this source"
     )
