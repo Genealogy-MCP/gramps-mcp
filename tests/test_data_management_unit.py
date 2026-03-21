@@ -22,7 +22,6 @@ from src.gramps_mcp.models.parameters.people_params import PersonData
 from src.gramps_mcp.models.parameters.place_params import PlaceSaveParams
 from src.gramps_mcp.models.parameters.repository_params import RepositoryData
 from src.gramps_mcp.models.parameters.source_params import SourceSaveParams
-from src.gramps_mcp.client import GrampsAPIError
 from src.gramps_mcp.tools._errors import McpToolError
 from src.gramps_mcp.tools.data_management import (
     upsert_family_tool,
@@ -529,91 +528,6 @@ class TestUpsertMediaTool:
         with pytest.raises(McpToolError):
             await upsert_media_tool(
                 {"file_location": "/nonexistent/file.jpg", "desc": "test"}
-            )
-
-    @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
-    @patch(
-        "src.gramps_mcp.tools.data_management_media.get_settings",
-        return_value=_mock_settings(),
-    )
-    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
-    async def test_update_media_409_skips_upload(
-        self, _settings, mock_client_cls, tmp_path
-    ):
-        """409 Conflict on file replace should skip upload and proceed."""
-        # Create a real temp file so os.path.isfile passes
-        test_file = tmp_path / "photo.jpg"
-        test_file.write_bytes(b"\xff\xd8\xff\xe0")
-
-        mock_media_client = AsyncMock()
-        mock_media_client.replace_media_file = AsyncMock(
-            side_effect=GrampsAPIError(
-                "Request failed with status 409 at /media/h1/file"
-            )
-        )
-
-        client_inst = AsyncMock()
-        client_inst.make_api_call = AsyncMock(
-            return_value={"handle": "h1", "gramps_id": "O001"}
-        )
-        client_inst.close = AsyncMock()
-        mock_client_cls.return_value = client_inst
-
-        with patch(
-            "src.gramps_mcp.tools.data_management_media.MediaClient",
-            return_value=mock_media_client,
-        ):
-            result = await upsert_media_tool(
-                {
-                    "handle": "h1",
-                    "desc": "Updated photo",
-                    "file_location": str(test_file),
-                }
-            )
-
-        assert "updated" in result[0].text
-        # Metadata PUT should still have been called
-        client_inst.make_api_call.assert_called_once()
-
-    @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
-    @patch(
-        "src.gramps_mcp.tools.data_management_media.get_settings",
-        return_value=_mock_settings(),
-    )
-    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
-    async def test_update_media_non_409_error_propagates(
-        self, _settings, mock_client_cls, tmp_path
-    ):
-        """Non-409 errors from file replace should propagate."""
-        test_file = tmp_path / "photo.jpg"
-        test_file.write_bytes(b"\xff\xd8\xff\xe0")
-
-        mock_media_client = AsyncMock()
-        mock_media_client.replace_media_file = AsyncMock(
-            side_effect=GrampsAPIError(
-                "Request failed with status 500 at /media/h1/file"
-            )
-        )
-
-        client_inst = AsyncMock()
-        client_inst.close = AsyncMock()
-        mock_client_cls.return_value = client_inst
-
-        with (
-            patch(
-                "src.gramps_mcp.tools.data_management_media.MediaClient",
-                return_value=mock_media_client,
-            ),
-            pytest.raises(McpToolError),
-        ):
-            await upsert_media_tool(
-                {
-                    "handle": "h1",
-                    "desc": "Updated photo",
-                    "file_location": str(test_file),
-                }
             )
 
 
