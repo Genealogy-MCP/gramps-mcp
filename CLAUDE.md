@@ -11,7 +11,7 @@
 - **Organize code into clearly separated modules**, grouped by feature or responsibility.
   For this MCP server project:
     - `server.py` - MCP server setup (2 meta-tools: search + execute)
-    - `operations.py` - Operation registry (19 operations, single source of truth)
+    - `operations.py` - Operation registry (20 operations, single source of truth)
     - `tools/` directory - Tool implementations organized by feature
     - `tools/meta_search.py` - `search` meta-tool (operation discovery)
     - `tools/meta_execute.py` - `execute` meta-tool (operation dispatch)
@@ -595,12 +595,12 @@ Full GQL documentation is served as MCP resource `gql://documentation`.
 
 #### Current MCP Coverage
 
-**2 MCP tools** (`search` + `execute`) providing access to **19 operations** via Code Mode architecture (MCP-29):
+**2 MCP tools** (`search` + `execute`) providing access to **20 operations** via Code Mode architecture (MCP-29):
 
 - `search` meta-tool: Discovers operations from the registry by keyword. `readOnlyHint=True, openWorldHint=False` (local registry, no API call).
 - `execute` meta-tool: Runs a named operation against the Gramps Web API. `readOnlyHint=False, openWorldHint=True`.
 
-**Operations (19):**
+**Operations (20):**
 
 | Operation | API Endpoints Used | Category |
 |---|---|---|
