@@ -14,6 +14,15 @@ from src.gramps_mcp.tools._data_helpers import (
     _format_save_response,
     _handle_crud_operation,
 )
+from src.gramps_mcp.models.parameters.citation_params import CitationData
+from src.gramps_mcp.models.parameters.event_params import EventSaveParams
+from src.gramps_mcp.models.parameters.media_params import MediaSaveParams
+from src.gramps_mcp.models.parameters.note_params import NoteSaveParams
+from src.gramps_mcp.models.parameters.people_params import PersonData
+from src.gramps_mcp.models.parameters.place_params import PlaceSaveParams
+from src.gramps_mcp.models.parameters.repository_params import RepositoryData
+from src.gramps_mcp.models.parameters.source_params import SourceSaveParams
+from src.gramps_mcp.client import GrampsAPIError
 from src.gramps_mcp.tools._errors import McpToolError
 from src.gramps_mcp.tools.data_management import (
     upsert_family_tool,
@@ -521,3 +530,149 @@ class TestUpsertMediaTool:
             await upsert_media_tool(
                 {"file_location": "/nonexistent/file.jpg", "desc": "test"}
             )
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch(
+        "src.gramps_mcp.tools.data_management_media.get_settings",
+        return_value=_mock_settings(),
+    )
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
+    async def test_update_media_409_skips_upload(
+        self, _settings, mock_client_cls, tmp_path
+    ):
+        """409 Conflict on file replace should skip upload and proceed."""
+        # Create a real temp file so os.path.isfile passes
+        test_file = tmp_path / "photo.jpg"
+        test_file.write_bytes(b"\xff\xd8\xff\xe0")
+
+        mock_media_client = AsyncMock()
+        mock_media_client.replace_media_file = AsyncMock(
+            side_effect=GrampsAPIError(
+                "Request failed with status 409 at /media/h1/file"
+            )
+        )
+
+        client_inst = AsyncMock()
+        client_inst.make_api_call = AsyncMock(
+            return_value={"handle": "h1", "gramps_id": "O001"}
+        )
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        with patch(
+            "src.gramps_mcp.tools.data_management_media.MediaClient",
+            return_value=mock_media_client,
+        ):
+            result = await upsert_media_tool(
+                {
+                    "handle": "h1",
+                    "desc": "Updated photo",
+                    "file_location": str(test_file),
+                }
+            )
+
+        assert "updated" in result[0].text
+        # Metadata PUT should still have been called
+        client_inst.make_api_call.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch(
+        "src.gramps_mcp.tools.data_management_media.get_settings",
+        return_value=_mock_settings(),
+    )
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
+    async def test_update_media_non_409_error_propagates(
+        self, _settings, mock_client_cls, tmp_path
+    ):
+        """Non-409 errors from file replace should propagate."""
+        test_file = tmp_path / "photo.jpg"
+        test_file.write_bytes(b"\xff\xd8\xff\xe0")
+
+        mock_media_client = AsyncMock()
+        mock_media_client.replace_media_file = AsyncMock(
+            side_effect=GrampsAPIError(
+                "Request failed with status 500 at /media/h1/file"
+            )
+        )
+
+        client_inst = AsyncMock()
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        with (
+            patch(
+                "src.gramps_mcp.tools.data_management_media.MediaClient",
+                return_value=mock_media_client,
+            ),
+            pytest.raises(McpToolError),
+        ):
+            await upsert_media_tool(
+                {
+                    "handle": "h1",
+                    "desc": "Updated photo",
+                    "file_location": str(test_file),
+                }
+            )
+
+
+class TestUpsertPartialUpdate:
+    """Verify that upsert models allow partial updates (handle present)
+    but enforce required fields on create (handle absent).
+
+    Pure Pydantic validation — no mocks, no network.
+    """
+
+    def test_media_update_without_desc(self):
+        """Update media without desc should succeed."""
+        params = MediaSaveParams(handle="h1234567", private=True)
+        assert params.desc is None
+
+    def test_media_create_missing_desc_raises(self):
+        """Create media without desc should fail."""
+        with pytest.raises(ValueError, match="desc"):
+            MediaSaveParams()
+
+    def test_person_update_without_required(self):
+        """Update person without primary_name/gender should succeed."""
+        params = PersonData(handle="h1234567", private=True)
+        assert params.primary_name is None
+        assert params.gender is None
+
+    def test_person_create_missing_required_raises(self):
+        """Create person without required fields should fail."""
+        with pytest.raises(ValueError, match="primary_name, gender"):
+            PersonData()
+
+    def test_event_update_without_type(self):
+        """Update event without type should succeed."""
+        params = EventSaveParams(handle="h1234567", description="x")
+        assert params.type is None
+
+    def test_place_update_without_place_type(self):
+        """Update place without place_type should succeed."""
+        params = PlaceSaveParams(handle="h1234567", lat="42")
+        assert params.place_type is None
+
+    def test_source_update_without_title(self):
+        """Update source without title should succeed."""
+        params = SourceSaveParams(handle="h1234567", author="X")
+        assert params.title is None
+
+    def test_citation_update_without_source(self):
+        """Update citation without source_handle should succeed."""
+        params = CitationData(handle="h1234567", page="p5")
+        assert params.source_handle is None
+
+    def test_note_update_without_text_type(self):
+        """Update note without text/type should succeed."""
+        params = NoteSaveParams(handle="h1234567")
+        assert params.text is None
+        assert params.type is None
+
+    def test_repo_update_without_name_type(self):
+        """Update repository without name/type should succeed."""
+        params = RepositoryData(handle="h1234567", private=True)
+        assert params.name is None
+        assert params.type is None

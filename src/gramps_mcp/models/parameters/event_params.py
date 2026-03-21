@@ -29,7 +29,7 @@ API calls supported in this category:
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .base_params import BaseDataModel, BaseGetMultipleParams
 
@@ -45,7 +45,13 @@ class EventSearchParams(BaseGetMultipleParams):
 class EventSaveParams(BaseDataModel):
     """Parameters for creating or updating an event."""
 
-    type: str = Field(description="Event type (Birth, Death, Marriage, etc.)")
+    type: Optional[str] = Field(
+        None,
+        description=(
+            "Event type (Birth, Death, Marriage, etc.). "
+            "Required when creating (no handle)."
+        ),
+    )
     date: Optional[Dict[str, Any]] = Field(
         None,
         description=(
@@ -57,7 +63,20 @@ class EventSaveParams(BaseDataModel):
     )
     description: Optional[str] = Field(None, description="Event description")
     place: Optional[str] = Field(None, description="Place handle where event occurred")
-    citation_list: List[str] = Field(..., description="List of citation handles")
+    citation_list: Optional[List[str]] = Field(
+        None,
+        description="List of citation handles. Required when creating (no handle).",
+    )
+
+    @model_validator(mode="after")
+    def _validate_create_required(self) -> "EventSaveParams":
+        """Enforce required fields when creating (no handle = new entity)."""
+        if self.handle is not None:
+            return self
+        missing = [f for f in ("type", "citation_list") if getattr(self, f) is None]
+        if missing:
+            raise ValueError(f"Required when creating: {', '.join(missing)}")
+        return self
 
 
 class EventSpanParams(BaseModel):

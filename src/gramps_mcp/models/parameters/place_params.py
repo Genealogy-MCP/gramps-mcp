@@ -28,7 +28,7 @@ API calls supported in this category:
 
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .base_params import BaseGetMultipleParams, BaseGetSingleParams
 
@@ -59,7 +59,21 @@ class PlaceSaveParams(BaseModel):
     )
     code: Optional[str] = Field(None, description="Place code")
     alt_loc: Optional[List[dict]] = Field(None, description="Alternative locations")
-    place_type: str = Field(..., description="Place type")
+    place_type: Optional[str] = Field(
+        None,
+        description="Place type. Required when creating (no handle).",
+    )
+
+    @model_validator(mode="after")
+    def _validate_create_required(self) -> "PlaceSaveParams":
+        """Enforce required fields when creating (no handle = new entity)."""
+        if self.handle is not None:
+            return self
+        missing = [f for f in ("place_type",) if getattr(self, f) is None]
+        if missing:
+            raise ValueError(f"Required when creating: {', '.join(missing)}")
+        return self
+
     placeref_list: Optional[List[dict]] = Field(
         None, description="List of place references"
     )

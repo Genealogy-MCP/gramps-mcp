@@ -102,6 +102,13 @@ class TestFormatHttpError:
         result = client._format_http_error(err)
         assert "Permission denied" in result
 
+    def test_400(self):
+        client = self._client()
+        err = _make_http_status_error(400)
+        result = client._format_http_error(err)
+        assert "Bad request" in result
+        assert "quoted" in result
+
     def test_404(self):
         client = self._client()
         err = _make_http_status_error(404)

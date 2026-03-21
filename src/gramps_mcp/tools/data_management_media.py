@@ -64,12 +64,23 @@ async def upsert_media_tool(arguments: Dict) -> List[TextContent]:
                     mime_type, _ = mimetypes.guess_type(file_location)
                     if not mime_type:
                         mime_type = "application/octet-stream"
-                    await media_client.replace_media_file(
-                        file_content=file_content,
-                        handle=params.handle,
-                        mime_type=mime_type,
-                        tree_id=tree_id,
-                    )
+                    try:
+                        await media_client.replace_media_file(
+                            file_content=file_content,
+                            handle=params.handle,
+                            mime_type=mime_type,
+                            tree_id=tree_id,
+                        )
+                    except GrampsAPIError as e:
+                        if "409" in str(e):
+                            logger.warning(
+                                "File already exists (409 Conflict) "
+                                "for handle %s — skipping re-upload, "
+                                "proceeding with metadata update.",
+                                params.handle,
+                            )
+                        else:
+                            raise
 
                 result = await client.make_api_call(
                     api_call=ApiCalls.PUT_MEDIA_ITEM,

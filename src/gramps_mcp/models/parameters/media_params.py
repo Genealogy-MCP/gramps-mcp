@@ -82,19 +82,33 @@ class MediaFileParams(BaseModel):
 class MediaSaveParams(BaseDataModel):
     """Parameters for creating or updating a media item."""
 
-    desc: str = Field(
-        ...,
+    desc: Optional[str] = Field(
+        None,
         description=(
-            "Human-readable label for this media record (e.g. 'Birth certificate 1878')"
+            "Human-readable label for this media record "
+            "(e.g. 'Birth certificate 1878'). "
+            "Required when creating (no handle)."
         ),
     )
+
+    @model_validator(mode="after")
+    def _validate_create_required(self) -> "MediaSaveParams":
+        """Enforce required fields when creating (no handle = new entity)."""
+        if self.handle is not None:
+            return self
+        missing = [f for f in ("desc",) if getattr(self, f) is None]
+        if missing:
+            raise ValueError(f"Required when creating: {', '.join(missing)}")
+        return self
+
     file_location: Optional[str] = Field(
         None,
         description=(
             "Absolute local file path to upload (e.g. '/home/user/photo.jpg'). "
             "Required when creating new media (no handle provided). "
-            "When updating an existing record (handle provided), set this to "
-            "replace the file while preserving the media record's identity. "
+            "When updating an existing record (handle provided), omit this "
+            "to update only metadata. Set it only to replace the actual "
+            "file. Duplicate uploads are silently skipped. "
             "This is the upload source, not the Gramps-relative storage path."
         ),
     )

@@ -64,17 +64,25 @@ async def execute_operation_tool(arguments: dict) -> list[TextContent]:
 
     entry = OPERATION_REGISTRY.get(validated.operation)
     if entry is None:
+        attempted = validated.operation
         close = difflib.get_close_matches(
-            validated.operation,
+            attempted,
             OPERATION_REGISTRY.keys(),
             n=3,
             cutoff=0.4,
         )
+        # Catch per-type names like "get_media" -> suggest "get"
+        prefix_matches = [
+            name
+            for name in OPERATION_REGISTRY
+            if attempted.startswith(name + "_") and name not in close
+        ]
+        all_suggestions = close + prefix_matches
         suggestion = ""
-        if close:
-            suggestion = f" Did you mean: {', '.join(close)}?"
+        if all_suggestions:
+            suggestion = f" Did you mean: {', '.join(all_suggestions)}?"
         raise McpToolError(
-            f"Unknown operation '{validated.operation}'.{suggestion} "
+            f"Unknown operation '{attempted}'.{suggestion} "
             f"Use the 'search' tool to discover available operations."
         )
 

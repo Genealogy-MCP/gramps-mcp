@@ -27,7 +27,7 @@ API calls supported in this category:
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from .base_params import BaseDataModel, BaseGetMultipleParams, BaseGetSingleParams
 
@@ -90,10 +90,28 @@ class RepositoryParams(BaseGetSingleParams):
 class RepositoryData(BaseDataModel):
     """Model for creating or updating a repository in Gramps API."""
 
-    name: str = Field(..., description="Repository name")
-    type: str = Field(
-        ..., description="Repository type (e.g., 'Archive', 'Library', 'Church', etc.)"
+    name: Optional[str] = Field(
+        None,
+        description="Repository name. Required when creating (no handle).",
     )
+    type: Optional[str] = Field(
+        None,
+        description=(
+            "Repository type (e.g., 'Archive', 'Library', 'Church', etc.). "
+            "Required when creating (no handle)."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_create_required(self) -> "RepositoryData":
+        """Enforce required fields when creating (no handle = new entity)."""
+        if self.handle is not None:
+            return self
+        missing = [f for f in ("name", "type") if getattr(self, f) is None]
+        if missing:
+            raise ValueError(f"Required when creating: {', '.join(missing)}")
+        return self
+
     urls: Optional[List[Dict[str, Any]]] = Field(
         None, description="List of URLs associated with the repository"
     )

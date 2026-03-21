@@ -88,7 +88,8 @@ _META_TOOLS = {
         "handler": execute_operation_tool,
         "description": (
             "Run a named operation against the Gramps Web API. "
-            "Operations use generic names (e.g. 'get', not 'get_person'). "
+            "Operations use generic names with a type parameter -- "
+            "e.g. operation='get' with params.type='media', NOT 'get_media'. "
             "Use 'search' first to discover the exact operation name and its "
             "params schema, then call this with "
             "{operation: '...', params: {...}}."

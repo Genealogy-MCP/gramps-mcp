@@ -12,13 +12,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so `search` results show `EntityType: person, family, event, ...` instead of just
   `EntityType` — eliminates LLM guesswork about valid values
 - `get` operation summary and description now explicitly state "There are no per-type get
-  operations" to prevent LLMs from inventing names like `get_person`, `get_citation`
+  operations" and "Pass params.type to specify the entity kind" with explicit anti-patterns
+  (`Do NOT use 'get_person' or 'get_media'`)
+- `search` and `delete` operation summaries now include "Do NOT use per-type names"
+  warnings (e.g. `search_person`, `delete_event`)
 - `SimpleGetParams.type` description corrected from "person or family" to the full list of
   9 valid entity types
 - `search` tool description now warns that `query` is a top-level parameter (not inside
   `params`) — fixes shape-copying mistake where LLMs mirror `execute`'s call structure
-- `execute` tool description now warns against per-entity operation names and shows the
-  expected `{operation: '...', params: {...}}` call shape
+- `execute` tool description now explicitly states the `operation='get' + params.type='media'`
+  pattern (not `'get_media'`)
+- All 8 upsert Pydantic models converted from field-level required to `model_validator`
+  create-required: fields are now `Optional` (allowing partial updates) with a validator
+  that enforces presence only when `handle is None` (create mode). Affected:
+  `MediaSaveParams.desc`, `PersonData.primary_name/gender`, `EventSaveParams.type/citation_list`,
+  `PlaceSaveParams.place_type`, `SourceSaveParams.title`, `CitationData.source_handle`,
+  `NoteSaveParams.text/type`, `RepositoryData.name/type`
+- `meta_execute.py`: added prefix-based operation name suggestions after difflib — catches
+  per-type names like `get_media` → suggests `get`, `search_person` → suggests `search`
+- `test_parameter_alignment.py`: updated 8 alignment tests to reflect create-required
+  (model_validator) vs field-level required pattern
+- `test_parameter_validators.py`: `test_desc_is_required` updated to `test_desc_is_create_required`
+
+### Added
+- `TestUpsertPartialUpdate` in `test_data_management_unit.py`: 10 pure Pydantic tests
+  verifying all 8 upsert models accept partial updates (handle present) and reject
+  missing required fields on create (handle absent)
+- 4 prefix suggestion tests in `test_meta_tools.py`: verify `get_media`, `search_person`,
+  `delete_event` all surface the correct generic operation name in the error message
+- `test_get_description_mentions_type_parameter` in `test_search_unit.py`
 
 ## [2.1.0] - 2026-03-20
 

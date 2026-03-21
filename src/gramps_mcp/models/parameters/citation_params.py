@@ -27,7 +27,7 @@ API calls supported in this category:
 
 from typing import Any, Dict, Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from .base_params import BaseDataModel, BaseGetMultipleParams
 
@@ -53,4 +53,19 @@ class CitationData(BaseDataModel):
         ),
     )
     page: Optional[str] = Field(None, description="Page or location within the source")
-    source_handle: str = Field(..., description="Handle of the source being cited")
+    source_handle: Optional[str] = Field(
+        None,
+        description=(
+            "Handle of the source being cited. Required when creating (no handle)."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_create_required(self) -> "CitationData":
+        """Enforce required fields when creating (no handle = new entity)."""
+        if self.handle is not None:
+            return self
+        missing = [f for f in ("source_handle",) if getattr(self, f) is None]
+        if missing:
+            raise ValueError(f"Required when creating: {', '.join(missing)}")
+        return self
