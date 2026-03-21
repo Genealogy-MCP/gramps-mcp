@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `summarize_params()` in `operations.py` now surfaces enum member values in type strings,
+  so `search` results show `EntityType: person, family, event, ...` instead of just
+  `EntityType` — eliminates LLM guesswork about valid values
+- `get` operation summary and description now explicitly state "There are no per-type get
+  operations" to prevent LLMs from inventing names like `get_person`, `get_citation`
+- `SimpleGetParams.type` description corrected from "person or family" to the full list of
+  9 valid entity types
+- `search` tool description now warns that `query` is a top-level parameter (not inside
+  `params`) — fixes shape-copying mistake where LLMs mirror `execute`'s call structure
+- `execute` tool description now warns against per-entity operation names and shows the
+  expected `{operation: '...', params: {...}}` call shape
+
 ## [2.1.0] - 2026-03-20
 
 ### Added

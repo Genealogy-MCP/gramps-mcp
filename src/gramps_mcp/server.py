@@ -71,8 +71,10 @@ _META_TOOLS = {
         "handler": search_operations_tool,
         "description": (
             "Discover available operations and their parameters. "
+            "Call with a top-level 'query' string (not inside params). "
             "Returns matching operations with parameter schemas. "
-            "Use this before calling 'execute' to find the right operation."
+            "Always use this before calling 'execute' to find the correct "
+            "operation name."
         ),
         "annotations": ToolAnnotations(
             readOnlyHint=True,
@@ -86,8 +88,10 @@ _META_TOOLS = {
         "handler": execute_operation_tool,
         "description": (
             "Run a named operation against the Gramps Web API. "
-            "Use 'search' first to discover operations and parameters, "
-            "then call this with the operation name and params dict."
+            "Operations use generic names (e.g. 'get', not 'get_person'). "
+            "Use 'search' first to discover the exact operation name and its "
+            "params schema, then call this with "
+            "{operation: '...', params: {...}}."
         ),
         "annotations": ToolAnnotations(
             readOnlyHint=False,
