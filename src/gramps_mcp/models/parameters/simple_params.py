@@ -57,6 +57,8 @@ class DeletableEntityType(str, Enum):
 class SimpleFindParams(BaseModel):
     """Simplified parameters for type-based search."""
 
+    model_config = {"extra": "forbid"}
+
     type: EntityType = Field(description="Entity type to search")
     gql: str = Field(
         description=(

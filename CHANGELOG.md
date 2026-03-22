@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.2] - 2026-03-21
+
+### Fixed
+- `search` operation now correctly passes GQL filter expressions to the Gramps Web API.
+  Previously, GQL queries were silently ignored, returning all records unfiltered (fixes #43)
+- `search` operation now respects the `max_results` parameter for controlling page size.
+  Previously, `max_results` was ignored and the server default of 20 was always used
+- `execute` meta-tool now validates all operation parameters through their declared Pydantic
+  schema before dispatch, catching invalid or misspelled field names with actionable errors
+  instead of silently ignoring them
+
 ## [2.2.1] - 2026-03-21
 
 ### Fixed

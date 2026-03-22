@@ -127,4 +127,15 @@ async def execute_operation_tool(arguments: dict) -> list[TextContent]:
         )
 
     normalized = _normalize_identifier(validated.params, entry.params_schema)
+
+    # Validate params through the operation's schema (MCP-18).
+    # Catches wrong field names (e.g. 'query' instead of 'gql') and
+    # missing required fields before they silently produce wrong results.
+    try:
+        entry.params_schema(**normalized)
+    except Exception as e:
+        raise McpToolError(
+            f"Invalid parameters for '{validated.operation}': {e}"
+        ) from e
+
     return await entry.handler(normalized)
