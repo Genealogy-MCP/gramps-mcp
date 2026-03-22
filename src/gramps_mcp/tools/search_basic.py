@@ -95,15 +95,14 @@ def with_client(func: Callable) -> Callable:
 
 
 async def format_search_result_by_type(client, item: Dict) -> str:
-    """
-    Format search result using appropriate handler based on object type.
+    """Format search result using appropriate handler based on object type.
 
     Args:
-        client: Gramps API client instance
-        item (Dict): Search result item containing object_type and object data
+        client: Gramps API client instance.
+        item: Search result item containing object_type and object data.
 
     Returns:
-        str: Formatted result string using the appropriate handler
+        Formatted result string using the appropriate handler.
     """
     obj_type = item.get("object_type", "").lower()
     obj = item.get("object", {})
@@ -224,11 +223,7 @@ async def _search_entities(
 
 @with_client
 async def search_person_tool(client, arguments: Dict) -> List[TextContent]:
-    """
-    Search for people by name, ID, or other criteria.
-
-    Returns limited info: name, birth/death dates and places.
-    """
+    """Search for people by name, ID, or other criteria."""
     return await _search_entities(
         client,
         arguments,
@@ -241,11 +236,7 @@ async def search_person_tool(client, arguments: Dict) -> List[TextContent]:
 
 @with_client
 async def search_family_tool(client, arguments: Dict) -> List[TextContent]:
-    """
-    Search for families (family units).
-
-    Returns limited info: family members' names, marriage date/place.
-    """
+    """Search for families (family units)."""
     return await _search_entities(
         client,
         arguments,
@@ -416,30 +407,34 @@ _SEARCH_TOOL_DISPATCH: Dict[str, Callable] = {
 
 
 async def search_tool(arguments: Dict) -> List[TextContent]:
-    """Universal type-based search tool."""
-    entity_type = arguments.get("type")
-    gql = arguments.get("gql")
-    max_results = arguments.get("max_results", 20)
+    """Universal type-based search tool.
 
-    if not entity_type:
-        valid_types = ", ".join(sorted(_SEARCH_TOOL_DISPATCH.keys()))
-        raise McpToolError(f"Entity type is required. Valid types: {valid_types}")
+    Args:
+        arguments: Dict with 'type', 'gql', and optional 'max_results'.
 
-    entity_type_str = (
-        entity_type.value if hasattr(entity_type, "value") else entity_type
-    )
+    Returns:
+        List of TextContent with formatted search results.
+    """
+    from ..models.parameters.simple_params import SimpleFindParams
 
-    params = {"gql": gql, "pagesize": max_results}
+    try:
+        validated = SimpleFindParams(**arguments)
+    except Exception as e:
+        raise McpToolError(
+            f"Invalid search parameters: {e}. "
+            f"Required: type (entity type), gql (GQL filter expression). "
+            f"Optional: max_results (default 20)."
+        ) from e
 
+    entity_type_str = validated.type.value
+    params = {"gql": validated.gql, "pagesize": validated.max_results}
     tool_func = _SEARCH_TOOL_DISPATCH.get(entity_type_str)
-    if tool_func:
-        return await tool_func(params)
-
-    valid_types = ", ".join(sorted(_SEARCH_TOOL_DISPATCH.keys()))
-    raise McpToolError(
-        f"Entity type '{entity_type}' not supported for search. "
-        f"Valid types: {valid_types}"
-    )
+    if not tool_func:
+        valid_types = ", ".join(sorted(_SEARCH_TOOL_DISPATCH.keys()))
+        raise McpToolError(
+            f"Entity type '{entity_type_str}' not supported. Valid types: {valid_types}"
+        )
+    return await tool_func(params)
 
 
 @with_client

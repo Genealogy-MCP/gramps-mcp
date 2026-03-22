@@ -6,6 +6,8 @@ to the correct schema field (handle or gramps_id) based on value format and
 schema introspection.
 """
 
+import pytest
+
 from src.gramps_mcp.models.parameters.simple_params import (
     DeleteParams,
     SimpleGetParams,
@@ -101,3 +103,41 @@ class TestNormalizeIdentifier:
         params = {"type": "person", "identifier": "I0028"}
         result = _normalize_identifier(params, SimpleGetParams)
         assert result is params
+
+
+# ============================================================================
+# execute_operation_tool — schema validation
+# ============================================================================
+
+
+class TestExecuteSchemaValidation:
+    """Tests that execute validates params through the operation schema."""
+
+    @pytest.mark.asyncio
+    async def test_invalid_params_raise_validation_error(self) -> None:
+        """Params that don't match the schema raise McpToolError."""
+        from src.gramps_mcp.tools._errors import McpToolError
+        from src.gramps_mcp.tools.meta_execute import execute_operation_tool
+
+        with pytest.raises(McpToolError, match="gql"):
+            await execute_operation_tool(
+                {"operation": "search", "params": {"type": "person"}}
+            )
+
+    @pytest.mark.asyncio
+    async def test_extra_field_raises_validation_error(self) -> None:
+        """Extra fields not in the schema raise McpToolError."""
+        from src.gramps_mcp.tools._errors import McpToolError
+        from src.gramps_mcp.tools.meta_execute import execute_operation_tool
+
+        with pytest.raises(McpToolError, match="query"):
+            await execute_operation_tool(
+                {
+                    "operation": "search",
+                    "params": {
+                        "type": "person",
+                        "query": "test",
+                        "gql": "gender = 1",
+                    },
+                }
+            )

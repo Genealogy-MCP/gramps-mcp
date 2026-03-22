@@ -353,18 +353,18 @@ class TestFindTypeTool:
 
     @pytest.mark.asyncio
     async def test_missing_entity_type_raises(self):
-        """Missing type raises McpToolError (MCP-8 compliance)."""
+        """Missing type raises McpToolError with validation message."""
         from src.gramps_mcp.tools.search_basic import search_tool
 
-        with pytest.raises(McpToolError, match="Entity type is required"):
+        with pytest.raises(McpToolError, match="type"):
             await search_tool({"gql": "test"})
 
     @pytest.mark.asyncio
     async def test_unsupported_entity_type_raises(self):
-        """Unknown entity type raises McpToolError listing valid types."""
+        """Unknown entity type raises McpToolError from validation."""
         from src.gramps_mcp.tools.search_basic import search_tool
 
-        with pytest.raises(McpToolError, match="not supported for search"):
+        with pytest.raises(McpToolError, match="Invalid search parameters"):
             await search_tool({"type": "unicorn", "gql": "test"})
 
     @pytest.mark.asyncio
@@ -372,11 +372,8 @@ class TestFindTypeTool:
         """Enum-like types with .value that don't match raise McpToolError."""
         from src.gramps_mcp.tools.search_basic import search_tool
 
-        class FakeEnum:
-            value = "nonexistent"
-
-        with pytest.raises(McpToolError, match="not supported for search"):
-            await search_tool({"type": FakeEnum(), "gql": "test"})
+        with pytest.raises(McpToolError, match="Invalid search parameters"):
+            await search_tool({"type": "nonexistent", "gql": "test"})
 
     @pytest.mark.asyncio
     @patch(_CLIENT_PATCH)
@@ -390,6 +387,57 @@ class TestFindTypeTool:
 
         result = await search_tool({"type": "person", "gql": "test", "max_results": 1})
         assert isinstance(result[0], TextContent)
+
+    @pytest.mark.asyncio
+    @patch(_CLIENT_PATCH)
+    @patch(_SETTINGS_PATCH, return_value=_mock_settings())
+    async def test_gql_passed_to_api(self, _settings, mock_client_cls):
+        """GQL expression is forwarded as query parameter to the API."""
+        from src.gramps_mcp.tools.search_basic import search_tool
+
+        client_inst = _mock_client_instance()
+        mock_client_cls.return_value = client_inst
+
+        gql_expr = "alternate_names.length > 0"
+        await search_tool({"type": "person", "gql": gql_expr, "max_results": 5})
+
+        call_kwargs = client_inst.make_api_call.call_args
+        params_model = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params")
+        params_dict = params_model.model_dump(exclude_none=True)
+        assert params_dict.get("gql") == gql_expr
+
+    @pytest.mark.asyncio
+    @patch(_CLIENT_PATCH)
+    @patch(_SETTINGS_PATCH, return_value=_mock_settings())
+    async def test_max_results_passed_as_pagesize(self, _settings, mock_client_cls):
+        """max_results is forwarded as pagesize query parameter to the API."""
+        from src.gramps_mcp.tools.search_basic import search_tool
+
+        client_inst = _mock_client_instance()
+        mock_client_cls.return_value = client_inst
+
+        await search_tool({"type": "person", "gql": "gender = 1", "max_results": 5})
+
+        call_kwargs = client_inst.make_api_call.call_args
+        params_model = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params")
+        params_dict = params_model.model_dump(exclude_none=True)
+        assert params_dict.get("pagesize") == 5
+
+    @pytest.mark.asyncio
+    async def test_missing_gql_raises(self):
+        """Missing gql field raises McpToolError with actionable message."""
+        from src.gramps_mcp.tools.search_basic import search_tool
+
+        with pytest.raises(McpToolError, match="gql"):
+            await search_tool({"type": "person", "query": "some query"})
+
+    @pytest.mark.asyncio
+    async def test_wrong_field_name_query_raises(self):
+        """Passing 'query' instead of 'gql' raises a validation error."""
+        from src.gramps_mcp.tools.search_basic import search_tool
+
+        with pytest.raises(McpToolError, match="gql"):
+            await search_tool({"type": "person", "query": "alternate_names.length > 0"})
 
 
 # ============================================================================
