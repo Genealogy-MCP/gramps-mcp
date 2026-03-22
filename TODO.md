@@ -19,3 +19,10 @@
 
 - [ ] **CI skip count assertion**: Add a CI step that fails if more than N integration
   tests are skipped unexpectedly (guard against silent regressions).
+
+- [ ] **Flaky report polling in `test_get_descendants_real_api`**: Failed on py3.12
+  (2026-03-21, PR #44) with `Record not found at .../processed/<task_id>.html` — passed
+  on retry and on all other Python versions. Root cause: race condition between Gramps Web
+  task completion and file availability. If this recurs, add retry-with-backoff to the
+  report file fetch in `analysis.py::_poll_and_fetch_report()`, or mark the test
+  `@pytest.mark.flaky(reruns=2)`.

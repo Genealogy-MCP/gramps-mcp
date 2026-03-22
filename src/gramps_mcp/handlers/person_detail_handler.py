@@ -48,13 +48,53 @@ async def format_person_detail(client, tree_id: str, handle: str) -> str:
 
     # Extract basic info
     gramps_id = person_data.get("gramps_id", "")
+    extended = person_data.get("extended", {})
+
+    # Build handle -> gramps_id map from person-level extended citations
+    citation_map: dict[str, str] = {}
+    for c in extended.get("citations", []):
+        if isinstance(c, dict) and c.get("handle") and c.get("gramps_id"):
+            citation_map[c["handle"]] = c["gramps_id"]
+
     name = _extract_person_name(person_data)
     gender_display = _get_gender_letter(person_data.get("gender", 2))
 
-    result += f"{name} ({gender_display}) - {gramps_id} - [{handle}]\n"
+    # Resolve primary name citations
+    primary_name = person_data.get("primary_name", {})
+    primary_cit_handles = primary_name.get("citation_list", []) if primary_name else []
+    primary_cit_ids = [
+        citation_map[h] for h in primary_cit_handles if h in citation_map
+    ]
+    primary_cit_part = f" [{', '.join(primary_cit_ids)}]" if primary_cit_ids else ""
+
+    header = f"{name} ({gender_display}) - {gramps_id} - [{handle}]"
+    result += f"{header}{primary_cit_part}\n"
+
+    # Alternate names
+    alt_names = person_data.get("alternate_names", [])
+    if alt_names:
+        result += "Alternate names:\n"
+        for alt_name in alt_names:
+            if not isinstance(alt_name, dict):
+                continue
+            name_type_raw = alt_name.get("type", "")
+            name_type = (
+                name_type_raw.get("string", "")
+                if isinstance(name_type_raw, dict)
+                else str(name_type_raw)
+            )
+            given = alt_name.get("first_name", "")
+            alt_surname = join_surnames(alt_name.get("surname_list", []))
+            full = f"{given} {alt_surname}".strip()
+            if not full:
+                continue
+            cit_handles = alt_name.get("citation_list", [])
+            cit_ids = [citation_map[h] for h in cit_handles if h in citation_map]
+            cit_part = f" [{', '.join(cit_ids)}]" if cit_ids else ""
+            prefix = f"{name_type}: " if name_type else ""
+            result += f"  - {prefix}{full}{cit_part}\n"
 
     # Birth and death from extended data
-    extended = person_data.get("extended", {})
     events = extended.get("events", [])
 
     # Birth event

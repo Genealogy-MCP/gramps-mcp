@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-03-21
+
+### Added
+- `format_person` and `format_person_detail` now display alternate names (AKA, married
+  names, misspellings) with name type and resolved citation references (fixes #41)
+- Primary name citations are now shown on the person header line when present
+
 ## [2.1.1] - 2026-03-20
 
 ### Fixed
