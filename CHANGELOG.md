@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-03-21
+
+### Fixed
+- `alternate_names` parameter description now documents all supported Gramps Name fields:
+  `suffix`, `title`, `nick`, `call`, `famnick`, `citation_list`, `note_list`, and `date`.
+  Previously only `first_name`, `surname_list`, and `type` were mentioned, making it
+  impossible for LLMs to discover citation attachment on alternate names (fixes #42)
+
 ## [2.2.0] - 2026-03-21
 
 ### Added

@@ -83,8 +83,18 @@ class PersonData(BaseDataModel):
     alternate_names: Optional[List[Dict[str, Any]]] = Field(
         None,
         description=(
-            "List of alternate name objects. Each name has first_name, "
-            "surname_list, and type (e.g. 'Also Known As', 'Married Name'). "
+            "List of alternate name objects. "
+            "Supported fields: first_name, surname_list, "
+            "type (e.g. 'Also Known As', 'Married Name'), "
+            "suffix, title, nick, call, famnick, "
+            "citation_list (list of citation handles evidencing the name), "
+            "note_list (list of note handles), "
+            "date (Date object for when the name was used). "
+            "Example with citation: "
+            '{"first_name": "Maria", '
+            '"surname_list": [{"surname": "Garcia"}], '
+            '"type": "Married Name", '
+            '"citation_list": ["<citation_handle>"]}. '
             "On update: replaces the entire alternate_names list (not merged)"
         ),
     )
