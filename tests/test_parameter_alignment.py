@@ -517,6 +517,35 @@ class TestParameterAlignment:
         get_params_type_field = SimpleGetParams.model_fields["type"]
         assert get_params_type_field.annotation is EntityType
 
+    def test_alternate_names_description_documents_all_name_fields(self):
+        """Test that alternate_names description lists all supported Name fields.
+
+        Issue #42: The description only mentioned first_name, surname_list, and
+        type. Users need to know about citation_list, note_list, and date fields
+        for genealogical best practices.
+        """
+        field_info = PersonData.model_fields["alternate_names"]
+        description = field_info.description
+
+        # All fields supported by the Gramps Name schema that users can provide
+        expected_fields = [
+            "first_name",
+            "surname_list",
+            "type",
+            "suffix",
+            "title",
+            "nick",
+            "call",
+            "famnick",
+            "citation_list",
+            "note_list",
+            "date",
+        ]
+        for field_name in expected_fields:
+            assert field_name in description, (
+                f"alternate_names description should mention '{field_name}'"
+            )
+
     def test_person_event_reference_validation(self):
         """Test that PersonData properly validates event_ref_list structure."""
         # Test valid event reference format
