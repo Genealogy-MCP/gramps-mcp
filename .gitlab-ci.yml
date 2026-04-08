@@ -45,11 +45,8 @@ lint-typecheck:
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
-    REQUIRE_INTEGRATION: "1"
-    GRAMPS_USERNAME: owner
-    GRAMPS_PASSWORD: owner
   before_script:
-    - apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg jq
+    - apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg
     - install -m 0755 -d /etc/apt/keyrings
     - curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list
@@ -59,15 +56,23 @@ lint-typecheck:
     - docker compose -f docker-compose.test.yml pull
   script:
     - docker compose -f docker-compose.test.yml up -d --wait
-    # DinD port mappings aren't reachable from the CI runner; discover container IP directly.
-    # All commands must be in one block so the exported GRAMPS_API_URL is shared.
+    # Run seed + tests inside the Docker Compose network so grampsweb is
+    # reachable at localhost:5055 (same as GitHub Actions / local dev).
+    # Mount the project dir and use the same Python image with uv.
     - |
-      GRAMPS_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \
-        $(docker compose -f docker-compose.test.yml ps -q grampsweb))
-      export GRAMPS_API_URL="http://${GRAMPS_IP}:5000"
-      echo "Gramps Web container IP: $GRAMPS_IP -> $GRAMPS_API_URL"
-      uv run python scripts/seed_test_db.py --base-url "$GRAMPS_API_URL"
-      uv run pytest
+      NETWORK=$(docker network ls --filter name=gramps-mcp --format '{{.Name}}' | head -1)
+      PYTHON_IMG="python:$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')-slim-bookworm"
+      echo "Running tests on network: $NETWORK with image: $PYTHON_IMG"
+      docker run --rm \
+        --network "$NETWORK" \
+        -v "$CI_PROJECT_DIR:/app" \
+        -w /app \
+        -e REQUIRE_INTEGRATION=1 \
+        -e GRAMPS_API_URL=http://grampsweb:5000 \
+        -e GRAMPS_USERNAME=owner \
+        -e GRAMPS_PASSWORD=owner \
+        "$PYTHON_IMG" \
+        bash -c "pip install uv && uv sync && uv run python scripts/seed_test_db.py --base-url http://grampsweb:5000 && uv run pytest"
   after_script:
     - docker compose -f docker-compose.test.yml logs --tail=100 || true
     - docker compose -f docker-compose.test.yml down -v || true
