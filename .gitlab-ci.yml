@@ -28,6 +28,7 @@ lint-typecheck:
   stage: lint
   image: python:3.11-slim-bookworm
   before_script:
+    - apt-get update && apt-get install -y --no-install-recommends libatomic1
     - pip install uv
     - uv sync
   script:
