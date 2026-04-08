@@ -74,12 +74,16 @@ lint-typecheck:
         -e COMPOSE_PROJECT_NAME=gramps-mcp \
         "$PYTHON_IMG" \
         bash -c '
-          apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg >/dev/null 2>&1 &&
+          set -ex &&
+          apt-get update &&
+          apt-get install -y --no-install-recommends ca-certificates curl gnupg &&
           install -m 0755 -d /etc/apt/keyrings &&
           curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg &&
           echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list &&
-          apt-get update && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin >/dev/null 2>&1 &&
-          pip install uv >/dev/null 2>&1 &&
+          apt-get update &&
+          apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin &&
+          docker version &&
+          pip install uv &&
           uv sync &&
           uv run python scripts/seed_test_db.py &&
           uv run pytest
