@@ -56,23 +56,20 @@ lint-typecheck:
     - docker compose -f docker-compose.test.yml pull
   script:
     - docker compose -f docker-compose.test.yml up -d --wait
-    # Run seed + tests inside the Docker Compose network so grampsweb is
-    # reachable at localhost:5055 (same as GitHub Actions / local dev).
-    # Mount the project dir and use the same Python image with uv.
+    # Run seed + tests inside a container on the DinD host network so
+    # 127.0.0.1:5055 is reachable (same as GitHub Actions / local dev).
     - |
-      NETWORK=$(docker network ls --filter name=gramps-mcp --format '{{.Name}}' | head -1)
       PYTHON_IMG="python:$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')-slim-bookworm"
-      echo "Running tests on network: $NETWORK with image: $PYTHON_IMG"
       docker run --rm \
-        --network "$NETWORK" \
+        --network=host \
         -v "$CI_PROJECT_DIR:/app" \
         -w /app \
         -e REQUIRE_INTEGRATION=1 \
-        -e GRAMPS_API_URL=http://grampsweb:5000 \
+        -e GRAMPS_API_URL=http://127.0.0.1:5055 \
         -e GRAMPS_USERNAME=owner \
         -e GRAMPS_PASSWORD=owner \
         "$PYTHON_IMG" \
-        bash -c "pip install uv && uv sync && uv run python scripts/seed_test_db.py --base-url http://grampsweb:5000 && uv run pytest"
+        bash -c "pip install uv && uv sync && uv run python scripts/seed_test_db.py && uv run pytest"
   after_script:
     - docker compose -f docker-compose.test.yml logs --tail=100 || true
     - docker compose -f docker-compose.test.yml down -v || true
