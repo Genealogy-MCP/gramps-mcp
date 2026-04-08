@@ -71,6 +71,7 @@ lint-typecheck:
         -e GRAMPS_USERNAME=owner \
         -e GRAMPS_PASSWORD=owner \
         -e DOCKER_HOST="tcp://${DOCKER_IP}:2375" \
+        -e COMPOSE_PROJECT_NAME=gramps-mcp \
         "$PYTHON_IMG" \
         bash -c '
           apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg >/dev/null 2>&1 &&
