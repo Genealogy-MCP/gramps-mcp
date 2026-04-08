@@ -1,6 +1,6 @@
 services:
   gramps-mcp:
-    image: ghcr.io/genealogy-mcp/gramps-mcp:latest
+    image: registry.gitlab.com/genealogy-mcp/gramps-mcp:latest
     ports:
       - "8000:8000"
     env_file:

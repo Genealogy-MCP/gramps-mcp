@@ -6,7 +6,7 @@ Thank you for your interest in contributing to Gramps MCP! This guide will help 
 
 1. **Fork and Clone**:
 ```bash
-git clone https://github.com/yourusername/gramps-mcp.git
+git clone https://gitlab.com/yourusername/gramps-mcp.git
 cd gramps-mcp
 ```
 
@@ -155,11 +155,11 @@ uv run python -m src.gramps_mcp.server
 uv run python -m src.gramps_mcp.server stdio
 ```
 
-**Note**: The main `docker-compose.yml` uses pre-built images from GitHub Container Registry. For development with local code changes, use `docker-compose.dev.yml` which builds from your local source.
+**Note**: The main `docker-compose.yml` uses pre-built images from the container registry. For development with local code changes, use `docker-compose.dev.yml` which builds from your local source.
 
 ## Image Registry
 
-Docker images are automatically published to GitHub Container Registry via GitHub Actions:
+Docker images are automatically published to GitHub Container Registry and GitLab Container Registry via CI:
 
 - **Latest stable**: `ghcr.io/genealogy-mcp/gramps-mcp:latest`
 - **Specific versions**: `ghcr.io/genealogy-mcp/gramps-mcp:v1.0.0`
@@ -175,18 +175,18 @@ Images are automatically built and published when:
 - **Push to main branch** → `ghcr.io/genealogy-mcp/gramps-mcp:main`
 - **Release tags** → `ghcr.io/genealogy-mcp/gramps-mcp:v1.2.3` and `ghcr.io/genealogy-mcp/gramps-mcp:latest`
 
-The GitHub Actions workflow handles multi-architecture builds, proper tagging, and registry authentication automatically.
+The GitLab CI pipeline handles multi-architecture builds, proper tagging, and registry authentication automatically.
 
-## Pull Request Process
+## Merge Request Process
 
 1. **Create a feature branch**: `git checkout -b feature/your-feature-name`
 2. **Write tests first** following TDD practices
 3. **Implement the feature** ensuring tests pass
 4. **Run quality checks**: `uv run ruff check src/ && uv run pytest`
 5. **Update documentation** if needed
-6. **Submit pull request** with clear description
+6. **Submit merge request** with clear description
 
-### Pull Request Requirements
+### Merge Request Requirements
 
 - [ ] All tests pass
 - [ ] Code follows style guidelines
@@ -197,7 +197,7 @@ The GitHub Actions workflow handles multi-architecture builds, proper tagging, a
 
 ## Reporting Issues
 
-Use GitHub Issues for:
+Use [GitLab Issues](https://gitlab.com/genealogy-mcp/gramps-mcp/-/issues) for:
 - **Bug reports** with reproduction steps
 - **Feature requests** with clear use cases
 - **Documentation improvements**
@@ -205,9 +205,8 @@ Use GitHub Issues for:
 
 ## Getting Help
 
-- **GitHub Discussions**: For questions and community discussion
-- **GitHub Issues**: For bug reports and feature requests
-- **Code Review**: Submit PRs for collaborative improvement
+- **GitLab Issues**: For questions, bug reports, and feature requests
+- **Code Review**: Submit MRs for collaborative improvement
 
 ## License
 

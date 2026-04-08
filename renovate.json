@@ -1,0 +1,16 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "packageRules": [
+    {
+      "matchManagers": ["pip_requirements", "pep621"],
+      "schedule": ["every weekend"],
+      "assignees": ["facastagnini"]
+    },
+    {
+      "matchManagers": ["dockerfile"],
+      "schedule": ["every weekend"],
+      "assignees": ["facastagnini"]
+    }
+  ]
+}

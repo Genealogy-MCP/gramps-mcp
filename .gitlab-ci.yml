@@ -1,0 +1,196 @@
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_TAG'
+
+stages:
+  - lint
+  - test
+  - security
+  - detect
+  - release
+  - docker
+
+variables:
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.uv-cache"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+
+default:
+  interruptible: true
+  cache:
+    key: "${CI_JOB_IMAGE}"
+    paths:
+      - .uv-cache/
+      - .pip-cache/
+
+lint-typecheck:
+  stage: lint
+  image: python:3.11-slim-bookworm
+  before_script:
+    - pip install uv
+    - uv sync
+  script:
+    - uv run ruff check src/
+    - uv run ruff format --check src/
+    - find src/ scripts/ -name '*.py' -exec python scripts/check_copyright_header.py {} +
+    - uv run pyright src/
+
+.test-base:
+  stage: test
+  services:
+    - name: docker:dind
+      command: ["--tls=false"]
+  variables:
+    FF_NETWORK_PER_BUILD: "1"
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    REQUIRE_INTEGRATION: "1"
+    GRAMPS_API_URL: http://docker:5055
+    GRAMPS_USERNAME: owner
+    GRAMPS_PASSWORD: owner
+  before_script:
+    - apt-get update && apt-get install -y docker.io docker-compose-plugin curl
+    - pip install uv
+    - uv sync
+    - docker compose -f docker-compose.test.yml pull
+  script:
+    - docker compose -f docker-compose.test.yml up -d --wait
+    - uv run python scripts/seed_test_db.py
+    - uv run pytest
+  after_script:
+    - docker compose -f docker-compose.test.yml logs --tail=100 || true
+    - docker compose -f docker-compose.test.yml down -v || true
+
+test-py3.10:
+  extends: .test-base
+  image: python:3.10-slim-bookworm
+
+test-py3.11:
+  extends: .test-base
+  image: python:3.11-slim-bookworm
+
+test-py3.12:
+  extends: .test-base
+  image: python:3.12-slim-bookworm
+
+test-py3.13:
+  extends: .test-base
+  image: python:3.13-slim-bookworm
+
+security-audit:
+  stage: security
+  image: python:3.11-slim-bookworm
+  before_script:
+    - pip install uv
+    - uv sync
+  script:
+    - uv run pip-audit
+
+# --- Release automation ---
+
+detect-release:
+  stage: detect
+  image: python:3.11-slim-bookworm
+  before_script:
+    - pip install uv
+    - uv sync
+  script:
+    - |
+      SUBJECT=$(git log -1 --format=%s)
+      if [[ ! "$SUBJECT" =~ ^chore:\ release\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+        echo "Not a release commit, skipping downstream jobs"
+        exit 1
+      fi
+      VERSION="${BASH_REMATCH[1]}"
+      echo "VERSION=$VERSION" >> release.env
+      PYPROJECT_V=$(python3 -c "import re; m=re.search(r'^version\s*=\"([^\"]+)\"', open('pyproject.toml').read(), re.M); print(m.group(1))")
+      test "$PYPROJECT_V" = "$VERSION"
+      grep -q "^## \[$VERSION\]" CHANGELOG.md
+      ! git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q .
+      awk "/^## \[$VERSION\]/{f=1;next}/^## \[/{if(f)exit}f" CHANGELOG.md > changelog.txt
+  artifacts:
+    reports:
+      dotenv: release.env
+    paths:
+      - changelog.txt
+  allow_failure: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+create-release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs:
+    - job: detect-release
+      artifacts: true
+  script:
+    - echo "Creating release v$VERSION"
+  release:
+    tag_name: "v$VERSION"
+    name: "v$VERSION"
+    description: changelog.txt
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+build-push-docker:
+  stage: docker
+  image: docker:latest
+  services:
+    - docker:dind
+  needs:
+    - job: detect-release
+      artifacts: true
+    - job: create-release
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker login -u genealogy-mcp -p $GITHUB_TOKEN_FOR_GHCR ghcr.io
+  script:
+    - |
+      MAJOR=$(echo $VERSION | cut -d. -f1)
+      MINOR=$(echo $VERSION | cut -d. -f1-2)
+      docker build \
+        -t $CI_REGISTRY_IMAGE:$VERSION \
+        -t $CI_REGISTRY_IMAGE:$MINOR \
+        -t $CI_REGISTRY_IMAGE:$MAJOR \
+        -t $CI_REGISTRY_IMAGE:latest \
+        -t ghcr.io/genealogy-mcp/$CI_PROJECT_NAME:$VERSION \
+        -t ghcr.io/genealogy-mcp/$CI_PROJECT_NAME:$MINOR \
+        -t ghcr.io/genealogy-mcp/$CI_PROJECT_NAME:$MAJOR \
+        -t ghcr.io/genealogy-mcp/$CI_PROJECT_NAME:latest \
+        .
+      docker push $CI_REGISTRY_IMAGE --all-tags
+      docker push ghcr.io/genealogy-mcp/$CI_PROJECT_NAME --all-tags
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+docker-on-tag:
+  stage: docker
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker login -u genealogy-mcp -p $GITHUB_TOKEN_FOR_GHCR ghcr.io
+  script:
+    - |
+      TAG_VERSION=${CI_COMMIT_TAG#v}
+      docker build \
+        -t $CI_REGISTRY_IMAGE:$TAG_VERSION \
+        -t $CI_REGISTRY_IMAGE:latest \
+        -t ghcr.io/genealogy-mcp/$CI_PROJECT_NAME:$TAG_VERSION \
+        -t ghcr.io/genealogy-mcp/$CI_PROJECT_NAME:latest \
+        .
+      docker push $CI_REGISTRY_IMAGE --all-tags
+      docker push ghcr.io/genealogy-mcp/$CI_PROJECT_NAME --all-tags
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+/'
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml

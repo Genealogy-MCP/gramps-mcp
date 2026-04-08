@@ -1,0 +1,95 @@
+name: Sync to GitLab
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+env:
+  GITLAB_PROJECT_PATH: genealogy-mcp/${{ github.event.repository.name }}
+  GITLAB_API: https://gitlab.com/api/v4
+
+jobs:
+  sync-issue:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create issue on GitLab
+        id: create
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_API_TOKEN }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: |
+          PROJECT=$(echo "$GITLAB_PROJECT_PATH" | sed 's|/|%2F|g')
+
+          DESC=$(printf '_Originally opened by [@%s](https://github.com/%s) on [GitHub](%s)._\n\n---\n\n%s' \
+            "$ISSUE_AUTHOR" "$ISSUE_AUTHOR" "$ISSUE_URL" "$ISSUE_BODY")
+
+          BODY=$(jq -n \
+            --arg title "$ISSUE_TITLE" \
+            --arg desc "$DESC" \
+            --arg labels "source:github" \
+            '{title: $title, description: $desc, labels: $labels}')
+
+          RESPONSE=$(curl -sf -X POST \
+            -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$BODY" \
+            "$GITLAB_API/projects/$PROJECT/issues")
+
+          GL_URL=$(echo "$RESPONSE" | jq -r '.web_url')
+          if [ -z "$GL_URL" ] || [ "$GL_URL" = "null" ]; then
+            echo "::error::Failed to create GitLab issue"
+            exit 1
+          fi
+          echo "gitlab_url=$GL_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on GitHub issue with GitLab link
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const glUrl = '${{ steps.create.outputs.gitlab_url }}';
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.issue.number,
+              body: [
+                `> This issue has been synced to GitLab: ${glUrl}`,
+                '>',
+                '> Development happens on GitLab. Follow-up discussion will be on the GitLab issue.',
+                '> This GitHub repository is a read-only mirror.',
+              ].join('\n'),
+            });
+
+  redirect-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            const body = [
+              '> **This project develops on GitLab.**',
+              '> Please open merge requests at:',
+              '> https://gitlab.com/genealogy-mcp/' + context.repo.repo,
+              '>',
+              '> This GitHub repository is a read-only mirror. PRs cannot be merged here.',
+            ].join('\n');
+            await github.rest.pulls.createReview({
+              ...context.repo,
+              pull_number: context.payload.pull_request.number,
+              body,
+              event: 'COMMENT',
+            });
+            await github.rest.pulls.update({
+              ...context.repo,
+              pull_number: context.payload.pull_request.number,
+              state: 'closed',
+            });

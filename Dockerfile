@@ -14,9 +14,9 @@ FROM python:3.14-slim-bookworm
 # Add OCI labels
 LABEL org.opencontainers.image.title="Gramps MCP"
 LABEL org.opencontainers.image.description="AI-Powered Genealogy Research & Management - MCP server for Gramps Web API"
-LABEL org.opencontainers.image.url="https://github.com/Genealogy-MCP/gramps-mcp"
-LABEL org.opencontainers.image.source="https://github.com/Genealogy-MCP/gramps-mcp"
-LABEL org.opencontainers.image.documentation="https://github.com/Genealogy-MCP/gramps-mcp/blob/main/README.md"
+LABEL org.opencontainers.image.url="https://gitlab.com/genealogy-mcp/gramps-mcp"
+LABEL org.opencontainers.image.source="https://gitlab.com/genealogy-mcp/gramps-mcp"
+LABEL org.opencontainers.image.documentation="https://gitlab.com/genealogy-mcp/gramps-mcp/-/blob/main/README.md"
 LABEL org.opencontainers.image.licenses="AGPL-3.0"
 LABEL org.opencontainers.image.vendor="Genealogy-MCP"
 

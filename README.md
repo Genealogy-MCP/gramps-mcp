@@ -1,6 +1,8 @@
 # Gramps MCP - AI-Powered Genealogy Research & Management
 
-[![License](https://img.shields.io/badge/License-AGPL--3.0-blue)](./LICENSE) [![Python](https://img.shields.io/badge/Python-3.11+-brightgreen)](https://python.org) [![MCP](https://img.shields.io/badge/MCP-1.2.0+-orange)](https://modelcontextprotocol.io)
+[![License](https://img.shields.io/badge/License-AGPL--3.0-blue)](./LICENSE) [![Python](https://img.shields.io/badge/Python-3.11+-brightgreen)](https://python.org) [![MCP](https://img.shields.io/badge/MCP-1.2.0+-orange)](https://modelcontextprotocol.io) [![pipeline status](https://gitlab.com/genealogy-mcp/gramps-mcp/badges/main/pipeline.svg)](https://gitlab.com/genealogy-mcp/gramps-mcp/-/pipelines)
+
+**Note:** GitHub is a read-only mirror. Development happens on [GitLab](https://gitlab.com/genealogy-mcp/gramps-mcp).
 
 ## Without Gramps MCP
 
@@ -81,8 +83,8 @@ Gramps MCP uses a **Code Mode** architecture: just 2 MCP tools (`search` + `exec
 
 ```bash
 # Download the configuration
-curl -O https://raw.githubusercontent.com/Genealogy-MCP/gramps-mcp/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/Genealogy-MCP/gramps-mcp/main/.env.example
+curl -O https://gitlab.com/genealogy-mcp/gramps-mcp/-/raw/main/docker-compose.yml
+curl -O https://gitlab.com/genealogy-mcp/gramps-mcp/-/raw/main/.env.example
 cp .env.example .env
 # Edit .env with your Gramps Web API credentials
 
@@ -215,7 +217,7 @@ For any other MCP client, use the HTTP transport endpoint:
 ### Setup
 
 ```bash
-git clone https://github.com/Genealogy-MCP/gramps-mcp.git
+git clone https://gitlab.com/genealogy-mcp/gramps-mcp.git
 cd gramps-mcp
 make install
 ```
@@ -366,9 +368,9 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ### Community & Support
 
-- **Bug Reports & Feature Requests**: [GitHub Issues](https://github.com/Genealogy-MCP/gramps-mcp/issues)
-- **Questions & Discussions**: [GitHub Discussions](https://github.com/Genealogy-MCP/gramps-mcp/discussions)
-- **Documentation**: [Project Wiki](https://github.com/Genealogy-MCP/gramps-mcp/wiki)
+- **Bug Reports & Feature Requests**: [GitLab Issues](https://gitlab.com/genealogy-mcp/gramps-mcp/-/issues)
+- **Questions & Discussions**: [GitLab Issues](https://gitlab.com/genealogy-mcp/gramps-mcp/-/issues)
+- **Documentation**: [Project Wiki](https://gitlab.com/genealogy-mcp/gramps-mcp/-/wikis/home)
 
 ## Acknowledgments
 
