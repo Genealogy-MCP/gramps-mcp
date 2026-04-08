@@ -61,7 +61,7 @@ lint-typecheck:
     - docker compose -f docker-compose.test.yml pull
   script:
     - docker compose -f docker-compose.test.yml up -d --wait
-    - uv run python scripts/seed_test_db.py
+    - uv run python scripts/seed_test_db.py --base-url "$GRAMPS_API_URL"
     - uv run pytest
   after_script:
     - docker compose -f docker-compose.test.yml logs --tail=100 || true
