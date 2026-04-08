@@ -56,9 +56,11 @@ lint-typecheck:
     - docker compose -f docker-compose.test.yml pull
   script:
     - docker compose -f docker-compose.test.yml up -d --wait
-    # Run seed + tests inside a container on the DinD host network so
-    # 127.0.0.1:5055 is reachable (same as GitHub Actions / local dev).
+    # Run seed + tests inside a container on the DinD host network.
+    # --network=host gives access to 127.0.0.1:5055 (compose port mapping).
+    # Docker CLI + DOCKER_HOST lets seed_test_db.py call `docker compose exec`.
     - |
+      DOCKER_IP=$(getent hosts docker | awk '{print $1}')
       PYTHON_IMG="python:$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')-slim-bookworm"
       docker run --rm \
         --network=host \
@@ -68,8 +70,19 @@ lint-typecheck:
         -e GRAMPS_API_URL=http://127.0.0.1:5055 \
         -e GRAMPS_USERNAME=owner \
         -e GRAMPS_PASSWORD=owner \
+        -e DOCKER_HOST="tcp://${DOCKER_IP}:2375" \
         "$PYTHON_IMG" \
-        bash -c "pip install uv && uv sync && uv run python scripts/seed_test_db.py && uv run pytest"
+        bash -c '
+          apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg >/dev/null 2>&1 &&
+          install -m 0755 -d /etc/apt/keyrings &&
+          curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg &&
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list &&
+          apt-get update && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin >/dev/null 2>&1 &&
+          pip install uv >/dev/null 2>&1 &&
+          uv sync &&
+          uv run python scripts/seed_test_db.py &&
+          uv run pytest
+        '
   after_script:
     - docker compose -f docker-compose.test.yml logs --tail=100 || true
     - docker compose -f docker-compose.test.yml down -v || true
