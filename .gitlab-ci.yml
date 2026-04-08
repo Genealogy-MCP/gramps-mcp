@@ -43,15 +43,13 @@ lint-typecheck:
     - name: docker:dind
       command: ["--tls=false"]
   variables:
-    FF_NETWORK_PER_BUILD: "1"
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
     REQUIRE_INTEGRATION: "1"
-    GRAMPS_API_URL: http://docker:5055
     GRAMPS_USERNAME: owner
     GRAMPS_PASSWORD: owner
   before_script:
-    - apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg
+    - apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg jq
     - install -m 0755 -d /etc/apt/keyrings
     - curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list
@@ -61,6 +59,12 @@ lint-typecheck:
     - docker compose -f docker-compose.test.yml pull
   script:
     - docker compose -f docker-compose.test.yml up -d --wait
+    # DinD port mappings aren't reachable from the CI runner; discover container IP directly
+    - |
+      GRAMPS_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' \
+        $(docker compose -f docker-compose.test.yml ps -q grampsweb))
+      export GRAMPS_API_URL="http://${GRAMPS_IP}:5000"
+      echo "Gramps Web container IP: $GRAMPS_IP -> $GRAMPS_API_URL"
     - uv run python scripts/seed_test_db.py --base-url "$GRAMPS_API_URL"
     - uv run pytest
   after_script:
