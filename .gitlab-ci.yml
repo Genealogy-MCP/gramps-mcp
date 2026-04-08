@@ -117,21 +117,17 @@ security-audit:
     - uv run pip-audit
 
 # --- Release automation ---
+# Gate all release jobs with $CI_COMMIT_TITLE regex so they only run on
+# release commits. This avoids the allow_failure:true problem where
+# downstream jobs still execute with empty $VERSION.
 
 detect-release:
   stage: detect
   image: python:3.11-slim-bookworm
-  before_script:
-    - pip install uv
-    - uv sync
+  before_script: []
   script:
     - |
-      SUBJECT=$(git log -1 --format=%s)
-      if [[ ! "$SUBJECT" =~ ^chore:\ release\ v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
-        echo "Not a release commit, skipping downstream jobs"
-        exit 1
-      fi
-      VERSION="${BASH_REMATCH[1]}"
+      VERSION=$(echo "$CI_COMMIT_TITLE" | grep -oP '(?<=^chore: release v)\d+\.\d+\.\d+')
       echo "VERSION=$VERSION" >> release.env
       PYPROJECT_V=$(python3 -c "import re; m=re.search(r'^version\s*=\"([^\"]+)\"', open('pyproject.toml').read(), re.M); print(m.group(1))")
       test "$PYPROJECT_V" = "$VERSION"
@@ -143,9 +139,8 @@ detect-release:
       dotenv: release.env
     paths:
       - changelog.txt
-  allow_failure: true
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_TITLE =~ /^chore: release v\d+/'
 
 create-release:
   stage: release
@@ -153,6 +148,7 @@ create-release:
   needs:
     - job: detect-release
       artifacts: true
+  before_script: []
   script:
     - echo "Creating release v$VERSION"
   release:
@@ -160,7 +156,7 @@ create-release:
     name: "v$VERSION"
     description: changelog.txt
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_TITLE =~ /^chore: release v\d+/'
 
 build-push-docker:
   stage: docker
@@ -193,7 +189,7 @@ build-push-docker:
       docker push $CI_REGISTRY_IMAGE --all-tags
       docker push ghcr.io/genealogy-mcp/$CI_PROJECT_NAME --all-tags
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_TITLE =~ /^chore: release v\d+/'
 
 docker-on-tag:
   stage: docker
