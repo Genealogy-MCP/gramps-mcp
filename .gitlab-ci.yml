@@ -60,7 +60,7 @@ lint-typecheck:
     # --network=host gives access to 127.0.0.1:5055 (compose port mapping).
     # Docker CLI + DOCKER_HOST lets seed_test_db.py call `docker compose exec`.
     - |
-      DOCKER_IP=$(getent hosts docker | awk '{print $1}')
+      DOCKER_IP=$(getent ahostsv4 docker | head -1 | awk '{print $1}')
       PYTHON_IMG="python:$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')-slim-bookworm"
       docker run --rm \
         --network=host \
