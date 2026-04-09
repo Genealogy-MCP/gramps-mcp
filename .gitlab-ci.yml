@@ -2,7 +2,6 @@ workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: '$CI_COMMIT_TAG'
 
 stages:
   - lint
@@ -117,9 +116,8 @@ security-audit:
     - uv run pip-audit
 
 # --- Release automation ---
-# Gate all release jobs with $CI_COMMIT_TITLE regex so they only run on
-# release commits. This avoids the allow_failure:true problem where
-# downstream jobs still execute with empty $VERSION.
+# Reads version from pyproject.toml (single source of truth).
+# If no tag v{version} exists, validates CHANGELOG.md and triggers release.
 
 detect-release:
   stage: detect
@@ -127,12 +125,26 @@ detect-release:
   before_script: []
   script:
     - |
-      VERSION=$(echo "$CI_COMMIT_TITLE" | grep -oP '(?<=^chore: release v)\d+\.\d+\.\d+')
+      VERSION=$(python3 -c "
+      import re
+      with open('pyproject.toml') as f:
+          match = re.search(r'^version\s*=\"([^\"]+)\"', f.read(), re.MULTILINE)
+          print(match.group(1) if match else '')
+      ")
+      echo "Version in pyproject.toml: $VERSION"
+      if [ -z "$VERSION" ]; then
+        echo "Could not read version from pyproject.toml"
+        exit 1
+      fi
+      if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q .; then
+        echo "Tag v$VERSION already exists, not a new release"
+        echo "VERSION=" >> release.env
+        echo "No new release" > changelog.txt
+        exit 0
+      fi
+      echo "New version detected: $VERSION"
       echo "VERSION=$VERSION" >> release.env
-      PYPROJECT_V=$(python3 -c "import re; m=re.search(r'^version\s*=\"([^\"]+)\"', open('pyproject.toml').read(), re.M); print(m.group(1))")
-      test "$PYPROJECT_V" = "$VERSION"
-      grep -q "^## \[$VERSION\]" CHANGELOG.md
-      ! git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q .
+      grep -q "^## \[$VERSION\]" CHANGELOG.md || { echo "CHANGELOG.md missing section for [$VERSION]"; exit 1; }
       awk "/^## \[$VERSION\]/{f=1;next}/^## \[/{if(f)exit}f" CHANGELOG.md > changelog.txt
   artifacts:
     reports:
@@ -140,7 +152,7 @@ detect-release:
     paths:
       - changelog.txt
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_TITLE =~ /^chore: release v\d+/'
+    - if: '$CI_COMMIT_BRANCH == "main"'
 
 create-release:
   stage: release
@@ -150,13 +162,18 @@ create-release:
       artifacts: true
   before_script: []
   script:
-    - echo "Creating release v$VERSION"
-  release:
-    tag_name: "v$VERSION"
-    name: "v$VERSION"
-    description: changelog.txt
+    - |
+      if [ -z "$VERSION" ]; then
+        echo "No new version, skipping release creation"
+        exit 0
+      fi
+      echo "Creating release v$VERSION"
+      release-cli create \
+        --name "v$VERSION" \
+        --tag-name "v$VERSION" \
+        --description changelog.txt
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_TITLE =~ /^chore: release v\d+/'
+    - if: '$CI_COMMIT_BRANCH == "main"'
 
 build-push-docker:
   stage: docker
@@ -170,6 +187,11 @@ build-push-docker:
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
   before_script:
+    - |
+      if [ -z "$VERSION" ]; then
+        echo "No new version, skipping Docker build"
+        exit 0
+      fi
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - docker login -u genealogy-mcp -p $GITHUB_TOKEN_FOR_GHCR ghcr.io
   script:
@@ -189,31 +211,7 @@ build-push-docker:
       docker push $CI_REGISTRY_IMAGE --all-tags
       docker push ghcr.io/genealogy-mcp/$CI_PROJECT_NAME --all-tags
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main" && $CI_COMMIT_TITLE =~ /^chore: release v\d+/'
-
-docker-on-tag:
-  stage: docker
-  image: docker:latest
-  services:
-    - docker:dind
-  variables:
-    DOCKER_TLS_CERTDIR: "/certs"
-  before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker login -u genealogy-mcp -p $GITHUB_TOKEN_FOR_GHCR ghcr.io
-  script:
-    - |
-      TAG_VERSION=${CI_COMMIT_TAG#v}
-      docker build \
-        -t $CI_REGISTRY_IMAGE:$TAG_VERSION \
-        -t $CI_REGISTRY_IMAGE:latest \
-        -t ghcr.io/genealogy-mcp/$CI_PROJECT_NAME:$TAG_VERSION \
-        -t ghcr.io/genealogy-mcp/$CI_PROJECT_NAME:latest \
-        .
-      docker push $CI_REGISTRY_IMAGE --all-tags
-      docker push ghcr.io/genealogy-mcp/$CI_PROJECT_NAME --all-tags
-  rules:
-    - if: '$CI_COMMIT_TAG =~ /^v\d+/'
+    - if: '$CI_COMMIT_BRANCH == "main"'
 
 include:
   - template: Security/SAST.gitlab-ci.yml
