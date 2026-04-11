@@ -675,7 +675,7 @@ class TestFormatPersonPrimaryNameCitations:
 
     @pytest.mark.asyncio
     async def test_primary_name_with_citations(self):
-        """Primary name citations resolved from extended.citations appear on name line."""
+        """Primary name citations from extended.citations appear on name line."""
         client = _mock_client(
             {
                 "GET_PERSON": {

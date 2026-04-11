@@ -5,8 +5,6 @@ Tests cover: registry completeness, search algorithm scoring, and
 parameter summarization. No network required.
 """
 
-import pytest
-
 from src.gramps_mcp.operations import (
     OPERATION_REGISTRY,
     OperationEntry,
@@ -127,7 +125,7 @@ class TestOperationRegistry:
             assert isinstance(entry, OperationEntry), f"{name}: not an OperationEntry"
 
     def test_category_distribution(self):
-        """Verify expected distribution: 3 search, 3 read, 10 write, 1 delete, 3 analysis."""
+        """Verify distribution: 3 search, 3 read, 10 write, 1 delete, 3 analysis."""
         counts = {}
         for entry in OPERATION_REGISTRY.values():
             counts[entry.category] = counts.get(entry.category, 0) + 1

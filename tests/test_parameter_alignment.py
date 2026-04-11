@@ -2,7 +2,8 @@
 Test parameter alignment with usage guide requirements.
 
 Verifies that POST/PUT parameters in models match exactly with the requirements
-specified in gramps-usage-guide.md - no more, no less, with correct required/optional status.
+specified in gramps-usage-guide.md - no more, no less, with correct required/optional
+status.
 """
 
 import pytest
@@ -51,7 +52,7 @@ class TestParameterAlignment:
             f"RepositoryData has field-level required fields: {actual_required}"
         )
 
-        # Check no extra fields beyond what guide allows (plus system fields from BaseDataModel)
+        # Check no extra fields beyond what guide allows (plus system fields)
         guide_fields = create_required | {
             "url",
             "note",
@@ -137,7 +138,7 @@ class TestParameterAlignment:
             f"CitationData has field-level required fields: {actual_required}"
         )
 
-        # Check no extra fields beyond what guide allows (plus system fields from BaseDataModel)
+        # Check no extra fields beyond what guide allows (plus system fields)
         guide_fields = create_required | {"page", "date", "media", "urls"}
         system_fields = {
             "handle",
@@ -179,7 +180,7 @@ class TestParameterAlignment:
             f"EventSaveParams has field-level required fields: {actual_required}"
         )
 
-        # Check fields match current implementation (plus system fields from BaseDataModel)
+        # Check fields match current implementation (plus system fields)
         implementation_fields = create_required | {
             "date",
             "description",
@@ -204,7 +205,7 @@ class TestParameterAlignment:
     def test_person_parameters_alignment(self):
         """Test PersonData parameters match current implementation."""
         # Person requires primary_name, gender on create (model_validator enforced)
-        # Optional: event_ref_list, family_list, parent_family_list, urls, plus BaseDataModel fields
+        # Optional: event_ref_list, family_list, parent_family_list, urls, system fields
         # Birth/Death info should NOT be direct fields (should be events)
         model = PersonData
         fields = model.model_fields
@@ -229,7 +230,8 @@ class TestParameterAlignment:
         actual_fields = set(fields.keys())
         birth_death_in_model = actual_fields & birth_death_fields
         assert not birth_death_in_model, (
-            f"PersonData should not have direct birth/death fields: {birth_death_in_model}"
+            "PersonData should not have direct birth/death fields:"
+            f" {birth_death_in_model}"
         )
 
         # Check that essential linking fields are present
@@ -269,14 +271,11 @@ class TestParameterAlignment:
 
     def test_family_parameters_alignment(self):
         """Test FamilySaveParams parameters match usage guide requirements."""
-        # From usage guide: Family requires father_handle, mother_handle, children_handles (all optional)
-        # Optional: notes, media, URLs, family events
+        # From usage guide: Family requires father_handle, mother_handle,
+        # children_handles (all optional); notes, media, URLs, family events
         # Must support linking family events (marriage, divorce)
         model = FamilySaveParams
         fields = model.model_fields
-
-        # No required fields according to guide - all family fields are optional
-        required_fields = set()
 
         # Check no fields are required (except handle for updates)
         actual_required = {
@@ -298,10 +297,11 @@ class TestParameterAlignment:
         }
         for field_name in family_linking_fields:
             assert field_name in fields, (
-                f"Required family linking field '{field_name}' missing from FamilySaveParams"
+                f"Required family linking field '{field_name}'"
+                " missing from FamilySaveParams"
             )
 
-        # Check no extra fields beyond what guide allows (plus system fields from BaseDataModel and linking fields)
+        # Check no extra fields beyond what guide allows (plus system + linking fields)
         guide_fields = {"notes", "media", "urls"}
         system_fields = {
             "handle",
@@ -324,7 +324,8 @@ class TestParameterAlignment:
     def test_place_parameters_alignment(self):
         """Test PlaceSaveParams parameters match current implementation."""
         # Place requires place_type on create (model_validator enforced)
-        # Optional: handle, gramps_id, name, code, alt_loc, placeref_list, alt_names, lat, long, urls, media_list, citation_list, note_list, tag_list, private
+        # Optional: handle, gramps_id, name, code, alt_loc, placeref_list, alt_names,
+        # lat, long, urls, media_list, citation_list, note_list, tag_list, private
         model = PlaceSaveParams
         fields = model.model_fields
 
@@ -387,7 +388,7 @@ class TestParameterAlignment:
             f"NoteSaveParams has field-level required fields: {actual_required}"
         )
 
-        # Check no extra fields beyond what guide allows (plus system fields from BaseDataModel)
+        # Check no extra fields beyond what guide allows (plus system fields)
         guide_fields = create_required
         system_fields = {
             "handle",
@@ -428,7 +429,7 @@ class TestParameterAlignment:
             f"MediaSaveParams has field-level required fields: {actual_required}"
         )
 
-        # Check no extra fields beyond what guide allows (plus system fields and media-specific fields)
+        # Check no extra fields beyond what guide allows (plus system + media fields)
         guide_fields = create_required | {
             "date",
             "path",
