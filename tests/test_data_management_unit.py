@@ -655,6 +655,15 @@ class TestUpsertPartialUpdate:
         params = PlaceSaveParams(handle="h1234567", lat="42")
         assert params.place_type is None
 
+    def test_place_media_list_accepts_ref_objects(self):
+        """media_list must accept [{"ref": "handle"}] objects, not bare strings."""
+        params = PlaceSaveParams(
+            handle="h1234567",
+            media_list=[{"ref": "O0014"}],
+        )
+        dumped = params.model_dump(exclude_none=True)
+        assert dumped["media_list"] == [{"ref": "O0014"}]
+
     def test_source_update_without_title(self):
         """Update source without title should succeed."""
         params = SourceSaveParams(handle="h1234567", author="X")
