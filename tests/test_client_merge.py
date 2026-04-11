@@ -19,7 +19,7 @@ class TestClientMergeLogic:
 
     @pytest.mark.asyncio
     async def test_put_operation_should_preserve_existing_events_when_adding_new(self):
-        """Test that PUT operations should preserve existing events when adding new ones.
+        """Test that PUT operations preserve existing events when adding new ones.
 
         This is the actual Issue #9 scenario: user has a person with existing events,
         and wants to add a new event. They provide only the new event in event_ref_list,
@@ -80,7 +80,7 @@ class TestClientMergeLogic:
             ]
 
             # Make the API call
-            result = await client.make_api_call(
+            _result = await client.make_api_call(
                 api_call=ApiCalls.PUT_PERSON,
                 params=update_data,
                 tree_id="test_tree",
@@ -107,7 +107,8 @@ class TestClientMergeLogic:
             # Test 1: List fields should be MERGED (existing + new)
             event_refs = put_json_data["event_ref_list"]
             assert len(event_refs) == 2, (
-                f"Should have 2 events (existing + new), got {len(event_refs)}: {event_refs}"
+                f"Should have 2 events (existing + new),"
+                f" got {len(event_refs)}: {event_refs}"
             )
             event_handles = {e["ref"] for e in event_refs}
             assert "birth_event_handle" in event_handles, (
@@ -117,7 +118,8 @@ class TestClientMergeLogic:
 
             note_refs = put_json_data["note_list"]
             assert len(note_refs) == 2, (
-                f"Should have 2 notes (existing + new), got {len(note_refs)}: {note_refs}"
+                f"Should have 2 notes (existing + new),"
+                f" got {len(note_refs)}: {note_refs}"
             )
             assert "existing_note_handle" in note_refs, "Should preserve existing note"
             assert "new_note_handle" in note_refs, "Should add new note"
@@ -138,7 +140,7 @@ class TestClientMergeLogic:
                 put_json_data.get("primary_name")["surname_list"][0]["surname"]
                 == "Smith-Jones"
             ), "Should update surname"
-            assert put_json_data.get("private") == True, "Should update private field"
+            assert put_json_data.get("private") is True, "Should update private field"
 
             # Test 3: Fields not in update should be PRESERVED
             assert put_json_data.get("gramps_id") == "I0001", (
@@ -191,7 +193,7 @@ class TestClientMergeLogic:
             mock_request.side_effect = [existing_person, {"success": True}]
 
             # Make the API call
-            result = await client.make_api_call(
+            _result = await client.make_api_call(
                 api_call=ApiCalls.PUT_PERSON,
                 params=update_data,
                 tree_id="test_tree",
@@ -209,7 +211,8 @@ class TestClientMergeLogic:
             assert event_refs == {"event_birth", "event_death"}
 
             print(
-                f"DEBUG: Final event_ref_list has {len(put_data['event_ref_list'])} events"
+                "DEBUG: Final event_ref_list has"
+                f" {len(put_data['event_ref_list'])} events"
             )
             for event in put_data["event_ref_list"]:
                 print(f"  - {event['ref']}: {event['role']}")
@@ -260,7 +263,7 @@ class TestClientMergeLogic:
         with patch.object(client, "_make_request") as mock_request:
             mock_request.side_effect = [existing_person, {"success": True}]
 
-            result = await client.make_api_call(
+            _result = await client.make_api_call(
                 api_call=ApiCalls.PUT_PERSON,
                 params=update_data,
                 tree_id="test_tree",

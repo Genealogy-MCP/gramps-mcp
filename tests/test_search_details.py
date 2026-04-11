@@ -88,7 +88,7 @@ async def test_get_person_tool():
 
                 # Timeline events should include participant information in new format
                 timeline_section = text.split("TIMELINE:")[1]
-                # Should have events in format: date (place) - eventID : eventType, participantName participantID, role
+                # Format: date (place) - eventID : eventType, name ID, role
                 assert ":" in timeline_section and " I" in timeline_section, (
                     "Timeline events should include participant info in new format"
                 )
@@ -209,7 +209,7 @@ async def test_get_family_tool():
 
                 # Timeline events should include participant information in new format
                 timeline_section = text.split("TIMELINE:")[1]
-                # Should have events in format: date (place) - eventID : eventType, participantName participantID, role
+                # Format: date (place) - eventID : eventType, name ID, role
                 assert ":" in timeline_section and " I" in timeline_section, (
                     "Timeline events should include participant info in new format"
                 )

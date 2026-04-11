@@ -157,7 +157,8 @@ class TestFindRepositoryTool:
             f"Error found in response: {result[0].text}"
         )
         assert "Found" in result[0].text, (
-            f"Expected library repositories in seeded database but got: {result[0].text}"
+            "Expected library repositories in seeded database"
+            f" but got: {result[0].text}"
         )
 
         result_count = result[0].text.count("* **")

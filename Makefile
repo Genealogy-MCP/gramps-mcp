@@ -13,12 +13,12 @@ install: ## Install all dependencies (including dev)
 	uv run pre-commit install
 
 lint: ## Run linter and format check
-	uv run ruff check src
-	uv run ruff format --check src
+	uv run ruff check src tests
+	uv run ruff format --check src tests
 
 format: ## Auto-format source code
-	uv run ruff format src
-	uv run ruff check --fix src
+	uv run ruff format src tests
+	uv run ruff check --fix src tests
 
 check-headers: ## Verify SPDX copyright headers
 	find src/ scripts/ -name '*.py' -exec uv run python scripts/check_copyright_header.py {} +

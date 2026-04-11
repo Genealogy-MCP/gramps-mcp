@@ -8,16 +8,16 @@ These tests require a working Gramps Web API instance with valid credentials.
 import pytest
 from dotenv import load_dotenv
 
+from src.gramps_mcp.client import GrampsWebAPIClient
+from src.gramps_mcp.config import get_settings
+from src.gramps_mcp.media_client import MediaClient
+from src.gramps_mcp.models.api_calls import ApiCalls
+from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
+
 # Load environment variables from .env file
 load_dotenv()
 
-from src.gramps_mcp.client import GrampsWebAPIClient
-from src.gramps_mcp.media_client import MediaClient
-
 pytestmark = pytest.mark.integration
-from src.gramps_mcp.config import get_settings
-from src.gramps_mcp.models.api_calls import ApiCalls
-from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
 
 
 class TestGetPersonCall:
@@ -56,7 +56,7 @@ class TestGetPersonCall:
             print(f"Person URL: {person_url}")
 
             try:
-                person_direct = await client._make_request("GET", person_url)
+                _person_direct = await client._make_request("GET", person_url)
                 print("SUCCESS: Direct person fetch worked!")
             except Exception as e:
                 print(f"FAILED: Direct person fetch: {e}")
@@ -185,11 +185,11 @@ class TestMediaFileUpload:
 
 
 class TestPutMergeRequirement:
-    """Test that PUT operations need to merge with existing data to prevent field loss."""
+    """Test that PUT operations need to merge with existing data to avoid field loss."""
 
     @pytest.mark.asyncio
     async def test_media_put_should_preserve_existing_file_data(self):
-        """Test that PUT operations should preserve existing file data when updating metadata."""
+        """Test that PUT operations preserve existing file data when updating."""
         client = GrampsWebAPIClient()
         media_client = MediaClient(client)
         settings = get_settings()
@@ -221,16 +221,18 @@ class TestPutMergeRequirement:
                 handle=handle,
             )
 
-            # 3. Verify that file data was preserved (this will FAIL without merge logic)
+            # 3. Verify that file data was preserved (FAILs without merge logic)
             updated_data = put_result[0]["new"]
             assert updated_data["desc"] == "Test description"
 
             # These assertions will FAIL without PUT merge logic
             assert updated_data["mime"] == original_mime, (
-                f"Expected mime {original_mime} to be preserved, but got: {updated_data['mime']}"
+                f"Expected mime {original_mime} to be preserved,"
+                f" but got: {updated_data['mime']}"
             )
             assert updated_data["path"] == original_path, (
-                f"Expected path {original_path} to be preserved, but got: {updated_data['path']}"
+                f"Expected path {original_path} to be preserved,"
+                f" but got: {updated_data['path']}"
             )
 
         finally:

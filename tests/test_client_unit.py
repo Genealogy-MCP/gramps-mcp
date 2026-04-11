@@ -699,14 +699,10 @@ class TestMediaClientDownload:
         mock_response.content = b"binary file data"
         mock_response.headers = {"content-type": "image/jpeg"}
         mock_response.raise_for_status = MagicMock()
-        api_client.auth_manager.client.request = AsyncMock(
-            return_value=mock_response
-        )
+        api_client.auth_manager.client.request = AsyncMock(return_value=mock_response)
 
         media_client = MediaClient(api_client)
-        file_bytes, content_type = await media_client.download_media_file(
-            "m1handle1"
-        )
+        file_bytes, content_type = await media_client.download_media_file("m1handle1")
 
         assert file_bytes == b"binary file data"
         assert content_type == "image/jpeg"
@@ -729,9 +725,7 @@ class TestMediaClientDownload:
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
             "Not Found", request=mock_request, response=mock_response
         )
-        api_client.auth_manager.client.request = AsyncMock(
-            return_value=mock_response
-        )
+        api_client.auth_manager.client.request = AsyncMock(return_value=mock_response)
 
         media_client = MediaClient(api_client)
         with pytest.raises(GrampsAPIError):
