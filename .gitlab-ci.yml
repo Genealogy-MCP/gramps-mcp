@@ -128,7 +128,7 @@ detect-release:
       VERSION=$(python3 -c "
       import re
       with open('pyproject.toml') as f:
-          match = re.search(r'^version\s*=\"([^\"]+)\"', f.read(), re.MULTILINE)
+          match = re.search(r'^version\s*=\s*\"([^\"]+)\"', f.read(), re.MULTILINE)
           print(match.group(1) if match else '')
       ")
       echo "Version in pyproject.toml: $VERSION"
