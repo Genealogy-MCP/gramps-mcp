@@ -23,7 +23,12 @@ default:
       - .uv-cache/
       - .pip-cache/
 
+.only-mr:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
 lint-typecheck:
+  extends: .only-mr
   stage: lint
   image: python:3.11-slim-bookworm
   before_script:
@@ -91,22 +96,31 @@ lint-typecheck:
     - docker compose -f docker-compose.test.yml down -v || true
 
 test-py3.10:
-  extends: .test-base
+  extends:
+    - .only-mr
+    - .test-base
   image: python:3.10-slim-bookworm
 
 test-py3.11:
-  extends: .test-base
+  extends:
+    - .only-mr
+    - .test-base
   image: python:3.11-slim-bookworm
 
 test-py3.12:
-  extends: .test-base
+  extends:
+    - .only-mr
+    - .test-base
   image: python:3.12-slim-bookworm
 
 test-py3.13:
-  extends: .test-base
+  extends:
+    - .only-mr
+    - .test-base
   image: python:3.13-slim-bookworm
 
 security-audit:
+  extends: .only-mr
   stage: security
   image: python:3.11-slim-bookworm
   before_script:
