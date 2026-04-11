@@ -26,7 +26,7 @@ API calls supported in this category:
 - DELETE_PLACE: Delete the place
 """
 
-from typing import List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -81,7 +81,9 @@ class PlaceSaveParams(BaseModel):
     lat: Optional[str] = Field(None, description="Latitude coordinate")
     long: Optional[str] = Field(None, description="Longitude coordinate")
     urls: Optional[List[dict]] = Field(None, description="Associated URLs")
-    media_list: Optional[List[str]] = Field(None, description="List of media handles")
+    media_list: Optional[List[Dict[str, Any]]] = Field(
+        None, description="List of media references (e.g. [{'ref': 'handle'}])"
+    )
     citation_list: Optional[List[str]] = Field(
         None, description="List of citation handles"
     )
