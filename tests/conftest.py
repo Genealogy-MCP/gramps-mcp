@@ -328,7 +328,8 @@ class HandleRegistry:
                                     tree_id=tree_id,
                                 )
                                 logger.info(
-                                    f"Deleted {entity_type} [{handle}] via bulk endpoint"
+                                    f"Deleted {entity_type} [{handle}]"
+                                    " via bulk endpoint"
                                 )
                             except Exception as e:
                                 if "404" in str(e) or "not found" in str(e).lower():
@@ -337,7 +338,8 @@ class HandleRegistry:
                                     )
                                 else:
                                     logger.warning(
-                                        f"Failed to delete {entity_type} [{handle}]: {e}"
+                                        f"Failed to delete"
+                                        f" {entity_type} [{handle}]: {e}"
                                     )
                             continue
                         logger.warning(f"No delete API call for type '{entity_type}'")

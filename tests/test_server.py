@@ -260,7 +260,9 @@ class TestToolIntegrationRealAPI:
                             "operation": "search",
                             "params": {
                                 "type": "person",
-                                "gql": 'primary_name.surname_list.any.surname ~ "Smith"',
+                                "gql": (
+                                    'primary_name.surname_list.any.surname ~ "Smith"'
+                                ),
                                 "max_results": 20,
                             },
                         }

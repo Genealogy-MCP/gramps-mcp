@@ -14,9 +14,6 @@ import re
 
 import pytest
 
-from src.gramps_mcp.tools._errors import McpToolError
-
-pytestmark = pytest.mark.integration
 from src.gramps_mcp.tools import (
     delete_tool,
     download_media_tool,
@@ -31,9 +28,12 @@ from src.gramps_mcp.tools import (
     upsert_source_tool,
     upsert_tag_tool,
 )
+from src.gramps_mcp.tools._errors import McpToolError
 from src.gramps_mcp.tools.search_basic import list_tags_tool
 
 from .conftest import TEST_PREFIX, extract_handle
+
+pytestmark = pytest.mark.integration
 
 # Store handles for chaining tests following proper Gramps workflow.
 # These module-level globals enable entity chaining across test classes
@@ -331,7 +331,8 @@ class TestCreateCitationTool:
             f"Expected citation page in output but got: {text}"
         )
         assert "about 15 January 2024 (estimated)" in text, (
-            f"Expected full citation date with modifier and quality in output but got: {text}"
+            "Expected full citation date with modifier and quality"
+            f" in output but got: {text}"
         )
 
         test_citation_handle = extract_handle(text)
@@ -398,7 +399,8 @@ class TestCreatePlaceTool:
 
         urls = re.findall(r'(https?://[^\s"\',]+)', text)
         assert any(url == "https://www.boston.gov" for url in urls), (
-            f"Expected exact URL 'https://www.boston.gov' in output URLs {urls} but got: {text}"
+            f"Expected exact URL 'https://www.boston.gov' in output"
+            f" URLs {urls} but got: {text}"
         )
         assert "Official city website" in text, (
             f"Expected URL description in output but got: {text}"
@@ -683,7 +685,8 @@ class TestCreateFamilyTool:
 
         if len(test_person_handles) < 2:
             pytest.fail(
-                "Need at least 2 person handles from previous tests - run tests in order"
+                "Need at least 2 person handles from previous tests"
+                " - run tests in order"
             )
 
         father_handle = test_person_handles[0]

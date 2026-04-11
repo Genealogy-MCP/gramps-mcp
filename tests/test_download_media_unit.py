@@ -102,9 +102,7 @@ class TestDownloadMediaSuccess:
         mock_media_cls.return_value = media_inst
 
         dest = str(tmp_path / "downloaded.jpg")
-        result = await download_media_tool(
-            {"handle": "m1handle1", "destination": dest}
-        )
+        result = await download_media_tool({"handle": "m1handle1", "destination": dest})
 
         assert isinstance(result[0], TextContent)
         assert os.path.isfile(dest)
@@ -147,9 +145,7 @@ class TestDownloadMediaSuccess:
         mock_media_cls.return_value = media_inst
 
         dest = str(tmp_path / "photo.png")
-        result = await download_media_tool(
-            {"gramps_id": "O0042", "destination": dest}
-        )
+        result = await download_media_tool({"gramps_id": "O0042", "destination": dest})
 
         assert os.path.isfile(dest)
         text = result[0].text
@@ -203,6 +199,4 @@ class TestDownloadMediaSuccess:
 
         dest = str(tmp_path / "fail.jpg")
         with pytest.raises(McpToolError, match="Not found on API"):
-            await download_media_tool(
-                {"handle": "m1handle1", "destination": dest}
-            )
+            await download_media_tool({"handle": "m1handle1", "destination": dest})

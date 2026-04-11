@@ -20,8 +20,6 @@ from typing import Any, Dict
 
 import pytest
 
-pytestmark = pytest.mark.integration
-
 from src.gramps_mcp.tools import (
     upsert_citation_tool,
     upsert_event_tool,
@@ -44,6 +42,8 @@ from src.gramps_mcp.tools.search_basic import (
 )
 
 from .conftest import TEST_PREFIX
+
+pytestmark = pytest.mark.integration
 
 
 class TestCompleteWorkflow:
@@ -78,7 +78,8 @@ class TestCompleteWorkflow:
         # Step 1: Repository Creation
         await self._step_1_repository_creation(workflow_data)
         print(
-            f"Step 1 completed: Repository handle = {workflow_data.get('repository_handle')}"
+            "Step 1 completed: Repository handle ="
+            f" {workflow_data.get('repository_handle')}"
         )
 
         # Step 2: Source Creation
@@ -88,7 +89,8 @@ class TestCompleteWorkflow:
         # Step 3: Citation Creation
         await self._step_3_citation_creation(workflow_data)
         print(
-            f"Step 3 completed: Citation handle = {workflow_data.get('citation_handle')}"
+            "Step 3 completed: Citation handle ="
+            f" {workflow_data.get('citation_handle')}"
         )
 
         # Step 4: Event Creation
@@ -184,7 +186,8 @@ class TestCompleteWorkflow:
         workflow_data["test_repository_handle"] = repo_match.group(1)
         cleanup_registry.track("source", workflow_data["test_repository_handle"])
         print(
-            f"Repository created with all attributes: {workflow_data['test_repository_handle']}"
+            "Repository created with all attributes:"
+            f" {workflow_data['test_repository_handle']}"
         )
 
         # Test Source with all attributes
@@ -366,7 +369,11 @@ class TestCompleteWorkflow:
             create_result = await upsert_citation_tool(
                 {
                     "source_handle": workflow_data["source_handle"],
-                    "page": "Page 67, Entry 15, Marriage of MCP_TEST_John MCP_TEST_Smith and MCP_TEST_Mary MCP_TEST_Jones, June 15, 1878",
+                    "page": (
+                        "Page 67, Entry 15, Marriage of MCP_TEST_John"
+                        " MCP_TEST_Smith and MCP_TEST_Mary MCP_TEST_Jones,"
+                        " June 15, 1878"
+                    ),
                     "date": {
                         "dateval": [2024, 1, 15, False],
                         "quality": 0,
@@ -418,7 +425,9 @@ class TestCompleteWorkflow:
                         "modifier": 0,
                     },
                     "citation_list": [workflow_data["citation_handle"]],
-                    "description": f"{TEST_PREFIX}Marriage ceremony performed by Rev. O'Sullivan",
+                    "description": (
+                        f"{TEST_PREFIX}Marriage ceremony performed by Rev. O'Sullivan"
+                    ),
                     "place": workflow_data["church_handle"],
                 }
             )
@@ -466,7 +475,10 @@ class TestCompleteWorkflow:
 
         find_result = await search_family_tool(
             {
-                "query": f"{TEST_PREFIX}John {TEST_PREFIX}Smith {TEST_PREFIX}Mary {TEST_PREFIX}Jones",
+                "query": (
+                    f"{TEST_PREFIX}John {TEST_PREFIX}Smith"
+                    f" {TEST_PREFIX}Mary {TEST_PREFIX}Jones"
+                ),
                 "pagesize": 5,
             }
         )
@@ -513,7 +525,8 @@ class TestCompleteWorkflow:
 
         person_note_handle = await self._create_test_note(
             workflow_data,
-            f"{TEST_PREFIX}Research note for {given_name} {surname}. Found in marriage records.",
+            f"{TEST_PREFIX}Research note for {given_name} {surname}."
+            " Found in marriage records.",
             "Research",
         )
 
@@ -558,8 +571,13 @@ class TestCompleteWorkflow:
                     "media_handle": person_media_handle,
                     "url": {
                         "type": "Website",
-                        "path": f"https://findagrave.com/memorial/{given_name.lower()}-{surname.lower()}",
-                        "description": f"Find A Grave memorial for {given_name} {surname}",
+                        "path": (
+                            "https://findagrave.com/memorial/"
+                            f"{given_name.lower()}-{surname.lower()}"
+                        ),
+                        "description": (
+                            f"Find A Grave memorial for {given_name} {surname}"
+                        ),
                     },
                     "event_handle": event_handle,
                     "event_role": event_role,
@@ -630,7 +648,9 @@ class TestCompleteWorkflow:
                 "urls": [
                     {
                         "type": "Web Home",
-                        "path": f"https://en.wikipedia.org/wiki/{name.replace(' ', '_')}",
+                        "path": (
+                            f"https://en.wikipedia.org/wiki/{name.replace(' ', '_')}"
+                        ),
                         "description": f"Wikipedia article about {name}",
                     }
                 ],
