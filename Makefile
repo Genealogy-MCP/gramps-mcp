@@ -2,7 +2,7 @@
 
 PYTEST_ARGS ?=
 
-.PHONY: help install lint format typecheck test test-unit test-server coverage audit clean pre-commit run run-stdio ci docker-up docker-down docker-seed
+.PHONY: help install lint format typecheck check-headers test test-unit test-server coverage audit clean pre-commit build run run-stdio ci docker-up docker-down docker-seed
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -13,12 +13,15 @@ install: ## Install all dependencies (including dev)
 	uv run pre-commit install
 
 lint: ## Run linter and format check
-	uv run ruff check src/
-	uv run ruff format --check src/
+	uv run ruff check src
+	uv run ruff format --check src
 
 format: ## Auto-format source code
-	uv run ruff format src/
-	uv run ruff check --fix src/
+	uv run ruff format src
+	uv run ruff check --fix src
+
+check-headers: ## Verify SPDX copyright headers
+	find src/ scripts/ -name '*.py' -exec uv run python scripts/check_copyright_header.py {} +
 
 typecheck: ## Run pyright type checker
 	uv run pyright src/
@@ -63,4 +66,7 @@ run: ## Run MCP server (streamable-http on port 8000)
 run-stdio: ## Run MCP server with stdio transport
 	uv run python -m src.gramps_mcp.server stdio
 
-ci: lint typecheck test audit ## Run full CI pipeline locally
+build: ## Build distribution wheel
+	uv build
+
+ci: lint typecheck check-headers test audit ## Run full CI pipeline locally
