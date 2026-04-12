@@ -9,6 +9,7 @@ variables:
   UV_SYNC_ARGS: ""
   LINT_PATHS: "src"
   HEADER_PATHS: "src/ scripts/"
+  YAMLLINT_EXCLUDE: ".github grampsweb-docs"
 
 # gramps-mcp requires Docker Compose integration tests against a
 # Gramps Web API instance. These cannot use the shared test jobs.
