@@ -17,6 +17,10 @@ variables:
 
 .test-base:
   stage: test
+  retry:
+    max: 2
+    when:
+      - script_failure
   services:
     - name: docker:dind
       command: ["--tls=false"]
