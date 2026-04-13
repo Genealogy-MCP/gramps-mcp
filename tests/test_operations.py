@@ -5,12 +5,9 @@ Tests cover: registry completeness, search algorithm scoring, and
 parameter summarization. No network required.
 """
 
-from src.gramps_mcp.operations import (
-    OPERATION_REGISTRY,
-    OperationEntry,
-    search_operations,
-    summarize_params,
-)
+from mcp_codemode import OperationEntry, search_operations, summarize_params
+
+from src.gramps_mcp.operations import OPERATION_REGISTRY
 
 # Expected operation names — all 20 from the current tool set
 EXPECTED_OPERATIONS = {
@@ -185,54 +182,54 @@ class TestSearchOperations:
 
     def test_exact_name_match(self):
         """Exact operation name should score highest."""
-        results = search_operations("search")
+        results = search_operations("search", OPERATION_REGISTRY)
         assert results[0].name == "search"
 
     def test_partial_match(self):
         """Query token in operation name should match."""
-        results = search_operations("upsert")
+        results = search_operations("upsert", OPERATION_REGISTRY)
         names = {r.name for r in results}
         assert "upsert_person" in names
         assert "upsert_family" in names
 
     def test_description_match(self):
         """Query tokens in description should produce results."""
-        results = search_operations("ancestors")
+        results = search_operations("ancestors", OPERATION_REGISTRY)
         names = {r.name for r in results}
         assert "get_ancestors" in names
 
     def test_category_filter(self):
         """Category filter should restrict results."""
-        results = search_operations("", category="delete")
+        results = search_operations("", OPERATION_REGISTRY, category="delete")
         assert all(r.category == "delete" for r in results)
         assert len(results) == 1
 
     def test_category_filter_with_query(self):
         """Category + query should both apply."""
-        results = search_operations("person", category="write")
+        results = search_operations("person", OPERATION_REGISTRY, category="write")
         assert all(r.category == "write" for r in results)
         names = {r.name for r in results}
         assert "upsert_person" in names
 
     def test_no_match_returns_empty(self):
         """Nonsensical query with no matches returns empty."""
-        results = search_operations("xyzzy_nonexistent_foobar")
+        results = search_operations("xyzzy_nonexistent_foobar", OPERATION_REGISTRY)
         assert results == []
 
     def test_max_results_capped(self):
         """Results should not exceed 10."""
-        results = search_operations("upsert")
+        results = search_operations("upsert", OPERATION_REGISTRY)
         assert len(results) <= 10
 
     def test_score_ordering(self):
         """Higher-scoring operations should come first."""
-        results = search_operations("search")
+        results = search_operations("search", OPERATION_REGISTRY)
         # "search" exact match should beat "search_text"
         assert results[0].name == "search"
 
     def test_empty_query_with_category_returns_all_in_category(self):
         """Empty query + category returns all operations in that category."""
-        results = search_operations("", category="analysis")
+        results = search_operations("", OPERATION_REGISTRY, category="analysis")
         assert len(results) == 3
         assert all(r.category == "analysis" for r in results)
 

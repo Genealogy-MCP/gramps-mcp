@@ -10,7 +10,7 @@ entity information using direct API calls.
 """
 
 import logging
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from mcp.types import TextContent
 
@@ -24,6 +24,7 @@ from ..handlers.person_detail_handler import format_person_detail
 from ..handlers.place_handler import format_place
 from ..handlers.repository_handler import format_repository
 from ..handlers.source_handler import format_source
+from ._compat import extract_arguments
 from ._errors import McpToolError, raise_tool_error
 from .search_basic import with_client
 
@@ -211,8 +212,9 @@ _GET_TOOL_DISPATCH = {
 }
 
 
-async def get_tool(arguments: Dict) -> List[TextContent]:
+async def get_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     """Universal get tool for any entity type by handle or gramps_id."""
+    arguments = extract_arguments(ctx, params)
     entity_type = arguments.get("type")
     handle = arguments.get("handle")
     gramps_id = arguments.get("gramps_id")

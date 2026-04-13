@@ -7,9 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-04-13
+
 ### Changed
 
+- Migrate to mcp-codemode library for Code Mode framework (OperationEntry, search_operations, execute_operation, format_search_results, summarize_params)
+- Handler signatures updated to accept `(ctx, params)` per library contract; inner logic unchanged via boundary shim
+- Identifier normalization (`_normalize_identifier`) extracted to `tools/_identifier.py`
 - Migrate CI pipeline to shared templates from facastagnini/ci-templates (custom test jobs preserved)
+
+### Added
+
+- `.dockerignore` for cleaner Docker builds
+
+### Removed
+
+- Local `OperationEntry`, `search_operations`, `summarize_params` definitions (now from mcp-codemode library)
+- `tools/meta_search.py` and `tools/meta_execute.py` (replaced by library functions)
 
 
 ## [2.2.2] - 2026-03-21
