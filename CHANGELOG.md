@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-04-13
+
 ### Changed
 
 - Migrate to mcp-codemode library for Code Mode framework (OperationEntry, search_operations, execute_operation, format_search_results, summarize_params)
