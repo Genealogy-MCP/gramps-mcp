@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from mcp.server import Server
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.stdio import stdio_server
 from mcp.types import Resource, TextContent, Tool, ToolAnnotations
 from mcp_codemode import (
@@ -111,7 +111,7 @@ def _register_tools(mcp: FastMCP) -> None:
         ),
     )
     async def execute(
-        ctx: Any,
+        ctx: Context[Any, Any, Any],
         arguments: ExecuteOperationParams,
     ) -> list[Any]:
         args_dict = arguments.model_dump()
