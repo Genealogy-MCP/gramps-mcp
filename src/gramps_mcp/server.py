@@ -14,17 +14,24 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager
+from typing import Any
 
 from mcp.server import Server
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.stdio import stdio_server
-from mcp.types import Resource, Tool, ToolAnnotations
+from mcp.types import Resource, TextContent, Tool, ToolAnnotations
+from mcp_codemode import (
+    ExecuteOperationParams,
+    SearchOperationsParams,
+    execute_operation,
+    format_search_results,
+    search_operations,
+)
 from pydantic import AnyUrl
 
 from .operations import OPERATION_REGISTRY
 from .startup import verify_api_on_startup
-from .tools.meta_execute import ExecuteOperationParams, execute_operation_tool
-from .tools.meta_search import SearchOperationsParams, search_operations_tool
+from .tools._identifier import normalize_identifier
 
 # Setup logging — MCP-15: stdio transport uses stdout as the JSON-RPC channel,
 # so all logging MUST go to stderr.
@@ -52,28 +59,43 @@ app = FastMCP(
 # Code Mode: 2 Meta-Tool Registration (MCP-29)
 # ============================================================================
 
-_META_TOOLS = {
-    "search": {
-        "schema": SearchOperationsParams,
-        "handler": search_operations_tool,
-        "description": (
+
+def _register_tools(mcp: FastMCP) -> None:
+    """Register search + execute meta-tools using library functions.
+
+    Uses mcp.types.ToolAnnotations directly to avoid the library's
+    lightweight ToolAnnotations dataclass incompatibility with newer
+    FastMCP versions (library bug, tracked upstream).
+    """
+
+    @mcp.tool(
+        name="search",
+        description=(
             "Discover available operations and their parameters. "
             "Call with a top-level 'query' string (not inside params). "
             "Returns matching operations with parameter schemas. "
             "Always use this before calling 'execute' to find the correct "
             "operation name."
         ),
-        "annotations": ToolAnnotations(
+        annotations=ToolAnnotations(
             readOnlyHint=True,
             destructiveHint=False,
             idempotentHint=True,
             openWorldHint=False,
         ),
-    },
-    "execute": {
-        "schema": ExecuteOperationParams,
-        "handler": execute_operation_tool,
-        "description": (
+    )
+    async def search(arguments: SearchOperationsParams) -> list[TextContent]:
+        matches = search_operations(
+            arguments.query,
+            OPERATION_REGISTRY,
+            category=arguments.category,
+        )
+        text = format_search_results(matches, OPERATION_REGISTRY)
+        return [TextContent(type="text", text=text)]
+
+    @mcp.tool(
+        name="execute",
+        description=(
             "Run a named operation against the Gramps Web API. "
             "Operations use generic names with a type parameter -- "
             "e.g. operation='get' with params.type='media', NOT 'get_media'. "
@@ -81,35 +103,31 @@ _META_TOOLS = {
             "params schema, then call this with "
             "{operation: '...', params: {...}}."
         ),
-        "annotations": ToolAnnotations(
+        annotations=ToolAnnotations(
             readOnlyHint=False,
             destructiveHint=False,
             idempotentHint=False,
             openWorldHint=True,
         ),
-    },
-}
+    )
+    async def execute(
+        ctx: Context[Any, Any, Any],
+        arguments: ExecuteOperationParams,
+    ) -> list[Any]:
+        args_dict = arguments.model_dump()
+        # Pre-validation hook: normalize identifier before library validates
+        entry = OPERATION_REGISTRY.get(args_dict.get("operation", ""))
+        if entry is not None:
+            args_dict["params"] = normalize_identifier(
+                args_dict["params"], entry.params_schema
+            )
+        return await execute_operation(args_dict, OPERATION_REGISTRY, ctx)
 
 
-def register_tools() -> None:
-    """Register the 2 Code Mode meta-tools with FastMCP."""
-    for tool_name, tool_config in _META_TOOLS.items():
-        schema = tool_config["schema"]
-        handler_func = tool_config["handler"]
-        description = tool_config["description"]
-        annotations = tool_config["annotations"]
+_register_tools(app)
 
-        async def create_handler(arguments, handler=handler_func):
-            return await handler(arguments.model_dump())
-
-        create_handler.__name__ = tool_name
-        create_handler.__doc__ = description
-        create_handler.__annotations__ = {"arguments": schema}
-
-        app.tool(description=description, annotations=annotations)(create_handler)
-
-
-register_tools()
+# Number of meta-tools for health/root endpoints
+_META_TOOL_COUNT = 2
 
 
 # ============================================================================
@@ -170,7 +188,7 @@ async def root(request):
             "version": "2.0.0",
             "description": "MCP server for Gramps Web API genealogy operations",
             "mcp_endpoint": "/mcp",
-            "tools_count": len(_META_TOOLS),
+            "tools_count": _META_TOOL_COUNT,
             "operations_count": len(OPERATION_REGISTRY),
         }
     )
@@ -185,7 +203,7 @@ async def health_check(request):
         {
             "status": "healthy",
             "service": "Gramps MCP Server",
-            "tools": len(_META_TOOLS),
+            "tools": _META_TOOL_COUNT,
             "operations": len(OPERATION_REGISTRY),
         }
     )
@@ -198,6 +216,43 @@ async def run_stdio_server():
     # Create a standard MCP server for stdio transport
     server = Server("gramps")
 
+    # Build tool definitions from the registered meta-tools
+    _STDIO_TOOLS = {
+        "search": {
+            "schema": SearchOperationsParams,
+            "description": (
+                "Discover available operations and their parameters. "
+                "Call with a top-level 'query' string (not inside params). "
+                "Returns matching operations with parameter schemas. "
+                "Always use this before calling 'execute' to find the correct "
+                "operation name."
+            ),
+            "annotations": ToolAnnotations(
+                readOnlyHint=True,
+                destructiveHint=False,
+                idempotentHint=True,
+                openWorldHint=False,
+            ),
+        },
+        "execute": {
+            "schema": ExecuteOperationParams,
+            "description": (
+                "Run a named operation against the Gramps Web API. "
+                "Operations use generic names with a type parameter -- "
+                "e.g. operation='get' with params.type='media', NOT 'get_media'. "
+                "Use 'search' first to discover the exact operation name and its "
+                "params schema, then call this with "
+                "{operation: '...', params: {...}}."
+            ),
+            "annotations": ToolAnnotations(
+                readOnlyHint=False,
+                destructiveHint=False,
+                idempotentHint=False,
+                openWorldHint=True,
+            ),
+        },
+    }
+
     @server.list_tools()
     async def handle_list_tools():
         """List the 2 Code Mode meta-tools."""
@@ -208,14 +263,28 @@ async def run_stdio_server():
                 inputSchema=tool_config["schema"].model_json_schema(),
                 annotations=tool_config["annotations"],
             )
-            for tool_name, tool_config in _META_TOOLS.items()
+            for tool_name, tool_config in _STDIO_TOOLS.items()
         ]
 
     @server.call_tool()
     async def handle_call_tool(name: str, arguments: dict):
         """Handle tool calls for the 2 meta-tools."""
-        if name in _META_TOOLS:
-            return await _META_TOOLS[name]["handler"](arguments)
+        if name == "search":
+            matches = search_operations(
+                arguments.get("query", ""),
+                OPERATION_REGISTRY,
+                category=arguments.get("category"),
+            )
+            text = format_search_results(matches, OPERATION_REGISTRY)
+            return [TextContent(type="text", text=text)]
+        elif name == "execute":
+            # Pre-validation hook: normalize identifier
+            entry = OPERATION_REGISTRY.get(arguments.get("operation", ""))
+            if entry is not None and "params" in arguments:
+                arguments["params"] = normalize_identifier(
+                    arguments["params"], entry.params_schema
+                )
+            return await execute_operation(arguments, OPERATION_REGISTRY, None)
         raise ValueError(f"Unknown tool: {name}")
 
     # Resource definitions for stdio transport

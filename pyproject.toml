@@ -1,6 +1,6 @@
 [project]
 name = "gramps-mcp"
-version = "2.2.2"
+version = "3.0.0"
 description = "AI-Powered Genealogy Research & Management - MCP server for Gramps Web API"
 requires-python = ">=3.10"
 dependencies = [
@@ -8,6 +8,7 @@ dependencies = [
     "httpx>=0.25.0",
     "markdownify>=0.11.6",
     "mcp>=1.23.0",
+    "mcp-codemode @ https://gitlab.com/genealogy-mcp/genealogy-mcp-codemode/-/archive/v1.0.0/genealogy-mcp-codemode-v1.0.0.tar.gz",
     "pydantic>=2.0.0",
     "pyjwt>=2.8.0",
     "python-dotenv>=1.0.0",

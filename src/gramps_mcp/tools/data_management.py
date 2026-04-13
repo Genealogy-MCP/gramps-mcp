@@ -10,7 +10,7 @@ families, events, places, sources, citations, notes, and repositories.
 """
 
 import logging
-from typing import Dict, List
+from typing import Any, List
 
 from mcp.types import TextContent
 
@@ -25,6 +25,7 @@ from ..models.parameters.people_params import PersonData
 from ..models.parameters.place_params import PlaceSaveParams
 from ..models.parameters.repository_params import RepositoryData
 from ..models.parameters.source_params import SourceSaveParams
+from ._compat import extract_arguments
 from ._data_helpers import (
     _extract_entity_data,
     _format_save_response,
@@ -46,38 +47,40 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
-async def upsert_person_tool(arguments: Dict) -> List[TextContent]:
+async def upsert_person_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     """
     Create or update person information including family links and event associations.
     """
+    arguments = extract_arguments(ctx, params)
     return await _handle_crud_operation(
         arguments, "person", ApiCalls.POST_PEOPLE, ApiCalls.PUT_PERSON, PersonData
     )
 
 
-async def upsert_family_tool(arguments: Dict) -> List[TextContent]:
+async def upsert_family_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     """
     Create or update family unit including member relationships.
     """
     try:
-        params = FamilySaveParams(**arguments)
+        arguments = extract_arguments(ctx, params)
+        validated = FamilySaveParams(**arguments)
 
         settings = get_settings()
         tree_id = settings.gramps_tree_id
 
         client = GrampsWebAPIClient()
         try:
-            if params.handle:
+            if validated.handle:
                 result = await client.make_api_call(
                     api_call=ApiCalls.PUT_FAMILY,
-                    params=params,
+                    params=validated,
                     tree_id=tree_id,
-                    handle=params.handle,
+                    handle=validated.handle,
                 )
                 operation = "updated"
             else:
                 result = await client.make_api_call(
-                    api_call=ApiCalls.POST_FAMILIES, params=params, tree_id=tree_id
+                    api_call=ApiCalls.POST_FAMILIES, params=validated, tree_id=tree_id
                 )
                 operation = "created"
 
@@ -95,28 +98,31 @@ async def upsert_family_tool(arguments: Dict) -> List[TextContent]:
         raise_tool_error(e, "family save")
 
 
-async def upsert_event_tool(arguments: Dict) -> List[TextContent]:
+async def upsert_event_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     """
     Create or update life event including person/place associations.
     """
+    arguments = extract_arguments(ctx, params)
     return await _handle_crud_operation(
         arguments, "event", ApiCalls.POST_EVENTS, ApiCalls.PUT_EVENT, EventSaveParams
     )
 
 
-async def upsert_place_tool(arguments: Dict) -> List[TextContent]:
+async def upsert_place_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     """
     Create or update geographic location.
     """
+    arguments = extract_arguments(ctx, params)
     return await _handle_crud_operation(
         arguments, "place", ApiCalls.POST_PLACES, ApiCalls.PUT_PLACE, PlaceSaveParams
     )
 
 
-async def upsert_source_tool(arguments: Dict) -> List[TextContent]:
+async def upsert_source_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     """
     Create or update source document.
     """
+    arguments = extract_arguments(ctx, params)
     return await _handle_crud_operation(
         arguments,
         "source",
@@ -126,7 +132,9 @@ async def upsert_source_tool(arguments: Dict) -> List[TextContent]:
     )
 
 
-async def upsert_citation_tool(arguments: Dict) -> List[TextContent]:
+async def upsert_citation_tool(
+    ctx: Any = None, params: Any = None
+) -> List[TextContent]:
     """
     Create or update citation including object associations.
 
@@ -134,18 +142,19 @@ async def upsert_citation_tool(arguments: Dict) -> List[TextContent]:
     and that the citation is not self-referencing.
     """
     try:
-        params = CitationData(**arguments)
+        arguments = extract_arguments(ctx, params)
+        validated = CitationData(**arguments)
 
         # Self-reference check: citation cannot reference itself as source
-        if params.handle and params.source_handle:
-            if params.handle == params.source_handle:
+        if validated.handle and validated.source_handle:
+            if validated.handle == validated.source_handle:
                 raise McpToolError(
                     "Citation cannot reference itself as source. "
                     "Set a different source_handle or remove the citation's handle."
                 )
 
         # Source existence check: validate source_handle before write
-        if params.source_handle:
+        if validated.source_handle:
             settings = get_settings()
             tree_id = settings.gramps_tree_id
 
@@ -155,36 +164,36 @@ async def upsert_citation_tool(arguments: Dict) -> List[TextContent]:
                     source = await client.make_api_call(
                         api_call=ApiCalls.GET_SOURCE,
                         tree_id=tree_id,
-                        handle=params.source_handle,
+                        handle=validated.source_handle,
                     )
                     if not source:
                         msg = (
-                            f"Source with handle '{params.source_handle}' not "
+                            f"Source with handle '{validated.source_handle}' not "
                             "found. Ensure the source exists before referencing "
                             "it in a citation."
                         )
                         raise McpToolError(msg)
                 except GrampsAPIError:
                     msg = (
-                        f"Source with handle '{params.source_handle}' not "
+                        f"Source with handle '{validated.source_handle}' not "
                         "found. Ensure the source exists before referencing "
                         "it in a citation."
                     )
                     raise McpToolError(msg)
 
                 # Validation passed; proceed with normal create/update flow
-                if params.handle:
+                if validated.handle:
                     result = await client.make_api_call(
                         api_call=ApiCalls.PUT_CITATION,
-                        params=params,
+                        params=validated,
                         tree_id=tree_id,
-                        handle=params.handle,
+                        handle=validated.handle,
                     )
                     operation = "updated"
                 else:
                     result = await client.make_api_call(
                         api_call=ApiCalls.POST_CITATIONS,
-                        params=params,
+                        params=validated,
                         tree_id=tree_id,
                     )
                     operation = "created"
@@ -204,18 +213,18 @@ async def upsert_citation_tool(arguments: Dict) -> List[TextContent]:
 
             client = GrampsWebAPIClient()
             try:
-                if params.handle:
+                if validated.handle:
                     result = await client.make_api_call(
                         api_call=ApiCalls.PUT_CITATION,
-                        params=params,
+                        params=validated,
                         tree_id=tree_id,
-                        handle=params.handle,
+                        handle=validated.handle,
                     )
                     operation = "updated"
                 else:
                     result = await client.make_api_call(
                         api_call=ApiCalls.POST_CITATIONS,
-                        params=params,
+                        params=validated,
                         tree_id=tree_id,
                     )
                     operation = "created"
@@ -235,38 +244,44 @@ async def upsert_citation_tool(arguments: Dict) -> List[TextContent]:
         raise_tool_error(e, "citation save")
 
 
-async def upsert_note_tool(arguments: Dict) -> List[TextContent]:
+async def upsert_note_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     """
     Create or update textual note including object associations.
     """
+    arguments = extract_arguments(ctx, params)
     return await _handle_crud_operation(
         arguments, "note", ApiCalls.POST_NOTES, ApiCalls.PUT_NOTE, NoteSaveParams
     )
 
 
-async def upsert_repository_tool(arguments: Dict) -> List[TextContent]:
+async def upsert_repository_tool(
+    ctx: Any = None, params: Any = None
+) -> List[TextContent]:
     """
     Create or update repository information.
     """
     try:
-        params = RepositoryData(**arguments)
+        arguments = extract_arguments(ctx, params)
+        validated = RepositoryData(**arguments)
 
         settings = get_settings()
         tree_id = settings.gramps_tree_id
 
         client = GrampsWebAPIClient()
         try:
-            if params.handle:
+            if validated.handle:
                 result = await client.make_api_call(
                     api_call=ApiCalls.PUT_REPOSITORY,
-                    params=params,
+                    params=validated,
                     tree_id=tree_id,
-                    handle=params.handle,
+                    handle=validated.handle,
                 )
                 operation = "updated"
             else:
                 result = await client.make_api_call(
-                    api_call=ApiCalls.POST_REPOSITORIES, params=params, tree_id=tree_id
+                    api_call=ApiCalls.POST_REPOSITORIES,
+                    params=validated,
+                    tree_id=tree_id,
                 )
                 operation = "created"
 

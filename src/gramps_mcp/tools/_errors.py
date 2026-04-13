@@ -9,23 +9,21 @@ can distinguish errors from valid data and self-correct. The MCP Server SDK
 automatically sets isError=True when a tool handler raises an exception.
 
 MCP-10: This is the single source of truth for error formatting.
+
+McpToolError is re-exported from the shared library. raise_tool_error remains
+local because it handles GrampsAPIError specifically.
 """
 
 import logging
 from typing import NoReturn
 
+from mcp_codemode import McpToolError
+
 from ..client import GrampsAPIError
 
+__all__ = ["McpToolError", "raise_tool_error"]
+
 logger = logging.getLogger(__name__)
-
-
-class McpToolError(Exception):
-    """Raised by tool handlers to signal an error to the LLM.
-
-    The MCP Server SDK catches exceptions from tool handlers and wraps them
-    in CallToolResult with isError=True. This exception provides a clean,
-    user-facing error message for that purpose.
-    """
 
 
 def raise_tool_error(

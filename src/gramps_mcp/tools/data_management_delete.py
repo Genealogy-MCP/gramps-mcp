@@ -9,7 +9,7 @@ Handles entity deletion, bulk operations, and tag creation (immutable in API 3.x
 """
 
 import logging
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from mcp.types import TextContent
 
@@ -17,6 +17,7 @@ from ..client import GrampsWebAPIClient
 from ..config import get_settings
 from ..models.api_calls import ApiCalls
 from ..models.parameters.simple_params import DeleteParams
+from ._compat import extract_arguments
 from ._data_helpers import _extract_entity_data
 from ._errors import McpToolError, raise_tool_error
 
@@ -59,19 +60,21 @@ async def _delete_via_bulk(
     )
 
 
-async def delete_tool(arguments: Dict) -> List[TextContent]:
+async def delete_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     """
     Delete any entity type by handle.
 
     Args:
-        arguments: Dict with 'type' (entity type) and 'handle' (entity handle).
+        ctx: MCP context (library) or plain dict (legacy).
+        params: Pydantic model (library) or None (legacy).
 
     Returns:
         List of TextContent with success or error message.
     """
     try:
-        params = DeleteParams(**arguments)
-        entity_type_str = params.type.value
+        arguments = extract_arguments(ctx, params)
+        validated = DeleteParams(**arguments)
+        entity_type_str = validated.type.value
 
         api_call = DELETE_API_CALLS.get(entity_type_str)
         uses_bulk = entity_type_str in _ENTITY_CLASS_NAMES
@@ -92,17 +95,19 @@ async def delete_tool(arguments: Dict) -> List[TextContent]:
         client = GrampsWebAPIClient()
         try:
             if uses_bulk:
-                await _delete_via_bulk(client, tree_id, entity_type_str, params.handle)
+                await _delete_via_bulk(
+                    client, tree_id, entity_type_str, validated.handle
+                )
             elif api_call is not None:
                 await client.make_api_call(
-                    api_call=api_call, tree_id=tree_id, handle=params.handle
+                    api_call=api_call, tree_id=tree_id, handle=validated.handle
                 )
             return [
                 TextContent(
                     type="text",
                     text=(
                         f"Successfully deleted {entity_type_str} "
-                        f"with handle `{params.handle}`."
+                        f"with handle `{validated.handle}`."
                     ),
                 )
             ]
@@ -113,13 +118,13 @@ async def delete_tool(arguments: Dict) -> List[TextContent]:
         raise_tool_error(e, "delete")
 
 
-async def upsert_tag_tool(arguments: Dict) -> List[TextContent]:
+async def upsert_tag_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     """
     Create or update a tag.
 
     Args:
-        arguments: Dict with 'name' (required), 'color', 'priority',
-            'handle' (for update).
+        ctx: MCP context (library) or plain dict (legacy).
+        params: Pydantic model (library) or None (legacy).
 
     Returns:
         List of TextContent with formatted tag details.
@@ -127,9 +132,10 @@ async def upsert_tag_tool(arguments: Dict) -> List[TextContent]:
     from ..models.parameters.tag_params import TagSaveParams
 
     try:
-        params = TagSaveParams(**arguments)
+        arguments = extract_arguments(ctx, params)
+        validated = TagSaveParams(**arguments)
 
-        if params.handle:
+        if validated.handle:
             raise_tool_error(
                 ValueError(
                     "Tag updates are not supported in Gramps Web API 3.x. "
@@ -145,7 +151,7 @@ async def upsert_tag_tool(arguments: Dict) -> List[TextContent]:
         client = GrampsWebAPIClient()
         try:
             result = await client.make_api_call(
-                api_call=ApiCalls.POST_TAGS, params=params, tree_id=tree_id
+                api_call=ApiCalls.POST_TAGS, params=validated, tree_id=tree_id
             )
 
             entity_data = _extract_entity_data(result)
