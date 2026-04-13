@@ -4,6 +4,7 @@ include:
     file: /pipelines/default.yml
 
 variables:
+  ENABLE_YAMLLINT: "false"
   ENABLE_TEST: "false"
   ENABLE_TEST_MATRIX: "false"
   UV_SYNC_ARGS: ""
