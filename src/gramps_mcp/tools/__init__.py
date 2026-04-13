@@ -33,11 +33,6 @@ from .data_management import (
 )
 from .data_management_delete import delete_tool, upsert_tag_tool
 from .data_management_media import download_media_tool, upsert_media_tool
-
-# Meta-tools (Code Mode) are NOT re-exported here to avoid circular
-# imports: meta_execute/meta_search depend on operations.py, which
-# imports handler functions from this package. Import them directly
-# from tools.meta_search / tools.meta_execute where needed.
 from .search_basic import (
     list_tags_tool,
     search_citation_tool,

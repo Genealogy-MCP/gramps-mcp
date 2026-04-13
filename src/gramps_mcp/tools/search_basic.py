@@ -11,7 +11,7 @@ search, and tag listing.
 
 import functools
 import logging
-from typing import Callable, Dict, List
+from typing import Any, Callable, Dict, List
 
 from mcp.types import TextContent
 
@@ -36,6 +36,7 @@ from ..models.parameters.place_params import PlaceSearchParams
 from ..models.parameters.repository_params import RepositoriesParams
 from ..models.parameters.search_params import SearchParams
 from ..models.parameters.source_params import SourceSearchParams
+from ._compat import extract_arguments
 from ._errors import McpToolError, raise_tool_error
 from ._gql_hints import gql_hint
 
@@ -60,8 +61,11 @@ def with_client(func: Callable) -> Callable:
     """
     Decorator that provides a GrampsWebAPIClient instance and handles cleanup.
 
-    The decorated function will receive 'client' as the first argument.
-    Client is automatically closed after function execution.
+    The decorated function will receive 'client' as the first argument
+    followed by a dict of arguments. The mcp-codemode library calls
+    handlers with (ctx, validated_params) where validated_params is a
+    Pydantic model. This decorator converts to (client, arguments_dict)
+    for inner handler compatibility.
 
     Args:
         func: Async function to decorate
@@ -71,10 +75,11 @@ def with_client(func: Callable) -> Callable:
     """
 
     @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
+    async def wrapper(ctx_or_args=None, params=None, **kwargs):
         client = GrampsWebAPIClient()
         try:
-            return await func(client, *args, **kwargs)
+            arguments = extract_arguments(ctx_or_args, params)
+            return await func(client, arguments, **kwargs)
         finally:
             await client.close()
 
@@ -393,16 +398,19 @@ _SEARCH_TOOL_DISPATCH: Dict[str, Callable] = {
 }
 
 
-async def search_tool(arguments: Dict) -> List[TextContent]:
+async def search_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     """Universal type-based search tool.
 
     Args:
-        arguments: Dict with 'type', 'gql', and optional 'max_results'.
+        ctx: MCP context (library) or plain dict (legacy).
+        params: Pydantic model (library) or None (legacy).
 
     Returns:
         List of TextContent with formatted search results.
     """
     from ..models.parameters.simple_params import SimpleFindParams
+
+    arguments = extract_arguments(ctx, params)
 
     try:
         validated = SimpleFindParams(**arguments)
@@ -414,14 +422,14 @@ async def search_tool(arguments: Dict) -> List[TextContent]:
         ) from e
 
     entity_type_str = validated.type.value
-    params = {"gql": validated.gql, "pagesize": validated.max_results}
+    inner_params = {"gql": validated.gql, "pagesize": validated.max_results}
     tool_func = _SEARCH_TOOL_DISPATCH.get(entity_type_str)
     if not tool_func:
         valid_types = ", ".join(sorted(_SEARCH_TOOL_DISPATCH.keys()))
         raise McpToolError(
             f"Entity type '{entity_type_str}' not supported. Valid types: {valid_types}"
         )
-    return await tool_func(params)
+    return await tool_func(inner_params)
 
 
 @with_client

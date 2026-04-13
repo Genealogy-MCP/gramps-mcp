@@ -1,0 +1,15 @@
+.git
+.github
+.gitlab
+.pytest_cache
+.ruff_cache
+__pycache__
+*.pyc
+tests/
+*.md
+!README.md
+.env*
+.venv/
+*.egg-info/
+dist/
+build/

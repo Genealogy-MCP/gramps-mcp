@@ -580,6 +580,7 @@ dependencies = [
     { name = "httpx" },
     { name = "markdownify" },
     { name = "mcp" },
+    { name = "mcp-codemode" },
     { name = "pydantic" },
     { name = "pyjwt" },
     { name = "python-dotenv" },
@@ -606,6 +607,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.25.0" },
     { name = "markdownify", specifier = ">=0.11.6" },
     { name = "mcp", specifier = ">=1.23.0" },
+    { name = "mcp-codemode", url = "https://gitlab.com/genealogy-mcp/genealogy-mcp-codemode/-/archive/v1.0.0/genealogy-mcp-codemode-v1.0.0.tar.gz" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pyjwt", specifier = ">=2.8.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
@@ -787,6 +789,18 @@ sdist = { url = "https://files.pythonhosted.org/packages/fc/6d/62e76bbb8144d6ed8
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fd/d9/eaa1f80170d2b7c5ba23f3b59f766f3a0bb41155fbc32a69adfa1adaaef9/mcp-1.26.0-py3-none-any.whl", hash = "sha256:904a21c33c25aa98ddbeb47273033c435e595bbacfdb177f4bd87f6dceebe1ca", size = 233615, upload-time = "2026-01-24T19:40:30.652Z" },
 ]
+
+[[package]]
+name = "mcp-codemode"
+version = "1.0.0"
+source = { url = "https://gitlab.com/genealogy-mcp/genealogy-mcp-codemode/-/archive/v1.0.0/genealogy-mcp-codemode-v1.0.0.tar.gz" }
+dependencies = [
+    { name = "pydantic" },
+]
+sdist = { hash = "sha256:68d5659d5b8ce1e195b2e99d39cdefffcf7845c040f24b1e0ecff2c2fa287981" }
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.0" }]
 
 [[package]]
 name = "mdurl"

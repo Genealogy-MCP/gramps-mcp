@@ -9,7 +9,7 @@ Handles media file upload, download, creation, and updating including metadata m
 """
 
 import logging
-from typing import Dict, List
+from typing import Any, List
 
 from mcp.types import TextContent
 
@@ -18,13 +18,14 @@ from ..config import get_settings
 from ..media_client import MediaClient
 from ..models.api_calls import ApiCalls
 from ..models.parameters.media_params import MediaDownloadParams, MediaSaveParams
+from ._compat import extract_arguments
 from ._data_helpers import _extract_entity_data, _format_save_response
 from ._errors import McpToolError, raise_tool_error
 
 logger = logging.getLogger(__name__)
 
 
-async def upsert_media_tool(arguments: Dict) -> List[TextContent]:
+async def upsert_media_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     """
     Create or update media files including object associations.
     """
@@ -32,8 +33,9 @@ async def upsert_media_tool(arguments: Dict) -> List[TextContent]:
     import os
 
     try:
-        params = MediaSaveParams(**arguments) if arguments else None
-        file_location = params.file_location if params else None
+        arguments = extract_arguments(ctx, params)
+        validated = MediaSaveParams(**arguments) if arguments else None
+        file_location = validated.file_location if validated else None
 
         settings = get_settings()
         tree_id = settings.gramps_tree_id
@@ -41,7 +43,7 @@ async def upsert_media_tool(arguments: Dict) -> List[TextContent]:
         client = GrampsWebAPIClient()
         media_client = MediaClient(client)
         try:
-            if params and params.handle:
+            if validated and validated.handle:
                 # File replacement: upload new file before metadata update
                 if file_location:
                     if not os.path.isfile(file_location):
@@ -54,7 +56,7 @@ async def upsert_media_tool(arguments: Dict) -> List[TextContent]:
                     try:
                         await media_client.replace_media_file(
                             file_content=file_content,
-                            handle=params.handle,
+                            handle=validated.handle,
                             mime_type=mime_type,
                             tree_id=tree_id,
                         )
@@ -64,16 +66,16 @@ async def upsert_media_tool(arguments: Dict) -> List[TextContent]:
                                 "File already exists (409 Conflict) "
                                 "for handle %s — skipping re-upload, "
                                 "proceeding with metadata update.",
-                                params.handle,
+                                validated.handle,
                             )
                         else:
                             raise
 
                 result = await client.make_api_call(
                     api_call=ApiCalls.PUT_MEDIA_ITEM,
-                    params=params,
+                    params=validated,
                     tree_id=tree_id,
-                    handle=params.handle,
+                    handle=validated.handle,
                 )
                 operation = "updated"
                 entity_data = _extract_entity_data(result)
@@ -105,9 +107,11 @@ async def upsert_media_tool(arguments: Dict) -> List[TextContent]:
                 media_handle = initial_media_object["handle"]
 
                 final_media_data = initial_media_object.copy()
-                if params:
+                if validated:
                     final_media_data.update(
-                        params.model_dump(exclude={"file_location"}, exclude_none=True)
+                        validated.model_dump(
+                            exclude={"file_location"}, exclude_none=True
+                        )
                     )
 
                 result = await client.make_api_call(
@@ -131,13 +135,14 @@ async def upsert_media_tool(arguments: Dict) -> List[TextContent]:
         raise_tool_error(e, "media save")
 
 
-async def download_media_tool(arguments: Dict) -> List[TextContent]:
+async def download_media_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     """Download a media file from Gramps Web to local disk."""
     import os
 
     try:
-        params = MediaDownloadParams(**arguments)
-        destination = params.destination
+        arguments = extract_arguments(ctx, params)
+        validated = MediaDownloadParams(**arguments)
+        destination = validated.destination
 
         # Path security checks (MCP-18, MCP-19)
         if not os.path.isabs(destination):
@@ -164,18 +169,18 @@ async def download_media_tool(arguments: Dict) -> List[TextContent]:
         client = GrampsWebAPIClient()
         media_client = MediaClient(client)
         try:
-            handle = params.handle
+            handle = validated.handle
 
             # Resolve gramps_id to handle if needed
             if not handle:
                 results = await client.make_api_call(
                     api_call=ApiCalls.GET_MEDIA,
-                    params={"gramps_id": params.gramps_id},
+                    params={"gramps_id": validated.gramps_id},
                     tree_id=tree_id,
                 )
                 if not results:
                     raise McpToolError(
-                        f"No media found with gramps_id '{params.gramps_id}'. "
+                        f"No media found with gramps_id '{validated.gramps_id}'. "
                         "Use search to find the correct ID first."
                     )
                 handle = results[0]["handle"]

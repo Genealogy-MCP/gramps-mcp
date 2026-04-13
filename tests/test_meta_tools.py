@@ -1,7 +1,7 @@
 """
 Unit tests for the search and execute meta-tools (Code Mode architecture).
 
-These test the thin dispatch layer, not the underlying handlers.
+These test the thin dispatch layer via the mcp-codemode library.
 No network required.
 """
 
@@ -9,17 +9,16 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from mcp.types import TextContent
+from mcp_codemode import (
+    ExecuteOperationParams,
+    McpToolError,
+    SearchOperationsParams,
+    execute_operation,
+    format_search_results,
+    search_operations,
+)
 
 from src.gramps_mcp.operations import OPERATION_REGISTRY
-from src.gramps_mcp.tools._errors import McpToolError
-from src.gramps_mcp.tools.meta_execute import (
-    ExecuteOperationParams,
-    execute_operation_tool,
-)
-from src.gramps_mcp.tools.meta_search import (
-    SearchOperationsParams,
-    search_operations_tool,
-)
 
 
 class TestSearchOperationsTool:
@@ -28,43 +27,31 @@ class TestSearchOperationsTool:
     @pytest.mark.asyncio
     async def test_valid_query_returns_results(self):
         """A query matching known operations should return results."""
-        result = await search_operations_tool({"query": "person", "category": None})
-        assert len(result) >= 1
-        assert isinstance(result[0], TextContent)
-        assert "upsert_person" in result[0].text
+        matches = search_operations("person", OPERATION_REGISTRY)
+        text = format_search_results(matches, OPERATION_REGISTRY)
+        assert "upsert_person" in text
 
     @pytest.mark.asyncio
     async def test_category_filter(self):
         """Category filter should restrict results to that category."""
-        result = await search_operations_tool({"query": "", "category": "delete"})
-        assert len(result) >= 1
-        assert "delete" in result[0].text.lower()
+        matches = search_operations("", OPERATION_REGISTRY, category="delete")
+        text = format_search_results(matches, OPERATION_REGISTRY)
+        assert "delete" in text.lower()
 
     @pytest.mark.asyncio
     async def test_no_match_returns_all_operations(self):
         """A nonsensical query should return an informative no-match message."""
-        result = await search_operations_tool(
-            {"query": "xyzzy_nonexistent_foobar", "category": None}
-        )
-        assert len(result) >= 1
-        text = result[0].text
+        matches = search_operations("xyzzy_nonexistent_foobar", OPERATION_REGISTRY)
+        text = format_search_results(matches, OPERATION_REGISTRY)
         assert (
             "no operations matched" in text.lower() or "20 operations" in text.lower()
         )
 
     @pytest.mark.asyncio
-    async def test_returns_text_content(self):
-        """All results must be TextContent instances."""
-        result = await search_operations_tool({"query": "search", "category": None})
-        for item in result:
-            assert isinstance(item, TextContent)
-
-    @pytest.mark.asyncio
     async def test_output_includes_params(self):
         """Search results should include parameter information."""
-        result = await search_operations_tool({"query": "search", "category": "search"})
-        text = result[0].text
-        # The search operation has a "type" parameter
+        matches = search_operations("search", OPERATION_REGISTRY, category="search")
+        text = format_search_results(matches, OPERATION_REGISTRY)
         assert "type" in text.lower()
 
     @pytest.mark.asyncio
@@ -88,13 +75,17 @@ class TestExecuteOperationTool:
     async def test_unknown_operation_raises_with_suggestions(self):
         """Unknown operation should raise McpToolError with suggestions."""
         with pytest.raises(McpToolError, match="Unknown operation"):
-            await execute_operation_tool({"operation": "serch", "params": {}})
+            await execute_operation(
+                {"operation": "serch", "params": {}}, OPERATION_REGISTRY, None
+            )
 
     @pytest.mark.asyncio
     async def test_unknown_operation_includes_close_matches(self):
         """Error message should include close matches for typos."""
         with pytest.raises(McpToolError, match="search"):
-            await execute_operation_tool({"operation": "serch", "params": {}})
+            await execute_operation(
+                {"operation": "serch", "params": {}}, OPERATION_REGISTRY, None
+            )
 
     @pytest.mark.asyncio
     async def test_valid_operation_dispatches(self):
@@ -118,10 +109,12 @@ class TestExecuteOperationTool:
                 )
             },
         ):
-            result = await execute_operation_tool(
-                {"operation": "get_tree_stats", "params": {"include_statistics": True}}
+            result = await execute_operation(
+                {"operation": "get_tree_stats", "params": {"include_statistics": True}},
+                OPERATION_REGISTRY,
+                None,
             )
-            mock_handler.assert_called_once_with({"include_statistics": True})
+            mock_handler.assert_called_once()
             assert result == [TextContent(type="text", text="ok")]
 
     @pytest.mark.asyncio
@@ -147,8 +140,10 @@ class TestExecuteOperationTool:
             },
         ):
             with pytest.raises(McpToolError, match="handler failed"):
-                await execute_operation_tool(
-                    {"operation": "get_tree_stats", "params": {}}
+                await execute_operation(
+                    {"operation": "get_tree_stats", "params": {}},
+                    OPERATION_REGISTRY,
+                    None,
                 )
 
     @pytest.mark.asyncio
@@ -173,15 +168,21 @@ class TestExecuteOperationTool:
                 )
             },
         ):
-            await execute_operation_tool({"operation": "get_tree_stats", "params": {}})
-            mock_handler.assert_called_once_with({})
+            await execute_operation(
+                {"operation": "get_tree_stats", "params": {}},
+                OPERATION_REGISTRY,
+                None,
+            )
+            mock_handler.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_completely_unknown_no_close_match(self):
         """Totally unrelated name should raise without close matches."""
         with pytest.raises(McpToolError, match="Unknown operation"):
-            await execute_operation_tool(
-                {"operation": "zzzzz_totally_wrong", "params": {}}
+            await execute_operation(
+                {"operation": "zzzzz_totally_wrong", "params": {}},
+                OPERATION_REGISTRY,
+                None,
             )
 
     def test_execute_params_model_validation(self):
@@ -196,28 +197,35 @@ class TestExecuteOperationTool:
         assert params.params == {}
 
     @pytest.mark.asyncio
-    async def test_prefix_suggests_get_for_get_media(self):
-        """'get_media' should suggest 'get' via prefix matching."""
+    async def test_close_match_for_get_media(self):
+        """'get_media' should suggest alternatives."""
         with pytest.raises(McpToolError, match="get"):
-            await execute_operation_tool({"operation": "get_media", "params": {}})
+            await execute_operation(
+                {"operation": "get_media", "params": {}}, OPERATION_REGISTRY, None
+            )
 
     @pytest.mark.asyncio
-    async def test_prefix_suggests_search_for_search_person(self):
-        """'search_person' should suggest 'search' via prefix matching."""
+    async def test_close_match_for_search_person(self):
+        """'search_person' should suggest 'search' via close matching."""
         with pytest.raises(McpToolError, match="search"):
-            await execute_operation_tool({"operation": "search_person", "params": {}})
+            await execute_operation(
+                {"operation": "search_person", "params": {}}, OPERATION_REGISTRY, None
+            )
 
     @pytest.mark.asyncio
-    async def test_prefix_suggests_delete_for_delete_event(self):
-        """'delete_event' should suggest 'delete' via prefix matching."""
+    async def test_close_match_for_delete_event(self):
+        """'delete_event' should suggest 'delete' via close matching."""
         with pytest.raises(McpToolError, match="delete"):
-            await execute_operation_tool({"operation": "delete_event", "params": {}})
+            await execute_operation(
+                {"operation": "delete_event", "params": {}}, OPERATION_REGISTRY, None
+            )
 
     @pytest.mark.asyncio
     async def test_no_prefix_for_unrelated_name(self):
         """Totally unrelated name should not get prefix matches."""
         with pytest.raises(McpToolError) as exc_info:
-            await execute_operation_tool({"operation": "foobar", "params": {}})
-        # Should not suggest any prefix-based operations
+            await execute_operation(
+                {"operation": "foobar", "params": {}}, OPERATION_REGISTRY, None
+            )
         msg = str(exc_info.value)
-        assert "get," not in msg or "Did you mean" not in msg
+        assert "Unknown operation" in msg

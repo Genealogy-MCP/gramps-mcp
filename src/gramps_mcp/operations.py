@@ -8,12 +8,14 @@ Single source of truth for all available operations. Each entry describes
 an operation's name, category, parameter schema, handler function, and
 behavioral hints. The ``search`` meta-tool queries this registry; the
 ``execute`` meta-tool dispatches to the handler.
+
+OperationEntry, search_operations, and summarize_params are provided by
+the shared mcp-codemode library.
 """
 
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Optional
 
+from mcp_codemode import OperationEntry
 from pydantic import BaseModel, Field
 
 from .models.parameters.citation_params import CitationData
@@ -35,8 +37,7 @@ from .models.parameters.tag_params import TagSaveParams, TagSearchParams
 from .models.parameters.transactions_params import TransactionHistoryParams
 
 # Import handlers directly from sub-modules (not tools/__init__.py)
-# to avoid circular imports — meta_execute/meta_search live in tools/
-# and import from this module.
+# to avoid circular imports — server.py imports from this module.
 from .tools.analysis import (
     get_ancestors_tool,
     get_descendants_tool,
@@ -87,38 +88,6 @@ class AncestorsParams(BaseModel):
             "carefully as they can overflow context)"
         ),
     )
-
-
-# ---------------------------------------------------------------------------
-# OperationEntry dataclass
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class OperationEntry:
-    """Describes a single operation in the registry.
-
-    Args:
-        name: Stable snake_case identifier (e.g. "upsert_person").
-        summary: One-line description for search results.
-        description: Full description (shown on ``execute`` errors or docs).
-        category: One of "search", "read", "write", "delete", "analysis".
-        params_schema: Pydantic model class for parameter validation.
-        handler: Async handler function that performs the operation.
-        read_only: True if the operation does not mutate data.
-        destructive: True if the operation deletes data.
-        token_warning: Optional warning about token-heavy output.
-    """
-
-    name: str
-    summary: str
-    description: str
-    category: str
-    params_schema: type
-    handler: Callable[..., Any]
-    read_only: bool
-    destructive: bool
-    token_warning: str | None = field(default=None)
 
 
 # ---------------------------------------------------------------------------
@@ -391,95 +360,3 @@ OPERATION_REGISTRY: dict[str, OperationEntry] = {
         destructive=False,
     ),
 }
-
-
-# ---------------------------------------------------------------------------
-# Search algorithm
-# ---------------------------------------------------------------------------
-
-
-def search_operations(
-    query: str,
-    *,
-    category: str | None = None,
-    max_results: int = 10,
-) -> list[OperationEntry]:
-    """Search the operation registry by keyword.
-
-    Scoring:
-    - +3 for exact name match
-    - +2 for query token found in operation name
-    - +1 for query token found in summary or description
-
-    Args:
-        query: Free-text search query.
-        category: Optional category filter (search/read/write/delete/analysis).
-        max_results: Maximum number of results to return (default: 10).
-
-    Returns:
-        List of matching OperationEntry objects, ordered by score descending.
-    """
-    candidates = OPERATION_REGISTRY.values()
-    if category:
-        candidates = [e for e in candidates if e.category == category]
-
-    if not query.strip():
-        return list(candidates)[:max_results]
-
-    tokens = query.lower().split()
-    scored: list[tuple[int, OperationEntry]] = []
-
-    for entry in candidates:
-        score = 0
-        name_lower = entry.name.lower()
-        searchable = f"{entry.summary} {entry.description}".lower()
-
-        if query.lower() == name_lower:
-            score += 3
-
-        for token in tokens:
-            if token in name_lower:
-                score += 2
-            if token in searchable:
-                score += 1
-
-        if score > 0:
-            scored.append((score, entry))
-
-    scored.sort(key=lambda pair: pair[0], reverse=True)
-    return [entry for _, entry in scored[:max_results]]
-
-
-# ---------------------------------------------------------------------------
-# Parameter summarization
-# ---------------------------------------------------------------------------
-
-
-def summarize_params(schema: type) -> list[dict[str, Any]]:
-    """Produce a condensed parameter summary from a Pydantic model.
-
-    Args:
-        schema: A Pydantic BaseModel subclass.
-
-    Returns:
-        List of dicts with keys: name, type, required, description.
-    """
-    if not hasattr(schema, "model_fields"):
-        return []
-
-    result: list[dict[str, Any]] = []
-    for name, field_info in schema.model_fields.items():
-        annotation = field_info.annotation
-        type_str = getattr(annotation, "__name__", str(annotation))
-        if isinstance(annotation, type) and issubclass(annotation, Enum):
-            values = [e.value for e in annotation]
-            type_str = f"{type_str}: {', '.join(values)}"
-        result.append(
-            {
-                "name": name,
-                "type": type_str,
-                "required": field_info.is_required(),
-                "description": field_info.description or "",
-            }
-        )
-    return result
