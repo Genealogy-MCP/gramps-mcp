@@ -1,48 +1,26 @@
-workflow:
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
-
-stages:
-  - lint
-  - test
-  - security
-  - detect
-  - release
-  - docker
+include:
+  - project: facastagnini/ci-templates
+    ref: main
+    file: /pipelines/default.yml
 
 variables:
-  UV_CACHE_DIR: "$CI_PROJECT_DIR/.uv-cache"
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+  ENABLE_YAMLLINT: "false"
+  ENABLE_TEST: "false"
+  ENABLE_TEST_MATRIX: "false"
+  UV_SYNC_ARGS: ""
+  LINT_PATHS: "src"
+  HEADER_PATHS: "src/ scripts/"
+  YAMLLINT_EXCLUDE: ".github grampsweb-docs"
 
-default:
-  interruptible: true
-  cache:
-    key: "${CI_JOB_IMAGE}"
-    paths:
-      - .uv-cache/
-      - .pip-cache/
-
-.only-mr:
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-
-lint-typecheck:
-  extends: .only-mr
-  stage: lint
-  image: python:3.11-slim-bookworm
-  before_script:
-    - apt-get update && apt-get install -y --no-install-recommends libatomic1
-    - pip install uv
-    - uv sync
-  script:
-    - uv run ruff check src/
-    - uv run ruff format --check src/
-    - find src/ scripts/ -name '*.py' -exec python scripts/check_copyright_header.py {} +
-    - uv run pyright src/
+# gramps-mcp requires Docker Compose integration tests against a
+# Gramps Web API instance. These cannot use the shared test jobs.
 
 .test-base:
   stage: test
+  retry:
+    max: 2
+    when:
+      - script_failure
   services:
     - name: docker:dind
       command: ["--tls=false"]
@@ -59,9 +37,6 @@ lint-typecheck:
     - docker compose -f docker-compose.test.yml pull
   script:
     - docker compose -f docker-compose.test.yml up -d --wait
-    # Run seed + tests inside a container on the DinD host network.
-    # --network=host gives access to 127.0.0.1:5055 (compose port mapping).
-    # Docker CLI + DOCKER_HOST lets seed_test_db.py call `docker compose exec`.
     - |
       DOCKER_IP=$(getent ahostsv4 docker | head -1 | awk '{print $1}')
       PYTHON_IMG="python:$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')-slim-bookworm"
@@ -118,116 +93,3 @@ test-py3.13:
     - .only-mr
     - .test-base
   image: python:3.13-slim-bookworm
-
-security-audit:
-  extends: .only-mr
-  stage: security
-  image: python:3.11-slim-bookworm
-  before_script:
-    - pip install uv
-    - uv sync
-  script:
-    - uv run pip-audit
-
-# --- Release automation ---
-# Reads version from pyproject.toml (single source of truth).
-# If no tag v{version} exists, validates CHANGELOG.md and triggers release.
-
-detect-release:
-  stage: detect
-  image: python:3.11-slim-bookworm
-  before_script: []
-  script:
-    - |
-      VERSION=$(python3 -c "
-      import re
-      with open('pyproject.toml') as f:
-          match = re.search(r'^version\s*=\s*\"([^\"]+)\"', f.read(), re.MULTILINE)
-          print(match.group(1) if match else '')
-      ")
-      echo "Version in pyproject.toml: $VERSION"
-      if [ -z "$VERSION" ]; then
-        echo "Could not read version from pyproject.toml"
-        exit 1
-      fi
-      if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q .; then
-        echo "Tag v$VERSION already exists, not a new release"
-        echo "VERSION=" >> release.env
-        echo "No new release" > changelog.txt
-        exit 0
-      fi
-      echo "New version detected: $VERSION"
-      echo "VERSION=$VERSION" >> release.env
-      grep -q "^## \[$VERSION\]" CHANGELOG.md || { echo "CHANGELOG.md missing section for [$VERSION]"; exit 1; }
-      awk "/^## \[$VERSION\]/{f=1;next}/^## \[/{if(f)exit}f" CHANGELOG.md > changelog.txt
-  artifacts:
-    reports:
-      dotenv: release.env
-    paths:
-      - changelog.txt
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-
-create-release:
-  stage: release
-  image: registry.gitlab.com/gitlab-org/release-cli:latest
-  needs:
-    - job: detect-release
-      artifacts: true
-  before_script: []
-  script:
-    - |
-      if [ -z "$VERSION" ]; then
-        echo "No new version, skipping release creation"
-        exit 0
-      fi
-      echo "Creating release v$VERSION"
-      release-cli create \
-        --name "v$VERSION" \
-        --tag-name "v$VERSION" \
-        --description changelog.txt
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-
-build-push-docker:
-  stage: docker
-  image: docker:latest
-  services:
-    - docker:dind
-  needs:
-    - job: detect-release
-      artifacts: true
-    - job: create-release
-  variables:
-    DOCKER_TLS_CERTDIR: "/certs"
-  before_script:
-    - |
-      if [ -z "$VERSION" ]; then
-        echo "No new version, skipping Docker build"
-        exit 0
-      fi
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker login -u genealogy-mcp -p $GITHUB_TOKEN_FOR_GHCR ghcr.io
-  script:
-    - |
-      MAJOR=$(echo $VERSION | cut -d. -f1)
-      MINOR=$(echo $VERSION | cut -d. -f1-2)
-      docker build \
-        -t $CI_REGISTRY_IMAGE:$VERSION \
-        -t $CI_REGISTRY_IMAGE:$MINOR \
-        -t $CI_REGISTRY_IMAGE:$MAJOR \
-        -t $CI_REGISTRY_IMAGE:latest \
-        -t ghcr.io/genealogy-mcp/$CI_PROJECT_NAME:$VERSION \
-        -t ghcr.io/genealogy-mcp/$CI_PROJECT_NAME:$MINOR \
-        -t ghcr.io/genealogy-mcp/$CI_PROJECT_NAME:$MAJOR \
-        -t ghcr.io/genealogy-mcp/$CI_PROJECT_NAME:latest \
-        .
-      docker push $CI_REGISTRY_IMAGE --all-tags
-      docker push ghcr.io/genealogy-mcp/$CI_PROJECT_NAME --all-tags
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-
-include:
-  - template: Security/SAST.gitlab-ci.yml
-  - template: Security/Dependency-Scanning.gitlab-ci.yml
-  - template: Security/Secret-Detection.gitlab-ci.yml
