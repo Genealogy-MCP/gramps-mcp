@@ -1,3 +1,47 @@
+# gramps-mcp -- Development Reference
+
+## Commands
+
+```bash
+make               # show help (default target)
+make install       # uv sync --group dev + pre-commit install
+make test          # run all tests (auto-starts Docker if available)
+make test-unit     # run unit tests only (no Docker needed)
+make test-server   # run e2e tests requiring running MCP server
+make lint          # ruff check src tests
+make format        # ruff format + ruff check --fix src tests
+make typecheck     # pyright src
+make check-headers # verify SPDX copyright headers
+make audit         # pip-audit
+make ci            # lint + typecheck + check-headers + test + audit
+make docker-up     # start Gramps Web test containers
+make docker-down   # stop and remove test containers
+make docker-seed   # seed test instance with fixture data
+make coverage      # generate HTML coverage report
+make pre-commit    # run all pre-commit hooks
+make clean         # remove build artifacts and caches
+make build         # uv build
+```
+
+## Git Hosting Policy
+
+This repo lives on GitLab. GitHub is a read-only push-mirror.
+
+- All commits, MRs, issues, releases, CI, and container registry operations target
+  `gitlab.com/genealogy-mcp/gramps-mcp` only.
+- Never run `gh` write commands against this repo — use `glab` instead. See the
+  `gh` → `glab` mapping table in the org root
+  [`../CLAUDE.md` — Git Hosting Policy](../CLAUDE.md#git-hosting-policy) for the
+  full command reference and the `GH-ORG-1..7` rules.
+- If a skill or sub-agent attempts a GitHub write operation, redirect it to the
+  `glab` equivalent or stop and ask the user.
+
+## Dependencies
+
+This server uses [mcp-codemode](https://gitlab.com/genealogy-mcp/genealogy-mcp-codemode)
+for its Code Mode infrastructure (search/execute meta-tools, operation registry).
+When debugging search or execute behavior, look in mcp-codemode, not in this repo.
+
 ### Project Awareness & Context
 - **Always read `README.md`** at the start of a new conversation to understand the project's setup, features, and usage.
 - **Use consistent naming conventions, file structure, and architecture patterns** following Python and MCP best practices.
