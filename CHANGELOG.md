@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.3] - 2026-05-25
+
 ### Security
 
 - Upgrade pytest to 9.0.3+ and pytest-asyncio to 1.3.0 (CVE-2025-71176)
