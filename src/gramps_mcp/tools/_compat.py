@@ -27,7 +27,7 @@ def extract_arguments(ctx_or_args: Any = None, params: Any = None) -> dict:
         A plain dict of operation arguments.
     """
     if params is not None and hasattr(params, "model_dump"):
-        return params.model_dump(exclude_none=True)
+        return params.model_dump(mode="json", exclude_none=True)
     if isinstance(ctx_or_args, dict):
         return ctx_or_args
     return {}
