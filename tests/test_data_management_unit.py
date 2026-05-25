@@ -833,3 +833,13 @@ class TestExtractArguments:
 
         assert extract_arguments(None) == {}
         assert extract_arguments() == {}
+
+    def test_enum_fields_serialize_to_plain_strings(self):
+        """extract_arguments must return plain str, not enum members."""
+        from src.gramps_mcp.models.parameters.simple_params import SimpleGetParams
+        from src.gramps_mcp.tools._compat import extract_arguments
+
+        params = SimpleGetParams(type="place", handle="abc123")
+        result = extract_arguments(None, params)
+        assert result == {"type": "place", "handle": "abc123"}
+        assert type(result["type"]) is str

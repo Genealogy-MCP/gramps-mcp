@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.4] - 2026-05-25
+
+### Fixed
+
+- Fix `extract_arguments()` enum serialization: use `model_dump(mode="json")` so dispatch dict lookups work on Python 3.11+ for all 9 entity types
+- Remove dead `str()` wrapper in `get_tool` dispatch
+
 ### Security
 
 - Upgrade pytest to 9.0.3+ and pytest-asyncio to 1.3.0 (CVE-2025-71176)
