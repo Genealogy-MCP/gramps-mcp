@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Align CLAUDE.md with org conventions (Commands, Git Hosting Policy, Dependencies sections)
+- Document `to_api_payload()` dispatch pattern in Known Architectural Limitations
 
 ## [3.0.2] - 2026-05-25
 
