@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from mcp.types import TextContent
 
-from src.gramps_mcp.client import GrampsAPIError
+from src.gramps_mcp.client import GrampsAPIError, GrampsWebAPIClient
 from src.gramps_mcp.models.parameters.citation_params import CitationData
 from src.gramps_mcp.models.parameters.event_params import EventSaveParams
 from src.gramps_mcp.models.parameters.media_params import MediaSaveParams
@@ -685,3 +685,151 @@ class TestUpsertPartialUpdate:
         params = RepositoryData(handle="h1234567", private=True)
         assert params.name is None
         assert params.type is None
+
+
+# ---------------------------------------------------------------------------
+# NoteSaveParams round-trip and serialization
+# ---------------------------------------------------------------------------
+
+
+class TestNoteSaveParamsRoundTrip:
+    """Verify model_dump produces schema-compatible output (no StyledText)."""
+
+    def test_round_trip_model_dump(self):
+        """model_dump output can be fed back into the constructor."""
+        original = NoteSaveParams(text="hello", type="General")
+        dumped = original.model_dump(exclude_none=True)
+        reconstructed = NoteSaveParams(**dumped)
+        assert reconstructed.text == "hello"
+        assert reconstructed.type == "General"
+
+    def test_model_dump_text_is_plain_string(self):
+        """model_dump returns text as a plain string, not a dict."""
+        params = NoteSaveParams(text="hello", type="General")
+        dumped = params.model_dump(exclude_none=True)
+        assert isinstance(dumped["text"], str)
+        assert dumped["text"] == "hello"
+
+
+class TestNoteSaveParamsToApiPayload:
+    """Verify to_api_payload wraps text in StyledText format."""
+
+    def test_to_api_payload_wraps_text(self):
+        """to_api_payload converts text to StyledText dict."""
+        params = NoteSaveParams(text="hello", type="General")
+        payload = params.to_api_payload()
+        assert payload == {
+            "text": {"_class": "StyledText", "string": "hello"},
+            "type": "General",
+        }
+
+    def test_to_api_payload_omits_text_when_none(self):
+        """to_api_payload omits text field for update-only (handle present)."""
+        params = NoteSaveParams(handle="h123")
+        payload = params.to_api_payload()
+        assert "text" not in payload
+        assert payload == {"handle": "h123"}
+
+    def test_to_api_payload_empty_string(self):
+        """to_api_payload wraps empty string in StyledText."""
+        params = NoteSaveParams(handle="h123", text="", type="General")
+        payload = params.to_api_payload()
+        assert payload["text"] == {"_class": "StyledText", "string": ""}
+
+
+class TestClientToApiPayloadDispatch:
+    """Verify make_api_call uses to_api_payload when available."""
+
+    @pytest.mark.asyncio
+    async def test_note_params_uses_to_api_payload(self):
+        """When params has to_api_payload, the JSON body uses StyledText."""
+        from src.gramps_mcp.models.api_calls import ApiCalls
+
+        client = GrampsWebAPIClient()
+        params = NoteSaveParams(text="hello", type="General")
+
+        mock_request = AsyncMock(
+            return_value=[{"new": {"handle": "n1", "gramps_id": "N001"}}]
+        )
+
+        with (
+            patch.object(client, "_make_request", mock_request),
+            patch.object(
+                client, "_get_headers", new_callable=AsyncMock, return_value={}
+            ),
+        ):
+            await client.make_api_call(
+                api_call=ApiCalls.POST_NOTES,
+                params=params,
+                tree_id="tree1",
+            )
+
+        sent_json = mock_request.call_args.kwargs.get("json_data")
+        assert sent_json["text"] == {"_class": "StyledText", "string": "hello"}
+
+
+class TestHandleCrudOperationBaseModel:
+    """Verify _handle_crud_operation accepts pre-validated BaseModel."""
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
+    @patch(
+        "src.gramps_mcp.tools._data_helpers.get_settings",
+        return_value=_mock_settings(),
+    )
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
+    async def test_accepts_pre_validated_model(self, _settings, mock_client_cls):
+        """Pre-validated NoteSaveParams instance passes without re-validation."""
+        from src.gramps_mcp.models.api_calls import ApiCalls
+
+        client_inst = AsyncMock()
+        client_inst.make_api_call = AsyncMock(
+            return_value=[{"new": {"handle": "n1", "gramps_id": "N001"}}]
+        )
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        pre_validated = NoteSaveParams(text="hello", type="General")
+        result = await _handle_crud_operation(
+            pre_validated,
+            "note",
+            ApiCalls.POST_NOTES,
+            ApiCalls.PUT_NOTE,
+            NoteSaveParams,
+        )
+
+        assert isinstance(result[0], TextContent)
+        assert "created" in result[0].text
+
+
+# ---------------------------------------------------------------------------
+# extract_arguments
+# ---------------------------------------------------------------------------
+
+
+class TestExtractArguments:
+    """Verify extract_arguments handles BaseModel, dict, and None inputs."""
+
+    def test_basemodel_returns_plain_dict(self):
+        """BaseModel input returns text as plain string (no StyledText)."""
+        from src.gramps_mcp.tools._compat import extract_arguments
+
+        params = NoteSaveParams(text="hello", type="General")
+        result = extract_arguments(None, params)
+        assert isinstance(result["text"], str)
+        assert result["text"] == "hello"
+        assert result == {"text": "hello", "type": "General"}
+
+    def test_dict_input_returns_dict(self):
+        """Dict input is returned as-is."""
+        from src.gramps_mcp.tools._compat import extract_arguments
+
+        d = {"text": "hello", "type": "General"}
+        assert extract_arguments(d) == d
+
+    def test_none_returns_empty_dict(self):
+        """No arguments returns empty dict."""
+        from src.gramps_mcp.tools._compat import extract_arguments
+
+        assert extract_arguments(None) == {}
+        assert extract_arguments() == {}
