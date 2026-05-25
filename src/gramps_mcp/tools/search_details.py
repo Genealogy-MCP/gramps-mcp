@@ -219,6 +219,12 @@ async def get_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     handle = arguments.get("handle")
     gramps_id = arguments.get("gramps_id")
 
+    if not entity_type:
+        valid_types = sorted(list(_GET_TOOL_DISPATCH.keys()) + ["person", "family"])
+        raise McpToolError(
+            f"Missing required parameter 'type'. Valid types: {', '.join(valid_types)}"
+        )
+
     # If gramps_id provided but no handle, find the handle first
     if gramps_id and not handle:
         from .search_basic import search_tool
@@ -248,7 +254,7 @@ async def get_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
         return await get_family_tool({"family_handle": handle})
 
     # All other entity types use their basic format handlers
-    tool_func = _GET_TOOL_DISPATCH.get(str(entity_type))
+    tool_func = _GET_TOOL_DISPATCH.get(entity_type)
     if tool_func:
         return await tool_func({"handle": handle})
 
