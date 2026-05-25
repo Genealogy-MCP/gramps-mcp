@@ -107,6 +107,7 @@ When debugging search or execute behavior, look in mcp-codemode, not in this rep
 ### Known Architectural Limitations
 - **List fields support merge or replace on PUT**: Pass `list_mode: "replace"` on any upsert tool to overwrite `*_list` fields instead of merging. Default is `"merge"` (append with dedup). To remove a single item, use `list_mode: "replace"` with the desired final list.
 - **No `detach_reference` tool**: To remove a single item from a list field, use `list_mode: "replace"` with the filtered list (GET→filter→PUT with replace).
+- **`to_api_payload()` dispatch for custom serialization**: When a Pydantic param model needs API-specific serialization (e.g., `NoteSaveParams` wraps plain `text` into a Gramps `StyledText` dict), implement `to_api_payload() -> dict[str, Any]` on the model. `client.py` dispatches to this method if present, otherwise falls back to `model_dump(exclude_none=True)`. Currently only `NoteSaveParams` uses this. When a second model needs it, introduce a formal `Protocol` type to replace the duck-typed `getattr` dispatch.
 
 ### MCP Server Design
 
