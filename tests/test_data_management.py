@@ -885,5 +885,85 @@ class TestCreateTagTool:
         assert "tags" in text.lower()
 
 
-# Removed validation tests - Pydantic handles input validation automatically
-# These tests focus only on actual Gramps Web API integration
+class TestUpsertNoteViaExecuteOperation:
+    """Test upsert_note through the full Code Mode dispatch path.
+
+    Exercises: execute_operation → NoteSaveParams validation →
+    extract_arguments (model_dump) → _handle_crud_operation → API.
+    Verifies the fix from issue #20 (StyledText wrapping via to_api_payload)
+    works end-to-end through the dispatch chain.
+    """
+
+    @pytest.mark.asyncio
+    async def test_create_note_via_execute_operation(self, cleanup_registry):
+        """Note creation via execute_operation succeeds with correct text."""
+        from mcp_codemode import execute_operation
+
+        from src.gramps_mcp.operations import OPERATION_REGISTRY
+
+        result = await execute_operation(
+            {
+                "operation": "upsert_note",
+                "params": {
+                    "text": f"{TEST_PREFIX}execute_operation dispatch test note",
+                    "type": "General",
+                },
+            },
+            OPERATION_REGISTRY,
+            None,
+        )
+
+        text = result[0].text
+        assert "Error:" not in text, f"Expected success but got error: {text}"
+        assert "successfully" in text.lower()
+        assert f"{TEST_PREFIX}execute_operation dispatch test note" in text
+
+        handle = extract_handle(text)
+        cleanup_registry.track("note", handle)
+
+    @pytest.mark.asyncio
+    async def test_update_note_via_execute_operation(self, cleanup_registry):
+        """Note update via execute_operation succeeds with new text."""
+        from mcp_codemode import execute_operation
+
+        from src.gramps_mcp.operations import OPERATION_REGISTRY
+
+        # Create a note first
+        create_result = await execute_operation(
+            {
+                "operation": "upsert_note",
+                "params": {
+                    "text": f"{TEST_PREFIX}note before update via dispatch",
+                    "type": "Research",
+                },
+            },
+            OPERATION_REGISTRY,
+            None,
+        )
+
+        create_text = create_result[0].text
+        assert "successfully" in create_text.lower(), f"Create failed: {create_text}"
+        handle = extract_handle(create_text)
+        cleanup_registry.track("note", handle)
+
+        # Update via the same dispatch path
+        update_result = await execute_operation(
+            {
+                "operation": "upsert_note",
+                "params": {
+                    "handle": handle,
+                    "text": f"{TEST_PREFIX}note AFTER update via dispatch",
+                    "type": "Research",
+                },
+            },
+            OPERATION_REGISTRY,
+            None,
+        )
+
+        update_text = update_result[0].text
+        assert "Error:" not in update_text, (
+            f"Expected success but got error: {update_text}"
+        )
+        assert "successfully" in update_text.lower()
+        assert "updated" in update_text.lower()
+        assert f"{TEST_PREFIX}note AFTER update via dispatch" in update_text
