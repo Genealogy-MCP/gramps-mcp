@@ -13,6 +13,7 @@ import logging
 from typing import Any, Dict, List
 
 from mcp.types import TextContent
+from pydantic import BaseModel
 
 from ..client import GrampsWebAPIClient
 from ..config import get_settings
@@ -57,7 +58,7 @@ def _extract_entity_data(result: Any, entity_type: str | None = None) -> dict:
 
 
 async def _handle_crud_operation(
-    params: Dict,
+    params: Dict | BaseModel,
     entity_type: str,
     post_api_call: ApiCalls,
     put_api_call: ApiCalls,
@@ -65,7 +66,11 @@ async def _handle_crud_operation(
 ) -> List[TextContent]:
     """Common helper for create/update operations."""
     try:
-        validated_params = param_class(**params)
+        validated_params: Any = (
+            params
+            if isinstance(params, param_class)
+            else param_class(**(params if isinstance(params, dict) else {}))
+        )
 
         settings = get_settings()
         tree_id = settings.gramps_tree_id

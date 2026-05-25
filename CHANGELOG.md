@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Align CLAUDE.md with org conventions (Commands, Git Hosting Policy, Dependencies sections)
 
+## [3.0.1] - 2026-05-25
+
+### Fixed
+
+- Replace `NoteSaveParams.model_dump()` override with `to_api_payload()` to fix double-validation failure on `upsert_note`
+
+### Security
+
+- Bump `python-dotenv` >=1.2.2 (CVE-2026-28684)
+- Upgrade transitive deps: `idna` 3.16 (CVE-2026-45409), `pip` 26.1.1 (CVE-2026-3219, CVE-2026-6357), `python-multipart` 0.0.29 (CVE-2026-40347, CVE-2026-42561), `starlette` 1.1.0 (PYSEC-2026-161), `urllib3` 2.7.0 (PYSEC-2026-142, PYSEC-2026-141)
+
 ## [3.0.0] - 2026-04-13
 
 ### Changed

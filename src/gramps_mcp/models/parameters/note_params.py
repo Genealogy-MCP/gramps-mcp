@@ -68,10 +68,9 @@ class NoteSaveParams(BaseModel):
             raise ValueError(f"Required when creating: {', '.join(missing)}")
         return self
 
-    def model_dump(self, **kwargs: Any) -> dict[str, Any]:
-        """Convert to API format with StyledText structure."""
-        data = super().model_dump(**kwargs)
-        # Transform text string to StyledText format expected by API
+    def to_api_payload(self) -> dict[str, Any]:
+        """Return API-ready dict with text wrapped in StyledText format."""
+        data = self.model_dump(exclude_none=True)
         if "text" in data and isinstance(data["text"], str):
             data["text"] = {
                 "_class": "StyledText",
