@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.5] - 2026-05-25
+
+### Changed
+
+- Switch CI template include to public genealogy-mcp/ci-templates repo
+
 ## [3.0.4] - 2026-05-25
 
 ### Fixed
