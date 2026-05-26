@@ -28,7 +28,15 @@ class TestFamilyChildRoundTrip:
     async def test_create_family_with_child_round_trip(self, cleanup_registry):
         """child_handles on create produces correct child_ref_list on GET."""
         person_result = await upsert_person_tool(
-            {"first_name": f"{TEST_PREFIX}ChildRoundTrip", "surname": "Testing"}
+            {
+                "primary_name": {
+                    "first_name": f"{TEST_PREFIX}ChildRoundTrip",
+                    "surname_list": [
+                        {"surname": f"{TEST_PREFIX}Testing", "primary": True}
+                    ],
+                },
+                "gender": 2,
+            }
         )
         person_handle = extract_handle(person_result[0].text)
         cleanup_registry.track("person", person_handle)
@@ -62,7 +70,15 @@ class TestFamilyChildRoundTrip:
     async def test_clear_children_via_replace_mode(self, cleanup_registry):
         """Empty child_handles with replace mode clears child_ref_list."""
         person_result = await upsert_person_tool(
-            {"first_name": f"{TEST_PREFIX}ChildClear", "surname": "Testing"}
+            {
+                "primary_name": {
+                    "first_name": f"{TEST_PREFIX}ChildClear",
+                    "surname_list": [
+                        {"surname": f"{TEST_PREFIX}Testing", "primary": True}
+                    ],
+                },
+                "gender": 2,
+            }
         )
         person_handle = extract_handle(person_result[0].text)
         cleanup_registry.track("person", person_handle)
