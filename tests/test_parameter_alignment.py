@@ -399,6 +399,7 @@ class TestParameterAlignment:
             "tag_list",
             "private",
             "change",
+            "list_mode",
         }
         allowed_fields = guide_fields | system_fields
         actual_fields = set(fields.keys())

@@ -164,3 +164,7 @@ class BaseDataModel(BaseModel):
     )
 
     model_config = {"populate_by_name": True}
+
+    def to_api_payload(self) -> Dict[str, Any]:
+        """Return API-ready dict. Subclasses override for custom serialization."""
+        return self.model_dump(exclude_none=True)

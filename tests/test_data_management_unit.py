@@ -721,6 +721,7 @@ class TestNoteSaveParamsToApiPayload:
         assert payload == {
             "text": {"_class": "StyledText", "string": "hello"},
             "type": "General",
+            "list_mode": "merge",
         }
 
     def test_to_api_payload_omits_text_when_none(self):
@@ -728,7 +729,7 @@ class TestNoteSaveParamsToApiPayload:
         params = NoteSaveParams(handle="h123")
         payload = params.to_api_payload()
         assert "text" not in payload
-        assert payload == {"handle": "h123"}
+        assert payload == {"handle": "h123", "list_mode": "merge"}
 
     def test_to_api_payload_empty_string(self):
         """to_api_payload wraps empty string in StyledText."""
@@ -818,7 +819,7 @@ class TestExtractArguments:
         result = extract_arguments(None, params)
         assert isinstance(result["text"], str)
         assert result["text"] == "hello"
-        assert result == {"text": "hello", "type": "General"}
+        assert result == {"text": "hello", "type": "General", "list_mode": "merge"}
 
     def test_dict_input_returns_dict(self):
         """Dict input is returned as-is."""
