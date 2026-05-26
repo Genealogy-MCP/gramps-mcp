@@ -21,6 +21,7 @@ from .auth import AuthManager
 from .config import get_settings
 from .models.api_calls import ApiCalls
 from .models.api_mapping import validate_api_call_params
+from .models.parameters.base_params import BaseDataModel
 
 # JSON body type: single object or array of objects (e.g. bulk delete)
 JsonBody = Union[Dict, list]
@@ -316,19 +317,18 @@ class GrampsWebAPIClient:
         json_data = None
 
         if validated_params is not None:
-            to_api_payload = getattr(validated_params, "to_api_payload", None)
-            if to_api_payload is not None:
-                params_dict = to_api_payload()
-            else:
-                params_dict = validated_params.model_dump(exclude_none=True)
-            # POST and PUT operations use JSON body, GET operations use query parameters
+            # POST/PUT body params use to_api_payload() when available
+            # (all BaseDataModel subclasses); GET/report params use model_dump.
             if (
                 api_call.method in ["POST", "PUT"]
                 and api_call != ApiCalls.POST_REPORT_FILE
             ):
-                json_data = params_dict
+                if isinstance(validated_params, BaseDataModel):
+                    json_data = validated_params.to_api_payload()
+                else:
+                    json_data = validated_params.model_dump(exclude_none=True)
             else:
-                request_params = params_dict
+                request_params = validated_params.model_dump(exclude_none=True)
 
         # Pop list_mode before sending to API (Gramps doesn't know this field).
         # Must happen unconditionally — POST bodies must not carry it either.

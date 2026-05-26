@@ -13,9 +13,9 @@ API calls supported in this category:
 
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import Field, model_validator
 
-from .base_params import BaseGetMultipleParams, BaseGetSingleParams
+from .base_params import BaseDataModel, BaseGetMultipleParams, BaseGetSingleParams
 
 
 class NotesParams(BaseGetMultipleParams):
@@ -44,13 +44,9 @@ class NoteParams(BaseGetSingleParams):
     )
 
 
-class NoteSaveParams(BaseModel):
+class NoteSaveParams(BaseDataModel):
     """Parameters for creating or updating a note."""
 
-    handle: str | None = Field(
-        None,
-        description="Note's handle (for updates; omit for new note)",
-    )
     text: str | None = Field(
         None, description="Note text content. Required when creating (no handle)."
     )
@@ -70,7 +66,7 @@ class NoteSaveParams(BaseModel):
 
     def to_api_payload(self) -> dict[str, Any]:
         """Return API-ready dict with text wrapped in StyledText format."""
-        data = self.model_dump(exclude_none=True)
+        data = super().to_api_payload()
         if "text" in data and isinstance(data["text"], str):
             data["text"] = {
                 "_class": "StyledText",

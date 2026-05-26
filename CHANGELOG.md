@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.6] - 2026-05-26
+
+### Changed
+
+- Add default `to_api_payload()` to `BaseDataModel` for standardized API serialization
+- Re-parent `NoteSaveParams` from `BaseModel` to `BaseDataModel`, removing duplicate `handle` field
+- Replace duck-typed `getattr` dispatch in client with `isinstance(BaseDataModel)` type check
+
 ## [3.0.5] - 2026-05-25
 
 ### Changed
