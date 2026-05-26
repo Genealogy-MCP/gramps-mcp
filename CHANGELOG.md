@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.8] - 2026-05-26
+
+### Added
+
+- Integration tests for family `child_handles` round-trip through Gramps Web API (create with children, clear via replace mode)
+
+### Changed
+
+- Update CLAUDE.md architectural limitation note to reflect `BaseDataModel` serialization hook pattern
+
 ## [3.0.7] - 2026-05-26
 
 ### Fixed
