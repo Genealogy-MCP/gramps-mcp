@@ -14,11 +14,13 @@ API calls supported in this category:
 - GET_FAMILY_TIMELINE: Get the timeline for all the people in a specific family
 """
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
 from .base_params import BaseDataModel
+
+_BIRTH_REL = {"_class": "ChildRefType", "string": "Birth"}
 
 
 class FamilySaveParams(BaseDataModel):
@@ -35,6 +37,17 @@ class FamilySaveParams(BaseDataModel):
     urls: Optional[List[dict]] = Field(
         None, description="List of URLs associated with the family"
     )
+
+    def to_api_payload(self) -> Dict[str, Any]:
+        """Translate child_handles to Gramps child_ref_list structure."""
+        payload = super().to_api_payload()
+        handles = payload.pop("child_handles", None)
+        if handles is not None:
+            payload["child_ref_list"] = [
+                {"ref": h, "frel": _BIRTH_REL.copy(), "mrel": _BIRTH_REL.copy()}
+                for h in handles
+            ]
+        return payload
 
 
 class FamilyTimelineParams(BaseModel):
