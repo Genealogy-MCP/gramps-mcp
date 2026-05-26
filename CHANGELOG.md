@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.7] - 2026-05-26
+
+### Fixed
+
+- Translate `child_handles` to Gramps `child_ref_list` structure in `FamilySaveParams.to_api_payload()`, fixing silent discard of children when creating/updating families
+
 ## [3.0.6] - 2026-05-26
 
 ### Changed
