@@ -17,8 +17,8 @@ class TestBaseDataModelToApiPayload:
         result = model.to_api_payload()
         assert result == {"gramps_id": "I0001", "private": True, "list_mode": "merge"}
 
-    def test_subclass_without_override_uses_base_default(self) -> None:
-        """FamilySaveParams (no override) inherits to_api_payload() from base."""
+    def test_subclass_with_override_calls_super(self) -> None:
+        """FamilySaveParams.to_api_payload() delegates to super() for base fields."""
         model = FamilySaveParams(father_handle="abc123", private=False)
         result = model.to_api_payload()
         assert result == {
