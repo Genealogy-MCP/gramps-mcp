@@ -61,8 +61,8 @@ class TestFamilyChildRoundTrip:
             )
             ref = child_ref_list[0]
             assert ref["ref"] == person_handle
-            assert ref["frel"] == {"_class": "ChildRefType", "string": "Birth"}
-            assert ref["mrel"] == {"_class": "ChildRefType", "string": "Birth"}
+            assert ref["frel"] == "Birth"
+            assert ref["mrel"] == "Birth"
         finally:
             await client.close()
 
