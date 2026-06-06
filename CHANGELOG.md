@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.10] - 2026-06-06
+
+### Fixed
+
+- Raise `GrampsAPIError` on a non-JSON API response instead of returning a `{"error", "raw_content"}` dict that the PUT-merge path treated as a real record and wrote back to the server (#30)
+- Return report-file bodies (`GET_REPORT_FILE`, `GET_REPORT_PROCESSED`) verbatim as text via a `raw` mode, so HTML report downloads no longer trip the new non-JSON guard
+
+### Security
+
+- Stop echoing the raw upstream response body back to the client on a JSON parse failure; the error message now omits the body, only stating the HTTP status (MCP-19)
+
 ## [3.0.9] - 2026-06-06
 
 ### Fixed

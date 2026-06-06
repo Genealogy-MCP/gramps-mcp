@@ -445,7 +445,7 @@ class TestGetDescendantsTool:
             if name == "POST_REPORT_FILE":
                 return {"file_name": "report.html"}
             if name == "GET_REPORT_PROCESSED":
-                return {"raw_content": "<h1>Descendants</h1>"}
+                return "<h1>Descendants</h1>"
             return {}
 
         client_inst.make_api_call = AsyncMock(side_effect=mock_api_call)
@@ -471,7 +471,7 @@ class TestGetDescendantsTool:
             if name == "POST_REPORT_FILE":
                 return {"task": {"id": "task123"}}
             if name == "GET_REPORT_PROCESSED":
-                return {"raw_content": "<h1>Report</h1>"}
+                return "<h1>Report</h1>"
             return {}
 
         client_inst.make_api_call = AsyncMock(side_effect=mock_api_call)
@@ -567,7 +567,7 @@ class TestGetAncestorsTool:
             if name == "POST_REPORT_FILE":
                 return {"file_name": "ancestors.html"}
             if name == "GET_REPORT_PROCESSED":
-                return {"raw_content": "<h1>Ancestors</h1>"}
+                return "<h1>Ancestors</h1>"
             return {}
 
         client_inst.make_api_call = AsyncMock(side_effect=mock_api_call)
@@ -592,7 +592,7 @@ class TestGetAncestorsTool:
             if name == "POST_REPORT_FILE":
                 return {"task": {"id": "task456"}}
             if name == "GET_REPORT_PROCESSED":
-                return {"raw_content": "<h1>Ancestor Report</h1>"}
+                return "<h1>Ancestor Report</h1>"
             return {}
 
         client_inst.make_api_call = AsyncMock(side_effect=mock_api_call)
@@ -655,9 +655,7 @@ class TestFetchReportWithRetry:
     async def test_immediate_success(self):
         """First call succeeds — no retry needed."""
         client = AsyncMock()
-        client.make_api_call = AsyncMock(
-            return_value={"raw_content": "<h1>Report</h1>"}
-        )
+        client.make_api_call = AsyncMock(return_value="<h1>Report</h1>")
 
         result = await _fetch_report_with_retry(
             client, "tree1", "descend_report", "output.html"
@@ -672,7 +670,7 @@ class TestFetchReportWithRetry:
         client.make_api_call = AsyncMock(
             side_effect=[
                 GrampsAPIError("Record not found at /reports/descend_report/file"),
-                {"raw_content": "<h1>Descendants</h1>"},
+                "<h1>Descendants</h1>",
             ]
         )
 
@@ -735,7 +733,7 @@ class TestFetchReportWithRetry:
                 GrampsAPIError("404 not found"),
                 GrampsAPIError("404 not found"),
                 GrampsAPIError("404 not found"),
-                {"raw_content": "<h1>OK</h1>"},
+                "<h1>OK</h1>",
             ]
         )
 
