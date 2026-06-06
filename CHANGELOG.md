@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.9] - 2026-06-06
+
+### Fixed
+
+- Render both endpoints for range (modifier 4) and span (modifier 5) dates in `format_date`; previously only the start was shown (e.g. `between 1850` instead of `between 1850 and 1860`)
+
 ## [3.0.8] - 2026-05-26
 
 ### Added
