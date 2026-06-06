@@ -203,8 +203,6 @@ async def _fetch_report_with_retry(
                 report_id=report_id,
                 filename=filename,
             )
-            if isinstance(response, dict) and "raw_content" in response:
-                return response["raw_content"]
             return str(response)
 
         except GrampsAPIError as e:
