@@ -30,6 +30,12 @@ logger = logging.getLogger(__name__)
 
 MIN_API_MAJOR_VERSION = 3
 
+# Endpoints that serve generated report files (HTML), not JSON records.
+# These bypass JSON parsing in _make_request via raw=True.
+RAW_BODY_API_CALLS = frozenset(
+    {ApiCalls.GET_REPORT_FILE, ApiCalls.GET_REPORT_PROCESSED}
+)
+
 
 class GrampsAPIError(Exception):
     """Custom exception for Gramps Web API errors."""
@@ -157,8 +163,13 @@ class GrampsWebAPIClient:
         json_data: Optional[JsonBody] = None,
         retry_auth: bool = True,
         return_headers: bool = False,
+        raw: bool = False,
     ) -> Any:
-        """Make HTTP request with error handling and auth retry."""
+        """Make HTTP request with error handling and auth retry.
+
+        When raw=True the response body is returned verbatim as text and JSON
+        parsing is skipped -- required for report-file endpoints that serve HTML.
+        """
         try:
             headers = await self._get_headers()
             response = await self.auth_manager.client.request(
@@ -176,9 +187,13 @@ class GrampsWebAPIClient:
                     json_data,
                     retry_auth=False,
                     return_headers=return_headers,
+                    raw=raw,
                 )
 
             response.raise_for_status()
+
+            if raw:
+                return response.text
 
             # Handle empty responses
             if not response.text.strip():
@@ -417,6 +432,7 @@ class GrampsWebAPIClient:
             params=request_params,
             json_data=json_data,
             return_headers=with_headers,
+            raw=api_call in RAW_BODY_API_CALLS,
         )
 
     async def bulk_delete(

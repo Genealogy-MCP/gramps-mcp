@@ -400,6 +400,26 @@ class TestMakeRequest:
         assert data == {"id": 1}
         assert headers["x-total-count"] == "42"
 
+    @pytest.mark.asyncio
+    async def test_raw_returns_text_for_non_json(self):
+        """raw=True returns response.text verbatim, never parsing JSON."""
+        client = self._setup_client()
+
+        html = "<html><body>ancestor report</body></html>"
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.text = html
+        resp.raise_for_status = MagicMock()
+        resp.json.side_effect = ValueError("not json")
+
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.client.request = AsyncMock(return_value=resp)
+
+        result = await client._make_request(
+            "GET", "http://test/api/reports/x/file/processed/y.html", raw=True
+        )
+        assert result == html
+
 
 # ---------------------------------------------------------------------------
 # make_api_call
@@ -488,6 +508,41 @@ class TestMakeApiCall:
             call_kwargs = mock_req.call_args.kwargs
             assert call_kwargs["params"] is not None
             assert call_kwargs["json_data"] is None
+
+    @pytest.mark.asyncio
+    async def test_report_processed_returns_html_text(self):
+        """GET_REPORT_PROCESSED routes with raw=True and returns text, not JSON."""
+        client = self._make_client()
+
+        html = "<html><body>descendant report</body></html>"
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.text = html
+        resp.raise_for_status = MagicMock()
+        resp.json.side_effect = ValueError("not json")
+        client.auth_manager.client.request = AsyncMock(return_value=resp)
+
+        result = await client.make_api_call(
+            api_call=ApiCalls.GET_REPORT_PROCESSED,
+            report_id="descend_report",
+            filename="out.html",
+        )
+        assert result == html
+
+    @pytest.mark.asyncio
+    async def test_report_file_routes_raw(self):
+        """GET_REPORT_FILE passes raw=True to _make_request."""
+        client = self._make_client()
+
+        with patch.object(client, "_make_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = "<html>report</html>"
+
+            await client.make_api_call(
+                api_call=ApiCalls.GET_REPORT_FILE,
+                report_id="ancestor_report",
+            )
+
+            assert mock_req.call_args.kwargs["raw"] is True
 
     @pytest.mark.asyncio
     async def test_put_replace_mode(self):
