@@ -193,13 +193,9 @@ class GrampsWebAPIClient:
                 return data
             except Exception as e:
                 logger.warning(f"Failed to parse JSON response: {e}")
-                error_response = {
-                    "error": "Invalid JSON response",
-                    "raw_content": response.text,
-                }
-                if return_headers:
-                    return error_response, dict(response.headers)
-                return error_response
+                raise GrampsAPIError(
+                    f"Invalid JSON from Gramps API (HTTP {response.status_code})"
+                ) from e
 
         except httpx.HTTPStatusError as e:
             error_msg = self._format_http_error(e)
@@ -208,6 +204,8 @@ class GrampsWebAPIClient:
             raise GrampsAPIError(f"Cannot connect to Gramps API: {e}") from e
         except httpx.TimeoutException as e:
             raise GrampsAPIError(f"Request timeout: {e}") from e
+        except GrampsAPIError:
+            raise
         except Exception as e:
             raise GrampsAPIError(f"Unexpected error: {e}") from e
 

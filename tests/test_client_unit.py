@@ -289,7 +289,7 @@ class TestMakeRequest:
 
     @pytest.mark.asyncio
     async def test_invalid_json_response(self):
-        """Invalid JSON returns error dict with raw_content."""
+        """Non-JSON 200 response raises GrampsAPIError without leaking body."""
         client = self._setup_client()
 
         resp = MagicMock()
@@ -301,13 +301,14 @@ class TestMakeRequest:
         client.auth_manager.client = MagicMock()
         client.auth_manager.client.request = AsyncMock(return_value=resp)
 
-        result = await client._make_request("GET", "http://test/api/reports/")
-        assert "raw_content" in result
-        assert result["raw_content"] == "<html>not json</html>"
+        with pytest.raises(GrampsAPIError) as excinfo:
+            await client._make_request("GET", "http://test/api/reports/")
+        assert "HTTP 200" in str(excinfo.value)
+        assert "<html>not json</html>" not in str(excinfo.value)
 
     @pytest.mark.asyncio
     async def test_invalid_json_with_headers(self):
-        """Invalid JSON + return_headers returns (error_dict, headers)."""
+        """Non-JSON + return_headers raises GrampsAPIError, returns no tuple."""
         client = self._setup_client()
 
         resp = MagicMock()
@@ -320,11 +321,27 @@ class TestMakeRequest:
         client.auth_manager.client = MagicMock()
         client.auth_manager.client.request = AsyncMock(return_value=resp)
 
-        data, headers = await client._make_request(
-            "GET", "http://test/api/x", return_headers=True
-        )
-        assert "raw_content" in data
-        assert "content-type" in headers
+        with pytest.raises(GrampsAPIError):
+            await client._make_request("GET", "http://test/api/x", return_headers=True)
+
+    @pytest.mark.asyncio
+    async def test_invalid_json_message_omits_body(self):
+        """Error message must not contain the upstream response body (MCP-19)."""
+        client = self._setup_client()
+
+        body = "<html><body>stack trace 0xdeadbeef</body></html>"
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.text = body
+        resp.raise_for_status = MagicMock()
+        resp.json.side_effect = ValueError("not json")
+
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.client.request = AsyncMock(return_value=resp)
+
+        with pytest.raises(GrampsAPIError) as excinfo:
+            await client._make_request("GET", "http://test/api/x")
+        assert body not in str(excinfo.value)
 
     @pytest.mark.asyncio
     async def test_connect_error(self):
