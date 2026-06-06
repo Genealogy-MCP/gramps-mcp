@@ -13,6 +13,32 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
+def _format_dateval_part(day: int, month: int, year: int) -> str | None:
+    """
+    Format a single [day, month, year] endpoint of a Gramps dateval.
+
+    Args:
+        day (int): Day of month, or 0 if unknown.
+        month (int): Month number, or 0 if unknown.
+        year (int): Year; values <= 0 are treated as missing.
+
+    Returns:
+        str | None: Human-readable date at the precision available, or None if
+            the year is missing/invalid.
+    """
+    if year <= 0:
+        return None
+
+    try:
+        if day > 0 and month > 0:
+            return datetime(year, month, day).strftime("%d %B %Y")
+        if month > 0:
+            return datetime(year, month, 1).strftime("%B %Y")
+        return str(year)
+    except (ValueError, TypeError):
+        return str(year) if year > 0 else None
+
+
 def format_date(date_obj: dict) -> str:
     """
     Format Gramps date object into human-readable string with fallback.
@@ -36,29 +62,14 @@ def format_date(date_obj: dict) -> str:
     if not dateval or len(dateval) < 3:
         return "date unknown"
 
-    # dateval format is [day, month, year, False]
-    day, month, year = dateval[0], dateval[1], dateval[2]
-    if year <= 0:
+    # dateval format is [day, month, year, dual]
+    base_date = _format_dateval_part(dateval[0], dateval[1], dateval[2])
+    if base_date is None:
         return "date unknown"
 
-    # Get quality and modifier
     quality = date_obj.get("quality", 0)
     modifier = date_obj.get("modifier", 0)
 
-    # Format the base date
-    try:
-        if day > 0 and month > 0:
-            date_dt = datetime(year, month, day)
-            base_date = date_dt.strftime("%d %B %Y")
-        elif month > 0:
-            date_dt = datetime(year, month, 1)
-            base_date = date_dt.strftime("%B %Y")
-        else:
-            base_date = str(year)
-    except (ValueError, TypeError):
-        base_date = str(year) if year > 0 else "date unknown"
-
-    # Add modifier prefix
     modifier_prefixes = {
         0: "",  # regular
         1: "before ",
@@ -71,14 +82,21 @@ def format_date(date_obj: dict) -> str:
         8: "to ",
     }
 
-    # Add quality suffix
     quality_suffixes = {
         0: "",  # regular
         1: " (estimated)",
         2: " (calculated)",
     }
 
-    prefix = modifier_prefixes.get(modifier, "")
     suffix = quality_suffixes.get(quality, "")
 
+    # Range (4) and span (5) carry a second endpoint in dateval[4:7].
+    if modifier in (4, 5) and len(dateval) >= 7:
+        end_date = _format_dateval_part(dateval[4], dateval[5], dateval[6])
+        if end_date is not None:
+            prefix = "between " if modifier == 4 else "from "
+            joiner = "and" if modifier == 4 else "to"
+            return f"{prefix}{base_date} {joiner} {end_date}{suffix}"
+
+    prefix = modifier_prefixes.get(modifier, "")
     return f"{prefix}{base_date}{suffix}"

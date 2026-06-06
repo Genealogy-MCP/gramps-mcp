@@ -68,26 +68,50 @@ class TestFormatDate:
         assert result == "1900"
 
     def test_modifier_range(self):
-        """Modifier 4 (range) with 8-element dateval uses 'between' prefix."""
+        """Modifier 4 (range) renders both endpoints joined with 'and'."""
         result = format_date(
             {
                 "dateval": [1, 1, 1850, False, 31, 12, 1860, False],
                 "modifier": 4,
             }
         )
-        assert result.startswith("between ")
-        assert "1850" in result
+        assert result == "between 01 January 1850 and 31 December 1860"
 
     def test_modifier_span(self):
-        """Modifier 5 (span) with 8-element dateval uses 'from' prefix."""
+        """Modifier 5 (span) renders both endpoints joined with 'to'."""
         result = format_date(
             {
                 "dateval": [1, 6, 1900, False, 30, 6, 1910, False],
                 "modifier": 5,
             }
         )
-        assert result.startswith("from ")
-        assert "1900" in result
+        assert result == "from 01 June 1900 to 30 June 1910"
+
+    def test_modifier_range_year_only(self):
+        """Year-only range still joins both endpoints."""
+        result = format_date(
+            {
+                "dateval": [0, 0, 1850, False, 0, 0, 1860, False],
+                "modifier": 4,
+            }
+        )
+        assert result == "between 1850 and 1860"
+
+    def test_modifier_range_with_quality(self):
+        """Quality suffix attaches after the full two-ended range."""
+        result = format_date(
+            {
+                "dateval": [0, 0, 1850, False, 0, 0, 1860, False],
+                "modifier": 4,
+                "quality": 1,
+            }
+        )
+        assert result == "between 1850 and 1860 (estimated)"
+
+    def test_modifier_range_missing_end_falls_back(self):
+        """Range modifier with no second endpoint degrades to a single date."""
+        result = format_date({"dateval": [0, 0, 1850, False], "modifier": 4})
+        assert result == "between 1850"
 
     def test_modifier_from(self):
         """Modifier 7 uses 'from' prefix."""
