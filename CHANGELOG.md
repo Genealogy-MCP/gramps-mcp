@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.11] - 2026-06-07
+
+### Fixed
+
+- Serialize concurrent token refresh in `AuthManager` with a lazy per-loop `asyncio.Lock` and double-checked locking, so concurrent calls with an expired or absent token trigger exactly one re-authentication instead of a redundant `POST /token/` storm (rate-limit risk); the 401-retry path now calls a token-identity-checked `force_refresh` and refreshes 60s before expiry (#31)
+
 ## [3.0.10] - 2026-06-06
 
 ### Fixed
