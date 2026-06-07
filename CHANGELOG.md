@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.0.12] - 2026-06-07
+
+### Fixed
+
+- Merge mode (`list_mode="merge"`) no longer drops distinct reference-object list entries that happen to share a `ref` handle. Dedup now keys on the full normalized entry instead of `ref` alone, so two media references with different crop rectangles, or two child references with different birth/adoption relationships, both survive a merge. Normalization keeps the merge idempotent across re-PUTs despite the stored entity being returned in enriched form (#32)
 
 ## [3.0.11] - 2026-06-07
 
