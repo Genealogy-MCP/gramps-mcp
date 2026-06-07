@@ -46,6 +46,8 @@ class AuthManager:
         self._token_expires_at: Optional[datetime] = None
         self._client = None
         self._loop = None
+        self._auth_lock = None
+        self._auth_lock_loop = None
 
         self._initialized = True
         logger.info("Singleton AuthManager instance created")
@@ -160,6 +162,37 @@ class AuthManager:
         except Exception as e:
             raise ValueError(f"Authentication error: {e}")
 
+    def _get_lock(self) -> asyncio.Lock:
+        """Get an asyncio.Lock bound to the current running event loop.
+
+        An asyncio.Lock binds to the loop it is first awaited on. Since this
+        singleton spans event loops (mirroring the client property), the lock is
+        recreated whenever the running loop differs from the one it was bound to.
+
+        Returns:
+            An asyncio.Lock valid for the current event loop.
+        """
+        current_loop = asyncio.get_running_loop()
+        if self._auth_lock is None or self._auth_lock_loop != current_loop:
+            self._auth_lock = asyncio.Lock()
+            self._auth_lock_loop = current_loop
+        return self._auth_lock
+
+    def _token_is_valid(self) -> bool:
+        """Check whether the cached access token is present and not near expiry.
+
+        Applies a 60-second pre-expiry skew so a token about to expire is treated
+        as invalid and refreshed proactively.
+
+        Returns:
+            True if the token is set and valid beyond the skew window.
+        """
+        if not self._access_token or not self._token_expires_at:
+            return False
+        return datetime.now(timezone.utc) < self._token_expires_at - timedelta(
+            seconds=60
+        )
+
     async def get_token(self) -> str:
         """
         Get a valid access token, authenticating if needed.
@@ -167,15 +200,33 @@ class AuthManager:
         Returns:
             Valid access token
         """
-        # Check if we need to authenticate
-        if not self._access_token or not self._token_expires_at:
+        if self._token_is_valid():
+            assert self._access_token is not None
+            return self._access_token
+        async with self._get_lock():
+            if self._token_is_valid():
+                assert self._access_token is not None
+                return self._access_token
             return await self.authenticate()
 
-        # Check if token is expired
-        if datetime.now(timezone.utc) >= self._token_expires_at:
-            return await self.authenticate()
+    async def force_refresh(self, stale_token: Optional[str]) -> str:
+        """Re-authenticate, deduplicating concurrent refreshes after a 401.
 
-        return self._access_token
+        Re-authenticates only if the current cached token still matches
+        ``stale_token``. If another concurrent caller already refreshed the
+        token, the newer token is returned without firing a redundant POST
+        /token/.
+
+        Args:
+            stale_token: The token that produced the failing request.
+
+        Returns:
+            A freshly obtained or already-refreshed access token.
+        """
+        async with self._get_lock():
+            if self._access_token and self._access_token != stale_token:
+                return self._access_token
+            return await self.authenticate()
 
     def get_headers(self) -> dict:
         """

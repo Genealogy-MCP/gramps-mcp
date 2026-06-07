@@ -204,6 +204,7 @@ class TestMakeRequest:
             return_value={"Authorization": "Bearer test"}
         )
         client.auth_manager.authenticate = AsyncMock()
+        client.auth_manager.force_refresh = AsyncMock()
         client.auth_manager.close = AsyncMock()
         return client
 
@@ -227,7 +228,7 @@ class TestMakeRequest:
 
         result = await client._make_request("GET", "http://test/api/people/")
         assert result == {"ok": True}
-        client.auth_manager.authenticate.assert_awaited_once()
+        client.auth_manager.force_refresh.assert_awaited_once_with("test")
 
     @pytest.mark.asyncio
     async def test_401_no_retry(self):

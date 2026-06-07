@@ -179,7 +179,11 @@ class GrampsWebAPIClient:
             # Handle 401 with token refresh retry
             if response.status_code == 401 and retry_auth:
                 logger.info("Got 401, refreshing token and retrying")
-                await self.auth_manager.authenticate()
+                stale = (
+                    headers.get("Authorization", "").removeprefix("Bearer ").strip()
+                    or None
+                )
+                await self.auth_manager.force_refresh(stale)
                 return await self._make_request(
                     method,
                     url,
