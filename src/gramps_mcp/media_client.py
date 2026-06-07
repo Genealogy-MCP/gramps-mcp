@@ -19,6 +19,34 @@ class MediaClient:
         """Initialize MediaClient with reference to main API client."""
         self.client = api_client
 
+    async def _send_with_auth_retry(
+        self, method, url, *, content=None, content_type=None
+    ):
+        """Send a media request, retrying once after a 401 with token refresh.
+
+        Mirrors GrampsWebAPIClient._make_request: on a 401, the stale bearer
+        token is refreshed and the request is re-issued exactly once. Returns
+        the raw httpx.Response; callers handle response shaping and errors.
+        """
+        headers = await self.client._get_headers()
+        if content_type:
+            headers["Content-Type"] = content_type
+        response = await self.client.auth_manager.client.request(
+            method=method, url=url, content=content, headers=headers
+        )
+        if response.status_code == 401:
+            stale = (
+                headers.get("Authorization", "").removeprefix("Bearer ").strip() or None
+            )
+            await self.client.auth_manager.force_refresh(stale)
+            headers = await self.client._get_headers()
+            if content_type:
+                headers["Content-Type"] = content_type
+            response = await self.client.auth_manager.client.request(
+                method=method, url=url, content=content, headers=headers
+            )
+        return response
+
     async def upload_media_file(
         self, file_content: bytes, mime_type: str, tree_id: str = "default"
     ):
@@ -36,11 +64,8 @@ class MediaClient:
             GrampsAPIError: If the API call fails.
         """
         url = self.client._build_url(tree_id, "media/")
-        headers = await self.client._get_headers()
-        headers["Content-Type"] = mime_type
-
-        response = await self.client.auth_manager.client.request(
-            method="POST", url=url, content=file_content, headers=headers
+        response = await self._send_with_auth_retry(
+            "POST", url, content=file_content, content_type=mime_type
         )
         response.raise_for_status()
         return response.json()
@@ -61,12 +86,9 @@ class MediaClient:
             GrampsAPIError: If the API call fails.
         """
         url = self.client._build_url(tree_id, f"media/{handle}/file")
-        headers = await self.client._get_headers()
 
         try:
-            response = await self.client.auth_manager.client.request(
-                method="GET", url=url, headers=headers
-            )
+            response = await self._send_with_auth_retry("GET", url)
             response.raise_for_status()
             content_type = response.headers.get(
                 "content-type", "application/octet-stream"
@@ -101,12 +123,10 @@ class MediaClient:
             GrampsAPIError: If the API call fails.
         """
         url = self.client._build_url(tree_id, f"media/{handle}/file")
-        headers = await self.client._get_headers()
-        headers["Content-Type"] = mime_type
 
         try:
-            response = await self.client.auth_manager.client.request(
-                method="PUT", url=url, content=file_content, headers=headers
+            response = await self._send_with_auth_retry(
+                "PUT", url, content=file_content, content_type=mime_type
             )
             response.raise_for_status()
             if not response.text.strip():
