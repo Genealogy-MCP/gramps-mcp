@@ -461,7 +461,10 @@ async def search_text_tool(client, arguments: Dict) -> List[TextContent]:
             formatted_results = f"No records found matching '{params.query}'"
         else:
             actual_total = total_count if total_count is not None else len(results)
-            displayed_count = len(results)
+            results_to_display = (
+                results[: params.pagesize] if params.pagesize else results
+            )
+            displayed_count = len(results_to_display)
 
             if actual_total > displayed_count:
                 header = (
@@ -472,10 +475,6 @@ async def search_text_tool(client, arguments: Dict) -> List[TextContent]:
                 header = f"Found {actual_total} records matching '{params.query}':\n\n"
 
             formatted_results = header
-
-            results_to_display = (
-                results[: params.pagesize] if params.pagesize else results
-            )
             for item in results_to_display:
                 if not isinstance(item, dict):
                     continue
