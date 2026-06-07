@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.14] - 2026-06-07
+
 ### Fixed
 
 - `MediaClient` media operations (`upload_media_file`, `download_media_file`, `replace_media_file`) now retry once after an HTTP 401 by refreshing the stale token via `auth_manager.force_refresh`, matching the main client's mid-session JWT recovery. A persistent 401 still raises `GrampsAPIError` with no retry loop (#39)
