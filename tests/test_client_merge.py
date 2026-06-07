@@ -291,6 +291,141 @@ class TestClientMergeLogic:
         await client.close()
 
 
+class TestCompositeIdentityMerge:
+    """Merge dedups on composite identity, not 'ref' alone (Issue #32)."""
+
+    def _make_client(self) -> GrampsWebAPIClient:
+        client = GrampsWebAPIClient()
+        client.auth_manager = MagicMock()
+        client.auth_manager.get_token = AsyncMock()
+        client.auth_manager.get_headers = MagicMock(
+            return_value={"Authorization": "Bearer test"}
+        )
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.close = AsyncMock()
+        return client
+
+    async def _put_list(self, api_call, handle, existing, update_params):
+        client = self._make_client()
+        with patch.object(
+            client, "_make_request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.side_effect = [existing, {"success": True}]
+            await client.make_api_call(
+                api_call=api_call,
+                params=update_params,
+                tree_id="test_tree",
+                handle=handle,
+            )
+            put_call = mock_request.call_args_list[1]
+            put_data = put_call.kwargs.get("json_data")
+        await client.close()
+        return put_data
+
+    @pytest.mark.asyncio
+    async def test_media_same_ref_different_rect_keeps_both(self):
+        """Two media refs sharing 'ref' but differing 'rect' both survive."""
+        existing = {
+            "handle": "person123",
+            "media_list": [{"ref": "m1", "rect": [0, 0, 50, 50]}],
+        }
+        update = {
+            "handle": "person123",
+            "media_list": [{"ref": "m1", "rect": [50, 50, 100, 100]}],
+        }
+        put_data = await self._put_list(
+            ApiCalls.PUT_PERSON, "person123", existing, update
+        )
+        media_list = put_data["media_list"]
+        assert len(media_list) == 2
+        rects = [m["rect"] for m in media_list]
+        assert [0, 0, 50, 50] in rects
+        assert [50, 50, 100, 100] in rects
+
+    @pytest.mark.asyncio
+    async def test_ref_object_same_ref_different_discriminator_keeps_both(self):
+        """Same ref with differing non-rect discriminator fields both survive.
+
+        Mirrors the child_ref frel/mrel case at the merge-branch level using
+        media_list (a declared ref-object field). The literal child_ref_list
+        frel/mrel case is covered end-to-end in
+        tests/test_family_child_integration.py, since FamilySaveParams only
+        accepts child_handles and strips a raw child_ref_list during validation.
+        """
+        existing = {
+            "handle": "person123",
+            "media_list": [{"ref": "m1", "rect": [0, 0, 50, 50], "private": True}],
+        }
+        update = {
+            "handle": "person123",
+            "media_list": [{"ref": "m1", "rect": [0, 0, 50, 50], "private": False}],
+        }
+        put_data = await self._put_list(
+            ApiCalls.PUT_PERSON, "person123", existing, update
+        )
+        media_list = put_data["media_list"]
+        assert len(media_list) == 2
+
+    @pytest.mark.asyncio
+    async def test_enriched_existing_vs_minimal_new_collapses_to_one(self):
+        """Enriched stored entry and minimal new entry are one logical entry."""
+        existing = {
+            "handle": "person123",
+            "event_ref_list": [
+                {
+                    "ref": "e1",
+                    "role": {"_class": "EventRoleType", "string": "Primary"},
+                    "private": False,
+                    "citation_list": [],
+                    "note_list": [],
+                    "attribute_list": [],
+                }
+            ],
+        }
+        update = {
+            "handle": "person123",
+            "event_ref_list": [{"ref": "e1", "role": "Primary"}],
+        }
+        put_data = await self._put_list(
+            ApiCalls.PUT_PERSON, "person123", existing, update
+        )
+        assert len(put_data["event_ref_list"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_key_order_independence_collapses_to_one(self):
+        """Same logical entry with reordered keys collapses to one."""
+        existing = {
+            "handle": "person123",
+            "media_list": [{"ref": "m1", "rect": [0, 0, 50, 50]}],
+        }
+        update = {
+            "handle": "person123",
+            "media_list": [{"rect": [0, 0, 50, 50], "ref": "m1"}],
+        }
+        put_data = await self._put_list(
+            ApiCalls.PUT_PERSON, "person123", existing, update
+        )
+        assert len(put_data["media_list"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_integer_zero_preserved_distinct_from_false(self):
+        """A numeric 0 field is distinct from a False/absent one (not stripped)."""
+        existing = {
+            "handle": "person123",
+            "media_list": [{"ref": "m1", "rect": [0, 0, 50, 50], "private": False}],
+        }
+        # New entry: same ref/rect but a meaningful integer 0 attribute. If 0 were
+        # stripped like False, this would collapse against the existing entry.
+        update = {
+            "handle": "person123",
+            "media_list": [{"ref": "m1", "rect": [0, 0, 50, 50], "order": 0}],
+        }
+        put_data = await self._put_list(
+            ApiCalls.PUT_PERSON, "person123", existing, update
+        )
+        assert len(put_data["media_list"]) == 2
+
+
 class TestClientPostBodies:
     """Test that POST bodies do not contain client-internal fields."""
 
