@@ -515,6 +515,32 @@ class TestFindAnythingTool:
         return_value="* item\n",
     )
     @patch(_CLIENT_PATCH)
+    async def test_displayed_count_reflects_pagesize_truncation(
+        self, mock_client_cls, mock_fmt
+    ):
+        """displayed_count must reflect pagesize truncation, not raw result len."""
+        from src.gramps_mcp.tools.search_basic import search_text_tool
+
+        client_inst = _mock_client_instance()
+        items = [
+            {"object_type": "person", "object": {"handle": f"h{i}"}} for i in range(5)
+        ]
+        client_inst.make_api_call = AsyncMock(
+            return_value=(items, {"x-total-count": "50"})
+        )
+        mock_client_cls.return_value = client_inst
+
+        result = await search_text_tool({"query": "test", "pagesize": 2})
+        text = result[0].text
+        assert "showing 2" in text
+
+    @pytest.mark.asyncio
+    @patch(
+        "src.gramps_mcp.tools.search_basic.format_search_result_by_type",
+        new_callable=AsyncMock,
+        return_value="* item\n",
+    )
+    @patch(_CLIENT_PATCH)
     async def test_dict_response(self, mock_client_cls, mock_fmt):
         """Dict response with 'data' key parsed correctly."""
         from src.gramps_mcp.tools.search_basic import search_text_tool
