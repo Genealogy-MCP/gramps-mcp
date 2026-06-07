@@ -17,6 +17,7 @@ from urllib.parse import urljoin
 import httpx
 from pydantic import BaseModel
 
+from ._merge import merge_ref_items
 from .auth import AuthManager
 from .config import get_settings
 from .models.api_calls import ApiCalls
@@ -394,19 +395,13 @@ class GrampsWebAPIClient:
                                     and isinstance(sample_new, dict)
                                     and "ref" in sample_new
                                 ):
-                                    # Deduplicate reference objects based on 'ref' field
-                                    existing_refs = {
-                                        item.get("ref")
-                                        for item in existing_items
-                                        if isinstance(item, dict)
-                                    }
-                                    new_items = [
-                                        item
-                                        for item in value
-                                        if isinstance(item, dict)
-                                        and item.get("ref") not in existing_refs
-                                    ]
-                                    merged_data[key] = existing_items + new_items
+                                    # Dedup reference objects on composite
+                                    # identity, not 'ref' alone, so distinct
+                                    # same-ref entries (media rect, child
+                                    # frel/mrel) both survive.
+                                    merged_data[key] = merge_ref_items(
+                                        existing_items, value
+                                    )
                                 elif isinstance(sample_existing, str) and isinstance(
                                     sample_new, str
                                 ):
