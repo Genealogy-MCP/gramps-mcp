@@ -252,6 +252,7 @@ class TestParameterAlignment:
             "parent_family_list",
             "alternate_names",
             "urls",
+            "person_ref_list",
         }
         system_fields = {
             "handle",

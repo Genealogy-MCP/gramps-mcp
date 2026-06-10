@@ -29,6 +29,27 @@ class EventReference(BaseModel):
     role: str = Field(..., description="Role of the person in the event")
 
 
+class PersonReference(BaseModel):
+    """Model for an association in a person's person_ref_list.
+
+    A non-parent/child/spouse link to another person (e.g. cousin, godparent).
+    """
+
+    ref: str = Field(..., description="The handle of the associated person")
+    rel: str = Field(
+        ...,
+        description=(
+            "Relationship descriptor (free text), e.g. 'Cousin', 'Godparent', 'Friend'"
+        ),
+    )
+    citation_list: Optional[List[str]] = Field(
+        None, description="Handles of citations evidencing the association"
+    )
+    note_list: Optional[List[str]] = Field(
+        None, description="Handles of notes annotating the association"
+    )
+
+
 class PersonData(BaseDataModel):
     """Model for creating or updating a person in Gramps API."""
 
@@ -87,6 +108,18 @@ class PersonData(BaseDataModel):
     )
     urls: Optional[List[Dict[str, Any]]] = Field(
         None, description="List of URLs associated with the person"
+    )
+    person_ref_list: Optional[List[PersonReference]] = Field(
+        None,
+        description=(
+            "List of associations: non-parent/child/spouse links to other "
+            "people (e.g. cousins, godparents). Each entry is "
+            '{"ref": "<person handle>", "rel": "<free-text descriptor>", '
+            '"citation_list": [...], "note_list": [...]}. "rel" is a bare '
+            "string (e.g. 'Cousin', 'Godparent', 'Friend'). On update the "
+            'list_mode applies: "merge" (default) appends-with-dedup, '
+            '"replace" overwrites the whole list.'
+        ),
     )
 
 

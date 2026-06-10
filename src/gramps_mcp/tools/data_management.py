@@ -9,6 +9,7 @@ This module contains upsert tools for creating and updating people,
 families, events, places, sources, citations, notes, and repositories.
 """
 
+import asyncio
 import logging
 from typing import Any, List
 
@@ -47,14 +48,88 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
+async def _validate_person_refs(client, tree_id, validated: PersonData) -> None:
+    """Validate each person_ref_list association before writing.
+
+    Rejects a self-reference and any `ref` handle that does not resolve to an
+    existing person. Mirrors the source_handle check in upsert_citation_tool.
+    """
+    if not validated.person_ref_list:
+        return
+
+    refs = [entry.ref for entry in validated.person_ref_list]
+
+    if validated.handle and validated.handle in refs:
+        raise McpToolError(
+            "A person cannot be associated with itself. Remove the "
+            f"person_ref_list entry whose ref equals this person's handle "
+            f"('{validated.handle}')."
+        )
+
+    async def _check(ref: str):
+        person = await client.make_api_call(
+            api_call=ApiCalls.GET_PERSON, tree_id=tree_id, handle=ref
+        )
+        if not person:
+            raise McpToolError(
+                f"Associated person with handle '{ref}' not found. Ensure the "
+                "person exists before referencing it in person_ref_list."
+            )
+
+    try:
+        await asyncio.gather(*[_check(ref) for ref in refs])
+    except GrampsAPIError as e:
+        raise McpToolError(
+            f"Associated person not found while validating person_ref_list: {e}. "
+            "Ensure every referenced person exists."
+        )
+
+
 async def upsert_person_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     """
     Create or update person information including family links and event associations.
+
+    Validates that each person_ref_list association references an existing
+    person and is not a self-reference.
     """
-    arguments = extract_arguments(ctx, params)
-    return await _handle_crud_operation(
-        arguments, "person", ApiCalls.POST_PEOPLE, ApiCalls.PUT_PERSON, PersonData
-    )
+    try:
+        arguments = extract_arguments(ctx, params)
+        validated = PersonData(**arguments)
+
+        settings = get_settings()
+        tree_id = settings.gramps_tree_id
+
+        client = GrampsWebAPIClient()
+        try:
+            await _validate_person_refs(client, tree_id, validated)
+
+            if validated.handle:
+                result = await client.make_api_call(
+                    api_call=ApiCalls.PUT_PERSON,
+                    params=validated,
+                    tree_id=tree_id,
+                    handle=validated.handle,
+                )
+                operation = "updated"
+            else:
+                result = await client.make_api_call(
+                    api_call=ApiCalls.POST_PEOPLE, params=validated, tree_id=tree_id
+                )
+                operation = "created"
+
+            entity_data = _extract_entity_data(result, "person")
+            formatted_response = await _format_save_response(
+                client, entity_data, "person", operation, tree_id
+            )
+            return [TextContent(type="text", text=formatted_response)]
+
+        finally:
+            await client.close()
+
+    except McpToolError:
+        raise
+    except Exception as e:
+        raise_tool_error(e, "person save")
 
 
 async def upsert_family_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:

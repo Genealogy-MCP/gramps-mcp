@@ -328,6 +328,75 @@ class TestFormatPersonExtended:
         assert "Census (E0010)" in result
 
 
+class TestFormatPersonAssociations:
+    """Test the Associations section in format_person (person_ref_list, #40)."""
+
+    def _person(self, person_ref_list, extended_extra):
+        ext = {"events": [], "families": [], "parent_families": []}
+        ext.update(extended_extra)
+        return {
+            "GET_PERSON": {
+                "gramps_id": "I0001",
+                "primary_name": {
+                    "first_name": "John",
+                    "surname_list": [{"surname": "Smith"}],
+                },
+                "gender": 1,
+                "birth_ref_index": -1,
+                "death_ref_index": -1,
+                "event_ref_list": [],
+                "family_list": [],
+                "parent_family_list": [],
+                "media_list": [],
+                "note_list": [],
+                "urls": [],
+                "person_ref_list": person_ref_list,
+                "extended": ext,
+            }
+        }
+
+    @pytest.mark.asyncio
+    async def test_association_renders_rel_name_id_and_citation(self):
+        client = _mock_client(
+            self._person(
+                [{"ref": "cousin_h", "rel": "Cousin", "citation_list": ["cit_h1"]}],
+                {
+                    "people": [
+                        {
+                            "handle": "cousin_h",
+                            "gramps_id": "I0042",
+                            "primary_name": {
+                                "first_name": "Maria",
+                                "surname_list": [{"surname": "Garcia"}],
+                            },
+                        }
+                    ],
+                    "citations": [{"handle": "cit_h1", "gramps_id": "C0007"}],
+                },
+            )
+        )
+        result = await format_person(client, TREE_ID, "handle123")
+        assert "Associations:\n" in result
+        assert "  - Cousin: Maria Garcia (I0042) [C0007]\n" in result
+
+    @pytest.mark.asyncio
+    async def test_no_associations_renders_no_section(self):
+        client = _mock_client(self._person([], {"people": []}))
+        result = await format_person(client, TREE_ID, "handle123")
+        assert "Associations:" not in result
+
+    @pytest.mark.asyncio
+    async def test_unresolved_ref_degrades_to_handle(self):
+        client = _mock_client(
+            self._person(
+                [{"ref": "ghost_h", "rel": "Friend"}],
+                {"people": []},
+            )
+        )
+        result = await format_person(client, TREE_ID, "handle123")
+        assert "  - Friend: ghost_h\n" in result
+
+
 class TestFormatPersonDetail:
     """Test format_person_detail handler."""
 
