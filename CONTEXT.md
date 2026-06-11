@@ -10,3 +10,7 @@
 - **discriminator**: the qualifier fields that, together with `ref`, establish a
   reference-object's identity for dedup (e.g. `rect` for media, `frel`/`mrel` for
   child refs, `role` for event refs).
+- **association** (`person_ref_list`): a directed, non-parent/child/spouse link
+  from one person to another (e.g. cousin, godparent, friend). Each entry is a
+  reference-object carrying the associated person's `ref` handle and a free-text
+  `rel` descriptor. One-way only — no reciprocal entry is auto-created.

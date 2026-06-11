@@ -814,6 +814,125 @@ class TestListModeReplace:
             await client.close()
 
 
+class TestPersonAssociations:
+    """Integration tests for person_ref_list associations (issue #40)."""
+
+    async def _create_person(self, first: str, surname: str) -> str:
+        result = await upsert_person_tool(
+            {
+                "primary_name": {
+                    "first_name": f"{TEST_PREFIX}{first}",
+                    "surname_list": [{"surname": f"{TEST_PREFIX}{surname}"}],
+                },
+                "gender": 1,
+            }
+        )
+        text = result[0].text
+        assert "Error:" not in text, text
+        return extract_handle(text)
+
+    async def _get_person(self, handle: str):
+        from src.gramps_mcp.client import GrampsWebAPIClient
+        from src.gramps_mcp.config import get_settings
+        from src.gramps_mcp.models.api_calls import ApiCalls
+
+        client = GrampsWebAPIClient()
+        try:
+            settings = get_settings()
+            return await client.make_api_call(
+                api_call=ApiCalls.GET_PERSON,
+                tree_id=settings.gramps_tree_id,
+                handle=handle,
+            )
+        finally:
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_create_person_with_association(self, cleanup_registry):
+        cousin = await self._create_person("Cousin", "Assoc")
+        cleanup_registry.track("person", cousin)
+
+        result = await upsert_person_tool(
+            {
+                "primary_name": {
+                    "first_name": f"{TEST_PREFIX}Main",
+                    "surname_list": [{"surname": f"{TEST_PREFIX}Assoc"}],
+                },
+                "gender": 1,
+                "person_ref_list": [{"ref": cousin, "rel": "Cousin"}],
+            }
+        )
+        text = result[0].text
+        assert "Error:" not in text
+        main = extract_handle(text)
+        cleanup_registry.track("person", main)
+
+        data = await self._get_person(main)
+        refs = data.get("person_ref_list", [])
+        assert any(r.get("ref") == cousin for r in refs)
+
+    @pytest.mark.asyncio
+    async def test_merge_appends_association(self, cleanup_registry):
+        cousin = await self._create_person("MergeCousin", "Assoc")
+        godparent = await self._create_person("MergeGod", "Assoc")
+        cleanup_registry.track("person", cousin)
+        cleanup_registry.track("person", godparent)
+
+        create = await upsert_person_tool(
+            {
+                "primary_name": {
+                    "first_name": f"{TEST_PREFIX}MergeMain",
+                    "surname_list": [{"surname": f"{TEST_PREFIX}Assoc"}],
+                },
+                "gender": 1,
+                "person_ref_list": [{"ref": cousin, "rel": "Cousin"}],
+            }
+        )
+        main = extract_handle(create[0].text)
+        cleanup_registry.track("person", main)
+
+        await upsert_person_tool(
+            {
+                "handle": main,
+                "person_ref_list": [{"ref": godparent, "rel": "Godparent"}],
+            }
+        )
+        data = await self._get_person(main)
+        refs = {r.get("ref") for r in data.get("person_ref_list", [])}
+        assert cousin in refs and godparent in refs
+
+    @pytest.mark.asyncio
+    async def test_replace_overwrites_associations(self, cleanup_registry):
+        cousin = await self._create_person("ReplCousin", "Assoc")
+        godparent = await self._create_person("ReplGod", "Assoc")
+        cleanup_registry.track("person", cousin)
+        cleanup_registry.track("person", godparent)
+
+        create = await upsert_person_tool(
+            {
+                "primary_name": {
+                    "first_name": f"{TEST_PREFIX}ReplMain",
+                    "surname_list": [{"surname": f"{TEST_PREFIX}Assoc"}],
+                },
+                "gender": 1,
+                "person_ref_list": [{"ref": cousin, "rel": "Cousin"}],
+            }
+        )
+        main = extract_handle(create[0].text)
+        cleanup_registry.track("person", main)
+
+        await upsert_person_tool(
+            {
+                "handle": main,
+                "person_ref_list": [{"ref": godparent, "rel": "Godparent"}],
+                "list_mode": "replace",
+            }
+        )
+        data = await self._get_person(main)
+        refs = {r.get("ref") for r in data.get("person_ref_list", [])}
+        assert refs == {godparent}
+
+
 class TestDeleteTypeTool:
     """Test delete_tool functionality."""
 

@@ -103,6 +103,44 @@ async def format_person(client, tree_id: str, handle: str) -> str:
                 cit_part = f" [{', '.join(cit_ids)}]" if cit_ids else ""
                 prefix = f"{name_type}: " if name_type else ""
                 result += f"  - {prefix}{full}{cit_part}\n"
+
+        # Associations (person_ref_list): non-parent/child/spouse links.
+        # extend=all hydrates referenced persons under extended["people"];
+        # resolve name + gramps_id from there, degrading to the bare handle.
+        person_ref_list = person_data.get("person_ref_list", [])
+        if person_ref_list:
+            people_by_handle = {
+                p["handle"]: p
+                for p in extended.get("people", [])
+                if isinstance(p, dict) and p.get("handle")
+            }
+            result += "Associations:\n"
+            for assoc in person_ref_list:
+                if not isinstance(assoc, dict):
+                    continue
+                ref = assoc.get("ref", "")
+                rel = assoc.get("rel", "")
+                hydrated = people_by_handle.get(ref)
+                if hydrated:
+                    assoc_name = join_surnames(
+                        hydrated.get("primary_name", {}).get("surname_list", [])
+                    )
+                    given = hydrated.get("primary_name", {}).get("first_name", "")
+                    full_assoc = f"{given} {assoc_name}".strip()
+                    assoc_gid = hydrated.get("gramps_id", "")
+                    target = f"{full_assoc} ({assoc_gid})" if assoc_gid else full_assoc
+                else:
+                    target = ref
+                assoc_cit_handles = assoc.get("citation_list", []) or []
+                assoc_cit_ids = [
+                    citation_map[h] for h in assoc_cit_handles if h in citation_map
+                ]
+                assoc_cit_part = (
+                    f" [{', '.join(assoc_cit_ids)}]" if assoc_cit_ids else ""
+                )
+                prefix = f"{rel}: " if rel else ""
+                result += f"  - {prefix}{target}{assoc_cit_part}\n"
+
         events = extended.get("events", [])
 
         # Birth event

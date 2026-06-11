@@ -426,6 +426,64 @@ class TestCompositeIdentityMerge:
         assert len(put_data["media_list"]) == 2
 
 
+class TestPersonRefListMerge:
+    """person_ref_list (associations) merges like any reference-object list (#40)."""
+
+    def _make_client(self) -> GrampsWebAPIClient:
+        client = GrampsWebAPIClient()
+        client.auth_manager = MagicMock()
+        client.auth_manager.get_token = AsyncMock()
+        client.auth_manager.get_headers = MagicMock(
+            return_value={"Authorization": "Bearer test"}
+        )
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.close = AsyncMock()
+        return client
+
+    async def _put(self, existing, update):
+        client = self._make_client()
+        with patch.object(
+            client, "_make_request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.side_effect = [existing, {"success": True}]
+            await client.make_api_call(
+                api_call=ApiCalls.PUT_PERSON,
+                params=update,
+                tree_id="test_tree",
+                handle="person123",
+            )
+            put_data = mock_request.call_args_list[1].kwargs.get("json_data")
+        await client.close()
+        return put_data
+
+    @pytest.mark.asyncio
+    async def test_new_distinct_association_appends(self):
+        existing = {
+            "handle": "person123",
+            "person_ref_list": [{"ref": "cousin_h", "rel": "Cousin"}],
+        }
+        update = {
+            "handle": "person123",
+            "person_ref_list": [{"ref": "godparent_h", "rel": "Godparent"}],
+        }
+        put_data = await self._put(existing, update)
+        refs = {e["ref"] for e in put_data["person_ref_list"]}
+        assert refs == {"cousin_h", "godparent_h"}
+
+    @pytest.mark.asyncio
+    async def test_identical_reput_dedups(self):
+        existing = {
+            "handle": "person123",
+            "person_ref_list": [{"ref": "cousin_h", "rel": "Cousin"}],
+        }
+        update = {
+            "handle": "person123",
+            "person_ref_list": [{"ref": "cousin_h", "rel": "Cousin"}],
+        }
+        put_data = await self._put(existing, update)
+        assert len(put_data["person_ref_list"]) == 1
+
+
 class TestClientPostBodies:
     """Test that POST bodies do not contain client-internal fields."""
 
