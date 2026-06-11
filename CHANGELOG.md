@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-06-10
+
 ### Added
 
 - `upsert_person` now supports `person_ref_list` (associations): directed, non-parent/child/spouse links to other people (e.g. cousin, godparent) with a free-text `rel` descriptor and optional citation/note evidence. Referenced handles are validated before write (unknown handle or self-reference is rejected). The read side renders an `Associations:` section resolving each ref to name and gramps_id via `extend=all` (#40)
