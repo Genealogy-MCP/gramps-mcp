@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.1] - 2026-07-14
+
+### Changed
+
+- All runtime and dev dependencies now carry upper-bound version caps (`<next-major`, or `<1.0` for `0.x` releases) so a fresh resolve cannot silently cross a breaking major boundary. The lockfile remains the exact pin; caps are a coarse guardrail for un-locked installs. `requires-python` is deliberately left unbounded (#51)
+
 ## [3.2.0] - 2026-07-14
 
 ### Added
