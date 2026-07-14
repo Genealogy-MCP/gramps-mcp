@@ -187,6 +187,31 @@ class TestBuildUrlWithSubstitution:
         )
         assert "/trees/my-tree" in url
 
+    def test_handle_with_path_separator_is_percent_encoded(self):
+        """A handle containing '/' must not escape the intended path segment.
+
+        MCP-18: unvalidated substitution could let a crafted handle redirect
+        the request to an unintended endpoint (e.g. "../other/handle").
+        """
+        client = self._client()
+        url = client._build_url_with_substitution(
+            "t1", "people/{handle}", {"handle": "abc/../other"}
+        )
+        assert "/people/abc%2F..%2Fother" in url
+        # The raw slash must not appear as a literal path separator after
+        # the "people/" segment.
+        assert "/people/abc/../other" not in url
+
+    def test_handle_with_query_and_fragment_chars_is_percent_encoded(self):
+        """A handle containing '?' or '#' must not inject query/fragment parts."""
+        client = self._client()
+        url = client._build_url_with_substitution(
+            "t1", "people/{handle}", {"handle": "abc?x=1#y"}
+        )
+        assert "/people/abc%3Fx%3D1%23y" in url
+        assert "?x=1" not in url
+        assert "#y" not in url
+
 
 # ---------------------------------------------------------------------------
 # _make_request
