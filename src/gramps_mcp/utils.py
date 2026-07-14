@@ -6,8 +6,10 @@
 Utility functions for gramps_mcp.
 """
 
+import asyncio
 import logging
-from typing import Union
+from collections.abc import Awaitable, Iterable
+from typing import Any, Union
 
 from markdownify import markdownify as md
 
@@ -80,6 +82,40 @@ def html_to_markdown(html: str) -> str:
         return ""
 
     return md(html, heading_style="ATX")
+
+
+async def gather_bounded(
+    limit: int,
+    coros: Iterable[Awaitable[Any]],
+    *,
+    return_exceptions: bool = False,
+) -> list[Any]:
+    """
+    Run awaitables concurrently with a ceiling on in-flight tasks.
+
+    A plain ``asyncio.gather`` over an unbounded fan-out (e.g. one GET_EVENT per
+    timeline entry) can flood the shared ``httpx.AsyncClient`` pool and the
+    upstream Gramps Web server. This caps concurrency at ``limit`` while
+    preserving input order in the returned list (MCP-22).
+
+    Args:
+        limit (int): Maximum number of awaitables in flight at once (>= 1).
+        coros (Iterable[Awaitable]): Awaitables to run.
+        return_exceptions (bool): If True, exceptions are returned in place of
+            results instead of propagating (mirrors ``asyncio.gather``).
+
+    Returns:
+        list: Results in the same order as ``coros``.
+    """
+    semaphore = asyncio.Semaphore(limit)
+
+    async def _run(coro: Awaitable[Any]) -> Any:
+        async with semaphore:
+            return await coro
+
+    return await asyncio.gather(
+        *(_run(c) for c in coros), return_exceptions=return_exceptions
+    )
 
 
 async def get_gramps_id_from_handle(

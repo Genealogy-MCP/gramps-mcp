@@ -9,11 +9,51 @@ Person detail handler for Gramps MCP operations.
 import logging
 
 from ..models.api_calls import ApiCalls
+from ..utils import gather_bounded
 from .date_handler import format_date
 from .name_utils import join_surnames
 from .place_handler import format_place
 
 logger = logging.getLogger(__name__)
+
+# Ceiling on concurrent GET_EVENT fetches when rendering a timeline, so a
+# long-timeline person does not flood the shared httpx pool or the upstream
+# Gramps Web instance (MCP-22 bounded fan-out).
+_TIMELINE_FETCH_CONCURRENCY = 8
+
+
+def _resolve_event_date(
+    fetched_event: dict | Exception | None,
+    timeline_event: dict,
+    event_handle: str,
+) -> tuple[dict | None, str]:
+    """
+    Resolve (event_data, event_date) for one timeline entry, preserving the
+    original serial loop's tolerant fallback exactly.
+
+    Args:
+        fetched_event: The pre-fetched GET_EVENT result, an Exception if the
+            fetch failed (from gather_bounded return_exceptions=True), or None.
+        timeline_event: The raw timeline entry (holds the fallback date).
+        event_handle: The event handle (empty string if absent).
+
+    Returns:
+        tuple: (event_data or None, formatted-or-fallback date string). A None
+        event_data signals to the caller that citations must be skipped, matching
+        the original behavior when the event fetch failed.
+    """
+    if not event_handle:
+        return None, "date unknown"
+    if isinstance(fetched_event, Exception):
+        logger.warning(f"Failed to fetch event {event_handle}: {fetched_event}")
+        return None, timeline_event.get("date", "date unknown")
+    if fetched_event is None:
+        return None, timeline_event.get("date", "date unknown")
+    try:
+        return fetched_event, format_date(fetched_event.get("date", {}))
+    except Exception as e:
+        logger.warning(f"Failed to fetch event {event_handle}: {e}")
+        return fetched_event, timeline_event.get("date", "date unknown")
 
 
 async def format_person_detail(client, tree_id: str, handle: str) -> str:
@@ -213,6 +253,34 @@ async def format_person_detail(client, tree_id: str, handle: str) -> str:
     # Timeline section
     result += "\nTIMELINE:\n"
     if timeline_data:
+        # Pre-fetch every referenced event concurrently (bounded) instead of one
+        # serial GET_EVENT per entry (MCP-22). Unique handles only -- repeated
+        # handles reuse the same result, so output is unchanged. Failures are
+        # captured in place via return_exceptions and handled per entry below.
+        unique_handles = list(
+            dict.fromkeys(
+                te.get("handle", "")
+                for te in timeline_data
+                if isinstance(te, dict) and te.get("handle")
+            )
+        )
+        fetched_events: dict = {}
+        if unique_handles:
+            fetch_results = await gather_bounded(
+                _TIMELINE_FETCH_CONCURRENCY,
+                [
+                    client.make_api_call(
+                        ApiCalls.GET_EVENT,
+                        tree_id=tree_id,
+                        handle=event_handle,
+                        params={"extend": "all"},
+                    )
+                    for event_handle in unique_handles
+                ],
+                return_exceptions=True,
+            )
+            fetched_events = dict(zip(unique_handles, fetch_results))
+
         for timeline_event in timeline_data:
             if not isinstance(timeline_event, dict):
                 continue
@@ -224,20 +292,11 @@ async def format_person_detail(client, tree_id: str, handle: str) -> str:
             event_handle = timeline_event.get("handle", "")
 
             # Get properly formatted date using format_date function
-            event_date = "date unknown"
-            event_data = None
-            if event_handle:
-                try:
-                    event_data = await client.make_api_call(
-                        ApiCalls.GET_EVENT,
-                        tree_id=tree_id,
-                        handle=event_handle,
-                        params={"extend": "all"},
-                    )
-                    event_date = format_date(event_data.get("date", {}))
-                except Exception as e:
-                    logger.warning(f"Failed to fetch event {event_handle}: {e}")
-                    event_date = timeline_event.get("date", "date unknown")
+            event_data, event_date = _resolve_event_date(
+                fetched_events.get(event_handle),
+                timeline_event,
+                event_handle,
+            )
 
             # Place - use display_name directly from timeline data
             place_data = timeline_event.get("place", {})
