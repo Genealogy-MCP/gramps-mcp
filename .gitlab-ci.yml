@@ -24,6 +24,11 @@ dependency_scanning:
 
 .test-base:
   stage: test
+  # MR-only: the shared ci-templates workflow:rules permits MR + default-branch
+  # pipelines; these Docker-integration jobs must not run on default-branch
+  # (release) pipelines. Replaces the removed .only-mr template anchor.
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
   retry:
     max: 2
     when:
@@ -78,25 +83,17 @@ dependency_scanning:
     - docker compose -f docker-compose.test.yml down -v || true
 
 test-py3.10:
-  extends:
-    - .only-mr
-    - .test-base
+  extends: .test-base
   image: python:3.10-slim-bookworm
 
 test-py3.11:
-  extends:
-    - .only-mr
-    - .test-base
+  extends: .test-base
   image: python:3.11-slim-bookworm
 
 test-py3.12:
-  extends:
-    - .only-mr
-    - .test-base
+  extends: .test-base
   image: python:3.12-slim-bookworm
 
 test-py3.13:
-  extends:
-    - .only-mr
-    - .test-base
+  extends: .test-base
   image: python:3.13-slim-bookworm
