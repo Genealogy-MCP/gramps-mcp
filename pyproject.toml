@@ -4,15 +4,15 @@ version = "3.2.0"
 description = "AI-Powered Genealogy Research & Management - MCP server for Gramps Web API"
 requires-python = ">=3.10"
 dependencies = [
-    "fastapi>=0.120.0",
-    "httpx>=0.25.0",
-    "markdownify>=0.11.6",
-    "mcp>=1.23.0",
+    "fastapi>=0.120.0,<1.0",
+    "httpx>=0.25.0,<1.0",
+    "markdownify>=0.11.6,<2",
+    "mcp>=1.23.0,<2",
     "mcp-codemode @ https://gitlab.com/genealogy-mcp/genealogy-mcp-codemode/-/archive/v1.0.0/genealogy-mcp-codemode-v1.0.0.tar.gz",
-    "pydantic>=2.0.0",
-    "pyjwt>=2.8.0",
-    "python-dotenv>=1.2.2",
-    "uvicorn>=0.23.0",
+    "pydantic>=2.0.0,<3",
+    "pyjwt>=2.8.0,<3",
+    "python-dotenv>=1.2.2,<2",
+    "uvicorn>=0.23.0,<1.0",
 ]
 
 [tool.ruff]
@@ -31,16 +31,16 @@ select = ["E", "F", "I"]
 
 [dependency-groups]
 dev = [
-    "black>=23.0.0",
-    "pip-audit>=2.6.0",
-    "pre-commit>=4.3.0",
-    "pyright>=1.1.0",
-    "pytest>=8.0",
-    "pytest-asyncio>=0.21.0",
-    "pytest-cov>=4.0.0",
-    "requests>=2.31.0",
-    "ruff>=0.1.0",
-    "tdd-guard-pytest>=0.1.2",
+    "black>=23.0.0,<27",
+    "pip-audit>=2.6.0,<3",
+    "pre-commit>=4.3.0,<5",
+    "pyright>=1.1.0,<2",
+    "pytest>=8.0,<10",
+    "pytest-asyncio>=0.21.0,<2",
+    "pytest-cov>=4.0.0,<8",
+    "requests>=2.31.0,<3",
+    "ruff>=0.1.0,<1.0",
+    "tdd-guard-pytest>=0.1.2,<1.0",
 ]
 
 [tool.pyright]
