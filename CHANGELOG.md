@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.3] - 2026-07-14
+
+### Security
+
+- Pinned third-party container base images (`Dockerfile`'s `python:3.14-slim-bookworm` and `ghcr.io/astral-sh/uv:python3.11-bookworm-slim`, `docker-compose.test.yml`'s `redis:7.4-alpine` and `ghcr.io/gramps-project/grampsweb`) to immutable `sha256` digests instead of mutable tags, closing a supply-chain reproducibility gap (S-16). Bumped the `grampsweb` test image from `26.2.0` to `26.6.1`. The project's own release image in `docker-compose.yml` (`registry.gitlab.com/genealogy-mcp/gramps-mcp:latest`) is intentionally left tag-pinned, since it is rebuilt every release rather than an external dependency (#46)
+
 ## [3.2.1] - 2026-07-14
 
 ### Changed
