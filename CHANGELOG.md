@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.4] - 2026-07-14
+
+### Performance
+
+- `format_person_detail` now pre-fetches every timeline event concurrently with a bounded fan-out instead of issuing one serial `GET_EVENT` request per timeline entry, cutting a long-timeline person's render from N sequential round-trips to a single batched wait (MCP-22). A new shared `gather_bounded` helper caps in-flight requests (default 8) so a large timeline cannot flood the shared `httpx.AsyncClient` pool or the upstream Gramps Web instance. Output is byte-identical: results are re-associated by handle to preserve chronological order, repeated handles are fetched once but still rendered per occurrence, and the per-event tolerant date fallback is preserved (#45)
+
 ## [3.2.3] - 2026-07-14
 
 ### Security

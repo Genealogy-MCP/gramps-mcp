@@ -6,6 +6,7 @@ Also tests shared helper functions (_extract_person_name, _get_gender_letter)
 across all handlers that define them.
 """
 
+import asyncio
 from unittest.mock import AsyncMock
 
 import pytest
@@ -30,6 +31,7 @@ from src.gramps_mcp.handlers.person_detail_handler import (
     _get_gender_letter as person_detail_gender,
 )
 from src.gramps_mcp.handlers.person_detail_handler import (
+    _resolve_event_date,
     format_person_detail,
 )
 from src.gramps_mcp.handlers.person_handler import format_person
@@ -1180,3 +1182,136 @@ class TestFormatPersonDetailAlternateNames:
         result = await format_person_detail(client, TREE_ID, "h1")
         first_data_line = result.split("\n")[1]
         assert "[C0055]" in first_data_line
+
+
+class TestResolveEventDate:
+    """Test the timeline event-date fallback resolver (MCP-22 refactor)."""
+
+    def test_no_handle_returns_unknown(self):
+        assert _resolve_event_date(None, {"date": "1850"}, "") == (
+            None,
+            "date unknown",
+        )
+
+    def test_fetch_exception_falls_back_to_timeline_date(self):
+        """A failed fetch yields no event_data (citations skipped) + raw date."""
+        result = _resolve_event_date(
+            ValueError("boom"), {"date": "circa 1850"}, "evt_h"
+        )
+        assert result == (None, "circa 1850")
+
+    def test_fetch_exception_without_timeline_date(self):
+        assert _resolve_event_date(RuntimeError("x"), {}, "evt_h") == (
+            None,
+            "date unknown",
+        )
+
+    def test_success_formats_date(self):
+        event = {"date": {"dateval": [1, 5, 1850, False]}}
+        event_data, event_date = _resolve_event_date(event, {}, "evt_h")
+        assert event_data is event
+        assert event_date == "01 May 1850"
+
+    def test_none_result_falls_back_but_skips_citations(self):
+        """A None fetch (not an exception) still falls back to the raw date."""
+        assert _resolve_event_date(None, {"date": "raw"}, "evt_h") == (
+            None,
+            "raw",
+        )
+
+
+class TestTimelineConcurrentFetch:
+    """Timeline events are fetched concurrently and deduped (MCP-22)."""
+
+    def _person(self):
+        return {
+            "gramps_id": "I0001",
+            "gender": 1,
+            "primary_name": {
+                "first_name": "John",
+                "surname_list": [{"surname": "Smith"}],
+            },
+            "birth_ref_index": -1,
+            "death_ref_index": -1,
+            "parent_family_list": [],
+            "family_list": [],
+            "extended": {"events": [], "media": [], "notes": []},
+        }
+
+    @pytest.mark.asyncio
+    async def test_distinct_events_fetched_concurrently(self):
+        """Multiple timeline events overlap in flight, not serial round-trips."""
+        active = 0
+        peak = 0
+        timeline = [
+            {
+                "type": "Birth",
+                "gramps_id": f"E000{i}",
+                "role": "Primary",
+                "handle": f"evt_{i}",
+                "place": {},
+                "person": {"relationship": "self"},
+            }
+            for i in range(4)
+        ]
+
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            nonlocal active, peak
+            name = api_call.name
+            if name == "GET_PERSON":
+                return self._person()
+            if name == "GET_PERSON_TIMELINE":
+                return timeline
+            if name == "GET_EVENT":
+                active += 1
+                peak = max(peak, active)
+                await asyncio.sleep(0.01)
+                active -= 1
+                return {"date": {"dateval": [1, 5, 1850, False]}, "extended": {}}
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        await format_person_detail(client, TREE_ID, "h1")
+        assert peak >= 2
+
+    @pytest.mark.asyncio
+    async def test_repeated_handle_fetched_once_but_rendered_each_time(self):
+        """A handle appearing twice is fetched once yet renders two lines."""
+        event_fetches = 0
+        timeline = [
+            {
+                "type": "Birth",
+                "gramps_id": "E0001",
+                "role": "Primary",
+                "handle": "dup_h",
+                "place": {},
+                "person": {"relationship": "self"},
+            },
+            {
+                "type": "Baptism",
+                "gramps_id": "E0002",
+                "role": "Primary",
+                "handle": "dup_h",
+                "place": {},
+                "person": {"relationship": "self"},
+            },
+        ]
+
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            nonlocal event_fetches
+            name = api_call.name
+            if name == "GET_PERSON":
+                return self._person()
+            if name == "GET_PERSON_TIMELINE":
+                return timeline
+            if name == "GET_EVENT":
+                event_fetches += 1
+                return {"date": {"dateval": [1, 5, 1850, False]}, "extended": {}}
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_person_detail(client, TREE_ID, "h1")
+        assert event_fetches == 1
+        assert "E0001" in result and "E0002" in result

@@ -2,12 +2,15 @@
 Tests for utility functions.
 """
 
+import asyncio
+
 import pytest
 from dotenv import load_dotenv
 
 from src.gramps_mcp.client import GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.utils import (
+    gather_bounded,
     get_gramps_id_from_handle,
     html_to_markdown,
     normalize_obj_class,
@@ -92,3 +95,60 @@ class TestGetGrampsIdFromHandle:
 
         finally:
             await client.close()
+
+
+class TestGatherBounded:
+    """Test the bounded-concurrency gather helper."""
+
+    @pytest.mark.asyncio
+    async def test_preserves_input_order(self):
+        """Results come back in input order regardless of completion order."""
+
+        async def make(value: int) -> int:
+            # Later-created coros sleep less, so they finish first.
+            await asyncio.sleep(0.01 * (5 - value))
+            return value
+
+        result = await gather_bounded(3, [make(i) for i in range(5)])
+        assert result == [0, 1, 2, 3, 4]
+
+    @pytest.mark.asyncio
+    async def test_caps_in_flight_at_limit(self):
+        """No more than `limit` awaitables run concurrently."""
+        active = 0
+        peak = 0
+
+        async def task() -> None:
+            nonlocal active, peak
+            active += 1
+            peak = max(peak, active)
+            await asyncio.sleep(0.01)
+            active -= 1
+
+        await gather_bounded(2, [task() for _ in range(6)])
+        assert peak <= 2
+
+    @pytest.mark.asyncio
+    async def test_return_exceptions_true_yields_exception_in_place(self):
+        """With return_exceptions, a failure is returned, not raised."""
+
+        async def ok() -> str:
+            return "ok"
+
+        async def boom() -> str:
+            raise ValueError("boom")
+
+        result = await gather_bounded(2, [ok(), boom(), ok()], return_exceptions=True)
+        assert result[0] == "ok"
+        assert isinstance(result[1], ValueError)
+        assert result[2] == "ok"
+
+    @pytest.mark.asyncio
+    async def test_return_exceptions_false_propagates(self):
+        """Without return_exceptions, the first failure propagates."""
+
+        async def boom() -> str:
+            raise ValueError("boom")
+
+        with pytest.raises(ValueError):
+            await gather_bounded(2, [boom()])
