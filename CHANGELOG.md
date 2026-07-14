@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-07-14
+
+### Added
+
+- `SimpleFindParams.max_results` and `SimpleSearchParams.max_results` now enforce a `1..100` bound (`ge=1, le=100`), matching the existing `TagSearchParams.pagesize` ceiling. Values above 100 are rejected at validation with an actionable error instead of being passed through unbounded (MCP-24) (#47)
+
+### Changed
+
+- Root and health endpoints now derive their meta-tool count at runtime from the registered FastMCP tools instead of a hardcoded `_META_TOOL_COUNT` constant, mirroring how `operations_count` derives from `len(OPERATION_REGISTRY)` (MCP-6). The constant is removed (#49)
+
+### Fixed
+
+- Root endpoint `version` field now derives from the package `__version__` (single source in `gramps_mcp/__init__.py`) instead of a stale hardcoded `"2.0.0"`, so it can no longer drift from `pyproject.toml` (#48)
+
 ## [3.1.1] - 2026-07-14
 
 ### Security

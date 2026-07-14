@@ -54,14 +54,18 @@ class SimpleFindParams(BaseModel):
             "Property paths vary by type -- read gql://documentation resource."
         )
     )
-    max_results: int = Field(default=20, description="Maximum results to return")
+    max_results: int = Field(
+        default=20, ge=1, le=100, description="Maximum results to return (1-100)."
+    )
 
 
 class SimpleSearchParams(BaseModel):
     """Simplified parameters for full-text search."""
 
     query: str = Field(description="Plain text search query")
-    max_results: int = Field(default=20, description="Maximum results to return")
+    max_results: int = Field(
+        default=20, ge=1, le=100, description="Maximum results to return (1-100)."
+    )
 
 
 class SimpleGetParams(BaseModel):
