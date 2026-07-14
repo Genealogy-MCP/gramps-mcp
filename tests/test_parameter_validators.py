@@ -18,6 +18,10 @@ from src.gramps_mcp.models.parameters.repository_params import (
     RepositoriesParams,
     RepositoryParams,
 )
+from src.gramps_mcp.models.parameters.simple_params import (
+    SimpleFindParams,
+    SimpleSearchParams,
+)
 from src.gramps_mcp.models.parameters.source_params import (
     SourceDetailsParams,
     SourceSearchParams,
@@ -238,3 +242,43 @@ class TestMediaSaveParams:
         # Create path: file upload
         params = MediaSaveParams(desc="A photo", file_location="/tmp/photo.jpg")
         assert params.file_location == "/tmp/photo.jpg"
+
+
+class TestSimpleFindParamsMaxResults:
+    """max_results must be bounded 1..100 (MCP-24 ceiling)."""
+
+    def test_default_is_valid(self):
+        params = SimpleFindParams(type="person", gql="x")
+        assert params.max_results == 20
+
+    def test_ceiling_boundary_valid(self):
+        params = SimpleFindParams(type="person", gql="x", max_results=100)
+        assert params.max_results == 100
+
+    def test_above_ceiling_rejected(self):
+        with pytest.raises(ValidationError, match="less than or equal to 100"):
+            SimpleFindParams(type="person", gql="x", max_results=101)
+
+    def test_below_floor_rejected(self):
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            SimpleFindParams(type="person", gql="x", max_results=0)
+
+
+class TestSimpleSearchParamsMaxResults:
+    """max_results must be bounded 1..100 (MCP-24 ceiling)."""
+
+    def test_default_is_valid(self):
+        params = SimpleSearchParams(query="smith")
+        assert params.max_results == 20
+
+    def test_ceiling_boundary_valid(self):
+        params = SimpleSearchParams(query="smith", max_results=100)
+        assert params.max_results == 100
+
+    def test_above_ceiling_rejected(self):
+        with pytest.raises(ValidationError, match="less than or equal to 100"):
+            SimpleSearchParams(query="smith", max_results=101)
+
+    def test_below_floor_rejected(self):
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            SimpleSearchParams(query="smith", max_results=0)

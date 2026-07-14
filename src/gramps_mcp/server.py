@@ -29,6 +29,7 @@ from mcp_codemode import (
 )
 from pydantic import AnyUrl
 
+from . import __version__
 from .operations import OPERATION_REGISTRY
 from .startup import verify_api_on_startup
 from .tools._identifier import normalize_identifier
@@ -126,9 +127,6 @@ def _register_tools(mcp: FastMCP) -> None:
 
 _register_tools(app)
 
-# Number of meta-tools for health/root endpoints
-_META_TOOL_COUNT = 2
-
 
 # ============================================================================
 # Resource Management
@@ -185,10 +183,10 @@ async def root(request):
     return JSONResponse(
         {
             "service": "Gramps MCP Server",
-            "version": "2.0.0",
+            "version": __version__,
             "description": "MCP server for Gramps Web API genealogy operations",
             "mcp_endpoint": "/mcp",
-            "tools_count": _META_TOOL_COUNT,
+            "tools_count": len(await app.list_tools()),
             "operations_count": len(OPERATION_REGISTRY),
         }
     )
@@ -203,7 +201,7 @@ async def health_check(request):
         {
             "status": "healthy",
             "service": "Gramps MCP Server",
-            "tools": _META_TOOL_COUNT,
+            "tools": len(await app.list_tools()),
             "operations": len(OPERATION_REGISTRY),
         }
     )
