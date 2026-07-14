@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.1] - 2026-07-14
+
+### Security
+
+- Upgraded dependencies to resolve 9 known vulnerabilities across cryptography, msgpack, python-multipart, soupsieve, and starlette (#43)
+
 ## [3.1.0] - 2026-06-10
 
 ### Added
