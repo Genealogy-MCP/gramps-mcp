@@ -12,7 +12,7 @@ for all Gramps Web API operations through the make_api_call method.
 import logging
 import re
 from typing import Any, Dict, Optional, Union
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 
 import httpx
 from pydantic import BaseModel
@@ -269,13 +269,15 @@ class GrampsWebAPIClient:
         Returns:
             Complete URL with parameters substituted
         """
-        # Substitute URL parameters in the endpoint
+        # Substitute URL parameters in the endpoint. Values are percent-encoded
+        # (MCP-18) so a crafted value containing "/", "?", "#", etc. cannot
+        # escape the intended path segment or inject query/fragment parts.
         substituted_endpoint = endpoint
         for param_name, param_value in url_params.items():
             placeholder = f"{{{param_name}}}"
             if placeholder in substituted_endpoint:
                 substituted_endpoint = substituted_endpoint.replace(
-                    placeholder, str(param_value)
+                    placeholder, quote(str(param_value), safe="")
                 )
 
         # Check if all required parameters were provided

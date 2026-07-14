@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.2] - 2026-07-14
+
+### Security
+
+- `_build_url_with_substitution` now percent-encodes every substituted URL path parameter (`handle`, `handle1`, `handle2`, `tree_id`, `task_id`, `transaction_id`, `report_id`, `filename`, `datatype`, `country`, `year`, `month`, `day`) via `urllib.parse.quote(..., safe="")` instead of interpolating the raw string. Previously a crafted value containing `/`, `?`, `#`, or other reserved URL characters could alter the request path or inject query/fragment parts (MCP-18) (#44)
+
 ## [3.2.1] - 2026-07-14
 
 ### Changed
