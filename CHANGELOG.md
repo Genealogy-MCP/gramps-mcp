@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.3] - 2026-07-15
+
+### Fixed
+
+- `search` now rejects GQL queries that filter the `private` field with a boolean literal (`private = True`, `private = False`, `private != True/False`, and case variants) *before* the API call, raising an actionable `McpToolError` instead of returning an empty result set. The Gramps GQL engine silently returns `[]` for these syntaxes (verified against the Docker test instance), which an LLM reading the empty list wrongly interprets as "no private records exist". The error redirects the caller to the syntaxes that actually filter -- the bare truthy check `private`, or the integer forms `private = 1` / `private = 0` -- or to listing records and filtering client-side on the now-visible `private` field (exposed by #52/#53). The detector is `private`-only by design (a general boolean-field detector would false-positive on fields that legitimately compare booleans) and applies to every entity type (#54)
+
 ## [3.3.2] - 2026-07-15
 
 ### Added

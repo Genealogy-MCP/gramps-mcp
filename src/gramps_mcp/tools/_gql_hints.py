@@ -107,6 +107,53 @@ _GLOBAL_GQL_HINTS: List[Tuple[re.Pattern, str]] = [
 ]
 
 
+# Boolean-literal comparison on the `private` field. The Gramps GQL engine
+# silently returns an empty set for these (verified against the Docker test
+# instance): `private = True/False` and `private != True/False` never filter,
+# so an LLM reading `[]` wrongly concludes "no private records exist". This is
+# a hard-reject detector, distinct from gql_hint's post-hoc advice -- it fires
+# BEFORE the API call. `private`-only by design: a general boolean detector
+# would false-positive on fields that legitimately compare booleans.
+# `private = 1` / `private = 0` / bare `private` are the syntaxes that work,
+# so they are deliberately not matched.
+_PRIVATE_BOOL_LITERAL = re.compile(r"\bprivate\s*!?=\s*(?:true|false)\b", re.IGNORECASE)
+
+_PRIVATE_REJECT_MESSAGE = (
+    "GQL cannot filter the `private` field with a boolean literal "
+    "(`private = True`, `private = False`, `private != True`) -- the Gramps "
+    "engine silently returns an empty set, which falsely reads as 'no private "
+    "records exist'. Use the bare truthy check `private` (private records "
+    "only) or the integer form `private = 1` / `private = 0` instead. "
+    "Alternatively, list the records and filter client-side on the visible "
+    "`private` field."
+)
+
+
+def gql_private_reject(gql: str) -> str:
+    """
+    Return a hard-reject error message if the GQL query filters `private`
+    with a boolean literal, empty string otherwise.
+
+    Unlike gql_hint (which appends advice to an already-empty result), this
+    detector is meant to be consulted BEFORE the API call so the caller never
+    sees a misleading empty result set (see issue #54).
+
+    Args:
+        gql: The raw GQL query string.
+
+    Returns:
+        The actionable error message when a boolean-literal `private`
+        comparison is present, empty string when the query is safe to run.
+    """
+    if not gql:
+        return ""
+
+    if _PRIVATE_BOOL_LITERAL.search(gql):
+        return _PRIVATE_REJECT_MESSAGE
+
+    return ""
+
+
 def gql_hint(entity_type: str, gql: str) -> str:
     """
     Return corrective hints if the GQL query contains known mistakes.
