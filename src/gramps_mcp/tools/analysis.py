@@ -67,15 +67,26 @@ async def _format_recent_changes(
 
         if changes:
             result += "  Objects changed:\n"
-            for change in changes[:3]:  # Show first 3 changes
-                raw_class = change.get("obj_class", "Unknown")
-                obj_class = normalize_obj_class(raw_class)
-                obj_handle = change.get("obj_handle", "N/A")
+            shown = changes[:3]  # Show first 3 changes
+            obj_classes = [
+                normalize_obj_class(c.get("obj_class", "Unknown")) for c in shown
+            ]
 
-                gramps_id = await get_gramps_id_from_handle(
-                    client, obj_class, obj_handle, tree_id
+            # Resolve the (up to 3) handles concurrently rather than one serial
+            # round-trip apiece (MCP-22). get_gramps_id_from_handle swallows its
+            # own errors and returns the raw handle, so the default gather keeps
+            # the per-handle deleted-object fallback intact, and consuming the
+            # results in order below leaves the output byte-identical.
+            gramps_ids = await asyncio.gather(
+                *(
+                    get_gramps_id_from_handle(
+                        client, obj_class, change.get("obj_handle", "N/A"), tree_id
+                    )
+                    for change, obj_class in zip(shown, obj_classes)
                 )
+            )
 
+            for obj_class, gramps_id in zip(obj_classes, gramps_ids):
                 # Detect unresolved handles (returned as-is when object is deleted)
                 if re.fullmatch(r"[a-f0-9]{8,}", gramps_id):
                     display_id = f"{gramps_id[:12]}... (deleted)"

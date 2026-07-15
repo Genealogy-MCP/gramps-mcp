@@ -168,6 +168,43 @@ class TestFormatRecentChanges:
         result = await _format_recent_changes(transactions, client, "t1")
         assert "... and 2 more" in result
 
+    @pytest.mark.asyncio
+    async def test_changes_resolved_concurrently_in_order(self):
+        """The <=3 handle lookups in a transaction overlap in flight (MCP-22).
+
+        A serial resolve would peak at one in-flight call; the concurrent
+        gather must peak at >=2 while still rendering the changes in their
+        original order.
+        """
+        active = 0
+        peak = 0
+
+        async def mock_call(api_call=None, params=None, tree_id=None, handle=None):
+            nonlocal active, peak
+            active += 1
+            peak = max(peak, active)
+            await asyncio.sleep(0.01)
+            active -= 1
+            return {"gramps_id": f"I_{handle}"}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+
+        changes = [{"obj_class": "Person", "obj_handle": f"h{i}"} for i in range(3)]
+        transactions = [
+            {
+                "timestamp": 1710000000,
+                "description": "Batch",
+                "connection": {"user": {"name": "admin"}},
+                "changes": changes,
+            }
+        ]
+
+        result = await _format_recent_changes(transactions, client, "t1")
+
+        assert peak >= 2
+        assert result.index("I_h0") < result.index("I_h1") < result.index("I_h2")
+
 
 # ---------------------------------------------------------------------------
 # _wait_for_task_completion
