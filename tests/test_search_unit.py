@@ -1020,3 +1020,23 @@ class TestGetToolsMissingHandle:
         tool_func = getattr(mod, tool_name)
         with pytest.raises(McpToolError, match=match_text):
             await tool_func({})
+
+
+class TestPrivateLiteralRejectedPreflight:
+    """search() must reject boolean-literal private filters before any API call."""
+
+    @pytest.mark.asyncio
+    @patch(_SETTINGS_PATCH, return_value=_mock_settings())
+    @patch(_CLIENT_PATCH)
+    async def test_media_private_true_raises_before_api_call(
+        self, mock_client_cls, _settings
+    ):
+        from src.gramps_mcp.tools.search_basic import search_tool
+
+        client_inst = _mock_client_instance()
+        mock_client_cls.return_value = client_inst
+
+        with pytest.raises(McpToolError, match="private"):
+            await search_tool({"type": "media", "gql": "private = True"})
+
+        client_inst.make_api_call.assert_not_called()
