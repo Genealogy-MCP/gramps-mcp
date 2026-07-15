@@ -154,6 +154,64 @@ class TestFormatSaveResponse:
         assert "E001" in result
         assert "Handle" in result
 
+    @pytest.mark.asyncio
+    async def test_nudge_appended_on_formatter_path(self):
+        """nudge_citation=True appends the source reminder after details."""
+        mock_formatter = AsyncMock(return_value="* **Event E001**\n")
+        client = AsyncMock()
+
+        with patch(
+            "src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH",
+            {"event": mock_formatter},
+        ):
+            result = await _format_save_response(
+                client,
+                {"handle": "h1", "gramps_id": "E001"},
+                "event",
+                "created",
+                "tree1",
+                nudge_citation=True,
+            )
+
+        assert "created without a citation" in result
+
+    @pytest.mark.asyncio
+    async def test_nudge_appended_on_fallback_path(self):
+        """nudge_citation=True appends the reminder even when the formatter fails."""
+        mock_formatter = AsyncMock(side_effect=RuntimeError("format failed"))
+        client = AsyncMock()
+
+        with patch(
+            "src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH",
+            {"event": mock_formatter},
+        ):
+            result = await _format_save_response(
+                client,
+                {"handle": "h1", "gramps_id": "E001"},
+                "event",
+                "created",
+                "tree1",
+                nudge_citation=True,
+            )
+
+        assert "created without a citation" in result
+
+    @pytest.mark.asyncio
+    async def test_no_nudge_when_flag_false(self):
+        """Default nudge_citation=False leaves the response unchanged."""
+        client = AsyncMock()
+
+        with patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {}):
+            result = await _format_save_response(
+                client,
+                {"handle": "h1", "gramps_id": "E001"},
+                "event",
+                "created",
+                "tree1",
+            )
+
+        assert "created without a citation" not in result
+
 
 # ---------------------------------------------------------------------------
 # _handle_crud_operation
@@ -230,6 +288,120 @@ class TestHandleCrudOperation:
         assert "updated" in result[0].text
 
     @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
+    @patch(
+        "src.gramps_mcp.tools._data_helpers.get_settings",
+        return_value=_mock_settings(),
+    )
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
+    async def test_nudge_on_uncited_create(self, _settings, mock_client_cls):
+        """Creating a citation-capable entity without citations nudges for a source."""
+        from src.gramps_mcp.models.api_calls import ApiCalls
+
+        client_inst = AsyncMock()
+        client_inst.make_api_call = AsyncMock(
+            return_value=[{"new": {"handle": "e1", "gramps_id": "E001"}}]
+        )
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        result = await _handle_crud_operation(
+            {"type": "Birth"},
+            "event",
+            ApiCalls.POST_EVENTS,
+            ApiCalls.PUT_EVENT,
+            EventSaveParams,
+        )
+
+        assert "created without a citation" in result[0].text
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
+    @patch(
+        "src.gramps_mcp.tools._data_helpers.get_settings",
+        return_value=_mock_settings(),
+    )
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
+    async def test_no_nudge_on_cited_create(self, _settings, mock_client_cls):
+        """A non-empty citation_list on create suppresses the nudge."""
+        from src.gramps_mcp.models.api_calls import ApiCalls
+
+        client_inst = AsyncMock()
+        client_inst.make_api_call = AsyncMock(
+            return_value=[{"new": {"handle": "e1", "gramps_id": "E001"}}]
+        )
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        result = await _handle_crud_operation(
+            {"type": "Birth", "citation_list": ["c1"]},
+            "event",
+            ApiCalls.POST_EVENTS,
+            ApiCalls.PUT_EVENT,
+            EventSaveParams,
+        )
+
+        assert "created without a citation" not in result[0].text
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
+    @patch(
+        "src.gramps_mcp.tools._data_helpers.get_settings",
+        return_value=_mock_settings(),
+    )
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
+    async def test_no_nudge_on_uncited_update(self, _settings, mock_client_cls):
+        """Updating an existing uncited entity never nudges."""
+        from src.gramps_mcp.models.api_calls import ApiCalls
+
+        client_inst = AsyncMock()
+        client_inst.make_api_call = AsyncMock(
+            return_value={"handle": "e1", "gramps_id": "E001"}
+        )
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        result = await _handle_crud_operation(
+            {"handle": "e1", "type": "Birth"},
+            "event",
+            ApiCalls.POST_EVENTS,
+            ApiCalls.PUT_EVENT,
+            EventSaveParams,
+        )
+
+        assert "created without a citation" not in result[0].text
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
+    @patch(
+        "src.gramps_mcp.tools._data_helpers.get_settings",
+        return_value=_mock_settings(),
+    )
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
+    async def test_no_nudge_for_entity_without_citation_list(
+        self, _settings, mock_client_cls
+    ):
+        """Entities without a citation_list field (source) never nudge."""
+        from src.gramps_mcp.models.api_calls import ApiCalls
+
+        client_inst = AsyncMock()
+        client_inst.make_api_call = AsyncMock(
+            return_value=[{"new": {"handle": "s1", "gramps_id": "S001"}}]
+        )
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        result = await _handle_crud_operation(
+            {"title": "A Source"},
+            "source",
+            ApiCalls.POST_SOURCES,
+            ApiCalls.PUT_SOURCE,
+            SourceSaveParams,
+        )
+
+        assert "created without a citation" not in result[0].text
+
+    @pytest.mark.asyncio
     async def test_validation_error_raises_mcp_error(self):
         """Invalid params raise McpToolError."""
         from src.gramps_mcp.models.api_calls import ApiCalls
@@ -263,7 +435,7 @@ class TestHandleCrudOperation:
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
-        with pytest.raises(McpToolError, match="event save"):
+        with pytest.raises(McpToolError, match="Record not found at /events/bad"):
             await _handle_crud_operation(
                 {"type": "Birth"},
                 "event",
@@ -508,6 +680,100 @@ class TestUpsertMediaTool:
         assert "updated" in result[0].text
 
     @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools.data_management_media.MediaClient")
+    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch(
+        "src.gramps_mcp.tools.data_management_media.get_settings",
+        return_value=_mock_settings(),
+    )
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
+    async def test_nudge_on_uncited_media_create(
+        self, _settings, mock_client_cls, mock_media_cls, tmp_path
+    ) -> None:
+        """Creating media without citations nudges for a source."""
+        test_file = tmp_path / "photo.jpg"
+        test_file.write_bytes(b"\xff\xd8\xff\xe0")
+
+        media_inst = AsyncMock()
+        media_inst.upload_media_file = AsyncMock(
+            return_value=[{"new": {"handle": "m1", "gramps_id": "O001"}}]
+        )
+        mock_media_cls.return_value = media_inst
+
+        client_inst = AsyncMock()
+        client_inst.make_api_call = AsyncMock(
+            return_value={"handle": "m1", "gramps_id": "O001"}
+        )
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        result = await upsert_media_tool(
+            {"file_location": str(test_file), "desc": "Uncited photo"}
+        )
+
+        assert "created without a citation" in result[0].text
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools.data_management_media.MediaClient")
+    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch(
+        "src.gramps_mcp.tools.data_management_media.get_settings",
+        return_value=_mock_settings(),
+    )
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
+    async def test_no_nudge_on_cited_media_create(
+        self, _settings, mock_client_cls, mock_media_cls, tmp_path
+    ) -> None:
+        """A non-empty citation_list on media create suppresses the nudge."""
+        test_file = tmp_path / "photo.jpg"
+        test_file.write_bytes(b"\xff\xd8\xff\xe0")
+
+        media_inst = AsyncMock()
+        media_inst.upload_media_file = AsyncMock(
+            return_value=[{"new": {"handle": "m1", "gramps_id": "O001"}}]
+        )
+        mock_media_cls.return_value = media_inst
+
+        client_inst = AsyncMock()
+        client_inst.make_api_call = AsyncMock(
+            return_value={"handle": "m1", "gramps_id": "O001"}
+        )
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        result = await upsert_media_tool(
+            {
+                "file_location": str(test_file),
+                "desc": "Cited photo",
+                "citation_list": ["c1"],
+            }
+        )
+
+        assert "created without a citation" not in result[0].text
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch(
+        "src.gramps_mcp.tools.data_management_media.get_settings",
+        return_value=_mock_settings(),
+    )
+    @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
+    async def test_no_nudge_on_uncited_media_update(
+        self, _settings, mock_client_cls
+    ) -> None:
+        """Updating existing uncited media never nudges."""
+        client_inst = AsyncMock()
+        client_inst.make_api_call = AsyncMock(
+            return_value={"handle": "m1", "gramps_id": "O001"}
+        )
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        result = await upsert_media_tool({"handle": "m1", "desc": "Updated photo"})
+
+        assert "created without a citation" not in result[0].text
+
+    @pytest.mark.asyncio
     async def test_create_media_no_file_raises(self):
         """Creating media without file_location raises error."""
         with pytest.raises(McpToolError):
@@ -649,6 +915,16 @@ class TestUpsertPartialUpdate:
         """Update event without type should succeed."""
         params = EventSaveParams(handle="h1234567", description="x")
         assert params.type is None
+
+    def test_event_create_without_citation_succeeds(self):
+        """Create event with type but no citation_list should succeed (issue #35)."""
+        params = EventSaveParams(type="Birth")
+        assert params.citation_list is None
+
+    def test_event_create_without_type_raises(self):
+        """Create event without type (no handle) still fails."""
+        with pytest.raises(ValueError, match="type"):
+            EventSaveParams(description="x")
 
     def test_place_update_without_place_type(self):
         """Update place without place_type should succeed."""
