@@ -123,8 +123,11 @@ async def upsert_media_tool(ctx: Any = None, params: Any = None) -> List[TextCon
                 operation = "created"
                 entity_data = _extract_entity_data(result)
 
+            nudge_citation = operation == "created" and not getattr(
+                validated, "citation_list", None
+            )
             formatted_response = await _format_save_response(
-                client, entity_data, "media", operation, tree_id
+                client, entity_data, "media", operation, tree_id, nudge_citation
             )
             return [TextContent(type="text", text=formatted_response)]
 

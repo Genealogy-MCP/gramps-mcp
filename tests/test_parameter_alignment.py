@@ -160,13 +160,14 @@ class TestParameterAlignment:
 
     def test_event_parameters_alignment(self):
         """Test EventSaveParams parameters match current implementation."""
-        # Event requires type, citation_list on create (model_validator enforced)
-        # Optional: handle, date, description, place, note_list
+        # Event requires only type on create (model_validator enforced).
+        # citation_list is optional but recommended (issue #35 nudge).
+        # Optional: handle, date, description, place, citation_list, note_list
         model = EventSaveParams
         fields = model.model_fields
 
         # Create-required fields (enforced by model_validator, not field-level)
-        create_required = {"type", "citation_list"}
+        create_required = {"type"}
         for field_name in create_required:
             assert field_name in fields, (
                 f"Create-required field '{field_name}' missing from EventSaveParams"
@@ -185,6 +186,7 @@ class TestParameterAlignment:
             "date",
             "description",
             "place",
+            "citation_list",
         }
         system_fields = {
             "handle",

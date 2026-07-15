@@ -23,6 +23,15 @@ from .search_basic import FORMATTER_DISPATCH
 
 logger = logging.getLogger(__name__)
 
+# Entities whose data model exposes a citation_list and thus warrant a
+# "consider adding a source" nudge when created without one.
+_CITATION_NUDGE_ENTITIES = {"person", "event", "place", "media"}
+
+_CITATION_NUDGE = (
+    "> Note: created without a citation. "
+    "Consider adding a source to support this record."
+)
+
 
 def _extract_entity_data(result: Any, entity_type: str | None = None) -> dict:
     """Extract entity data from API response, handling different formats.
@@ -91,9 +100,16 @@ async def _handle_crud_operation(
                 )
                 operation = "created"
 
+            citations = getattr(validated_params, "citation_list", None)
+            nudge_citation = (
+                operation == "created"
+                and entity_type in _CITATION_NUDGE_ENTITIES
+                and not citations
+            )
+
             entity_data = _extract_entity_data(result, entity_type)
             formatted_response = await _format_save_response(
-                client, entity_data, entity_type, operation, tree_id
+                client, entity_data, entity_type, operation, tree_id, nudge_citation
             )
             return [TextContent(type="text", text=formatted_response)]
 
@@ -110,8 +126,21 @@ async def _format_save_response(
     entity_type: str,
     operation: str,
     tree_id: str,
+    nudge_citation: bool = False,
 ) -> str:
-    """Format successful save operation response using appropriate format handler."""
+    """Format successful save operation response using appropriate format handler.
+
+    Args:
+        client: Gramps Web API client for resolving entity details.
+        entity_data: Saved entity data returned by the API.
+        entity_type: Entity type name (e.g. "event", "person").
+        operation: Either "created" or "updated".
+        tree_id: Active tree identifier.
+        nudge_citation: When True, append a soft reminder to attach a source.
+
+    Returns:
+        Markdown-formatted success message.
+    """
     handle = entity_data.get("handle", "N/A")
     gramps_id = entity_data.get("gramps_id", "N/A")
 
@@ -125,6 +154,8 @@ async def _format_save_response(
             )
 
         result = f"Successfully {operation} {entity_type}:\n\n{formatted_details}"
+        if nudge_citation:
+            result += f"\n{_CITATION_NUDGE}\n"
         return result
 
     except Exception as e:
@@ -134,4 +165,6 @@ async def _format_save_response(
         result = f"Successfully {operation} {entity_type}: **{display_name}**\n\n"
         result += f"**ID:** {gramps_id}\n"
         result += f"**Handle:** `{handle}`\n"
+        if nudge_citation:
+            result += f"\n{_CITATION_NUDGE}\n"
         return result
