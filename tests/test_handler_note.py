@@ -41,6 +41,22 @@ class TestFormatNote:
         assert "General Note" in result
         assert "N0001" in result
         assert "This is a test note." in result
+        assert "private: false" in result
+
+    @pytest.mark.asyncio
+    async def test_note_private_true(self):
+        client = _mock_client(
+            {
+                "GET_NOTE": {
+                    "gramps_id": "N0004",
+                    "type": "General",
+                    "text": {"string": "Secret note."},
+                    "private": True,
+                }
+            }
+        )
+        result = await format_note(client, TREE_ID, "handle123")
+        assert "private: true" in result
 
     @pytest.mark.asyncio
     async def test_note_truncation(self):
