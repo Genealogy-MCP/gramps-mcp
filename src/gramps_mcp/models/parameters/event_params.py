@@ -52,7 +52,10 @@ class EventSaveParams(BaseDataModel):
     place: Optional[str] = Field(None, description="Place handle where event occurred")
     citation_list: Optional[List[str]] = Field(
         None,
-        description="List of citation handles. Required when creating (no handle).",
+        description=(
+            "List of citation handles. Optional but recommended: attaching a "
+            "source citation documents where this event's information came from."
+        ),
     )
 
     @model_validator(mode="after")
@@ -60,7 +63,7 @@ class EventSaveParams(BaseDataModel):
         """Enforce required fields when creating (no handle = new entity)."""
         if self.handle is not None:
             return self
-        missing = [f for f in ("type", "citation_list") if getattr(self, f) is None]
+        missing = [f for f in ("type",) if getattr(self, f) is None]
         if missing:
             raise ValueError(f"Required when creating: {', '.join(missing)}")
         return self

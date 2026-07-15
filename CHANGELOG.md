@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-07-14
+
+### Changed
+
+- Creating an event no longer requires a `citation_list`. `EventSaveParams` was the only entity model enforcing a citation on create; every other citable entity (person, place, media) already allowed uncited creation, so the validator was an outlier rather than a house policy. The create-time required set is now `("type",)` only, matching Gramps core (which permits uncited events) (#35)
+
+### Added
+
+- Create-only citation nudge: when a person, event, place, or media record is created without any citations, the upsert success response appends a soft reminder (`> Note: created without a citation. Consider adding a source to support this record.`) to prompt evidence backfill. The nudge reads the citation state from the create input, fires only on creation (never on update, to avoid re-nagging on unrelated later edits), and only for the four entity types that expose `citation_list` (#35)
+
 ## [3.2.6] - 2026-07-14
 
 ### Performance
