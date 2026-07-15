@@ -66,6 +66,9 @@ async def format_place(client, tree_id: str, handle: str, inline: bool = False) 
                         url_line += f" - {url_desc}"
                     result += f"\n{url_line}"
 
+        private = place_data.get("private", False)
+        result += f"\nprivate: {str(private).lower()}"
+
         return result + "\n\n"
 
     except Exception as e:

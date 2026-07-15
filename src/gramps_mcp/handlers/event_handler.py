@@ -202,6 +202,9 @@ async def format_event(
             if note_ids:
                 result += f"\nAttached notes: {', '.join(note_ids)}"
 
+        private = event_data.get("private", False)
+        result += f"\nprivate: {str(private).lower()}"
+
         return result + "\n\n"
 
     except Exception as e:

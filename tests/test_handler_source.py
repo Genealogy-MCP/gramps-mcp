@@ -48,6 +48,26 @@ class TestFormatSource:
         assert "S0001" in result
         assert "St. Mary's" in result
         assert "Original manuscript" in result
+        assert "private: false" in result
+
+    @pytest.mark.asyncio
+    async def test_source_private_flag(self):
+        client = _mock_client(
+            {
+                "GET_SOURCE": {
+                    "gramps_id": "S0004",
+                    "title": "Private Register",
+                    "author": "",
+                    "pubinfo": "",
+                    "note_list": [],
+                    "reporef_list": [],
+                    "media_list": [],
+                    "private": True,
+                }
+            }
+        )
+        result = await format_source(client, TREE_ID, "handle123")
+        assert "private: true" in result
 
     @pytest.mark.asyncio
     async def test_source_no_author(self):

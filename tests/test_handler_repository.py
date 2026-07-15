@@ -43,6 +43,24 @@ class TestFormatRepository:
         assert "Library" in result
         assert "Local Library" in result
         assert "R0001" in result
+        assert "private: false" in result
+
+    @pytest.mark.asyncio
+    async def test_repo_private(self):
+        client = _mock_client(
+            {
+                "GET_REPOSITORY": {
+                    "gramps_id": "R0004",
+                    "name": "Secret Archive",
+                    "type": "Archive",
+                    "urls": [],
+                    "note_list": [],
+                    "private": True,
+                }
+            }
+        )
+        result = await format_repository(client, TREE_ID, "handle123")
+        assert "private: true" in result
 
     @pytest.mark.asyncio
     async def test_repo_with_urls(self):

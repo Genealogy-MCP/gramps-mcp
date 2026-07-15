@@ -91,6 +91,9 @@ async def format_source(client, tree_id: str, handle: str) -> str:
             if note_ids:
                 result += f"\nAttached notes: {', '.join(note_ids)}"
 
+        private = source_data.get("private", False)
+        result += f"\nprivate: {str(private).lower()}"
+
         return result + "\n\n"
 
     except Exception as e:

@@ -94,6 +94,24 @@ class TestFormatEvent:
         assert "John Smith" in result
         assert "E0001" in result
         assert "Participants" in result
+        assert "private: false" in result
+
+    @pytest.mark.asyncio
+    async def test_event_private_true(self):
+        client = _mock_client(
+            {
+                "GET_EVENT": {
+                    "gramps_id": "E0001",
+                    "type": "Birth",
+                    "date": {"dateval": [15, 6, 1878, False]},
+                    "place": "",
+                    "private": True,
+                    "extended": {"backlinks": {}},
+                },
+            }
+        )
+        result = await format_event(client, TREE_ID, "handle123")
+        assert "private: true" in result
 
     @pytest.mark.asyncio
     async def test_event_api_error_inline(self):

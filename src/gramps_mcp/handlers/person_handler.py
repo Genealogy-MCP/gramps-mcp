@@ -243,6 +243,9 @@ async def format_person(client, tree_id: str, handle: str) -> str:
                         else:
                             result += f"{url_path}\n"
 
+        private = person_data.get("private", False)
+        result += f"private: {str(private).lower()}\n"
+
         return result + "\n"
 
     except Exception as e:

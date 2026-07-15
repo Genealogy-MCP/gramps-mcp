@@ -73,6 +73,43 @@ class TestFormatPlace:
         assert "City" in result
         assert "P0001" in result
         assert "https://boston.gov" in result
+        assert "private: false" in result
+
+    @pytest.mark.asyncio
+    async def test_place_full_format_private_true(self):
+        client = _mock_client(
+            {
+                "GET_PLACE": {
+                    "gramps_id": "P0001",
+                    "title": "Boston, MA, USA",
+                    "place_type": "City",
+                    "urls": [],
+                    "name": {},
+                    "placeref_list": [],
+                    "private": True,
+                }
+            }
+        )
+        result = await format_place(client, TREE_ID, "handle123", inline=False)
+        assert "private: true" in result
+
+    @pytest.mark.asyncio
+    async def test_place_inline_omits_private(self):
+        client = _mock_client(
+            {
+                "GET_PLACE": {
+                    "gramps_id": "P0001",
+                    "title": "Boston, MA, USA",
+                    "place_type": "City",
+                    "urls": [],
+                    "name": {},
+                    "placeref_list": [],
+                    "private": True,
+                }
+            }
+        )
+        result = await format_place(client, TREE_ID, "handle123", inline=True)
+        assert "private:" not in result
 
     @pytest.mark.asyncio
     async def test_place_hierarchy_from_name(self):

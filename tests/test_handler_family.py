@@ -52,6 +52,28 @@ class TestFormatFamily:
         )
         result = await format_family(client, TREE_ID, "handle123")
         assert "F0001" in result
+        assert "private: false" in result
+
+    @pytest.mark.asyncio
+    async def test_family_private_true(self):
+        client = _mock_client(
+            {
+                "GET_FAMILY": {
+                    "gramps_id": "F0001",
+                    "father_handle": "",
+                    "mother_handle": "",
+                    "event_ref_list": [],
+                    "child_ref_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "urls": [],
+                    "private": True,
+                    "extended": {"events": []},
+                },
+            }
+        )
+        result = await format_family(client, TREE_ID, "handle123")
+        assert "private: true" in result
 
     @pytest.mark.asyncio
     async def test_family_api_error(self):
@@ -288,6 +310,31 @@ class TestFormatFamilyDetail:
         result = await format_family_detail(client, TREE_ID, "handle123")
         assert "FAMILY DETAILS" in result
         assert "F0001" in result
+        assert "private: false" in result
+
+    @pytest.mark.asyncio
+    async def test_family_detail_private_true(self):
+        """Test family detail surfaces private: true when set."""
+
+        async def mock_call(api_call, tree_id=None, handle=None, params=None):
+            name = api_call.name
+            if name == "GET_FAMILY":
+                return {
+                    "gramps_id": "F0001",
+                    "event_ref_list": [],
+                    "media_list": [],
+                    "note_list": [],
+                    "private": True,
+                    "extended": {},
+                }
+            if name == "GET_FAMILY_TIMELINE":
+                return []
+            return {}
+
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(side_effect=mock_call)
+        result = await format_family_detail(client, TREE_ID, "handle123")
+        assert "private: true" in result
 
     @pytest.mark.asyncio
     async def test_family_detail_with_parents(self):

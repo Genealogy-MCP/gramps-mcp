@@ -120,6 +120,9 @@ async def format_citation(client, tree_id: str, handle: str) -> str:
             if backlink_ids:
                 result += f"\nAttached to: {', '.join(backlink_ids)}"
 
+        private = citation_data.get("private", False)
+        result += f"\nprivate: {str(private).lower()}"
+
         return result + "\n\n"
 
     except Exception as e:
