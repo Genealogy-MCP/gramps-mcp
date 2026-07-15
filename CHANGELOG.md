@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.5] - 2026-07-14
+
+### Performance
+
+- `format_family_detail`, `format_person_detail`, and `format_event` now issue their per-relative and per-event lookups concurrently instead of one serial round-trip at a time (MCP-22). Family and person detail fan out the birth/death date fetches for every member (father, mother, each child, plus parents/siblings/spouses/children of a person) through the shared `gather_bounded` helper (default 8 in flight), and both share a new `timeline_events` module that pre-fetches all referenced timeline events at once; event formatting fetches a family event's father and mother in parallel. Output is byte-identical to the previous serial rendering: results are consumed in emission order so member dates and timeline lines stay in place, repeated handles are fetched once, and every tolerant per-item fallback (unreachable event, failed parent lookup, malformed date) is preserved (#34)
+
 ## [3.2.4] - 2026-07-14
 
 ### Performance

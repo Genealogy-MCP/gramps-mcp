@@ -13,47 +13,14 @@ from ..utils import gather_bounded
 from .date_handler import format_date
 from .name_utils import join_surnames
 from .place_handler import format_place
+from .timeline_events import prefetch_timeline_events
+from .timeline_events import resolve_event_date as _resolve_event_date
 
 logger = logging.getLogger(__name__)
 
-# Ceiling on concurrent GET_EVENT fetches when rendering a timeline, so a
-# long-timeline person does not flood the shared httpx pool or the upstream
-# Gramps Web instance (MCP-22 bounded fan-out).
-_TIMELINE_FETCH_CONCURRENCY = 8
-
-
-def _resolve_event_date(
-    fetched_event: dict | Exception | None,
-    timeline_event: dict,
-    event_handle: str,
-) -> tuple[dict | None, str]:
-    """
-    Resolve (event_data, event_date) for one timeline entry, preserving the
-    original serial loop's tolerant fallback exactly.
-
-    Args:
-        fetched_event: The pre-fetched GET_EVENT result, an Exception if the
-            fetch failed (from gather_bounded return_exceptions=True), or None.
-        timeline_event: The raw timeline entry (holds the fallback date).
-        event_handle: The event handle (empty string if absent).
-
-    Returns:
-        tuple: (event_data or None, formatted-or-fallback date string). A None
-        event_data signals to the caller that citations must be skipped, matching
-        the original behavior when the event fetch failed.
-    """
-    if not event_handle:
-        return None, "date unknown"
-    if isinstance(fetched_event, Exception):
-        logger.warning(f"Failed to fetch event {event_handle}: {fetched_event}")
-        return None, timeline_event.get("date", "date unknown")
-    if fetched_event is None:
-        return None, timeline_event.get("date", "date unknown")
-    try:
-        return fetched_event, format_date(fetched_event.get("date", {}))
-    except Exception as e:
-        logger.warning(f"Failed to fetch event {event_handle}: {e}")
-        return fetched_event, timeline_event.get("date", "date unknown")
+# Ceiling on concurrent per-relative GET_PERSON date fetches, so a family with
+# many children/siblings does not flood the shared httpx pool (MCP-22).
+_MEMBER_FETCH_CONCURRENCY = 8
 
 
 async def format_person_detail(client, tree_id: str, handle: str) -> str:
@@ -161,41 +128,49 @@ async def format_person_detail(client, tree_id: str, handle: str) -> str:
             )
             extended = family_data.get("extended", {})
 
-            # Father
             father = extended.get("father", {})
-            if father:
-                father_name = _extract_person_name(father)
-                father_id = father.get("gramps_id", "")
-                father_birth, father_death = await _get_birth_death_dates(
-                    client, tree_id, father
-                )
-                dates = ", ".join(filter(None, [father_birth, father_death]))
-                result += f"- {father_name} - {father_id} - {dates}\n"
-
-            # Mother
             mother = extended.get("mother", {})
-            if mother:
-                mother_name = _extract_person_name(mother)
-                mother_id = mother.get("gramps_id", "")
-                mother_birth, mother_death = await _get_birth_death_dates(
-                    client, tree_id, mother
-                )
-                dates = ", ".join(filter(None, [mother_birth, mother_death]))
-                result += f"- {mother_name} - {mother_id} - {dates}\n"
-
-            # Siblings (other children in same family)
             children = extended.get("children", [])
             siblings = [
                 child for child in children if child.get("gramps_id", "") != gramps_id
             ]
+
+            # Fan out the per-relative date fetches concurrently instead of one
+            # serial GET_PERSON per father/mother/sibling (MCP-22). Results stay
+            # in emission order, so consuming them with next() below reproduces
+            # the original serial output byte-for-byte.
+            relatives = [*([father] if father else []), *([mother] if mother else [])]
+            relatives.extend(siblings)
+            relative_dates = iter(
+                await gather_bounded(
+                    _MEMBER_FETCH_CONCURRENCY,
+                    [_get_birth_death_dates(client, tree_id, r) for r in relatives],
+                )
+            )
+
+            # Father
+            if father:
+                father_name = _extract_person_name(father)
+                father_id = father.get("gramps_id", "")
+                father_birth, father_death = next(relative_dates)
+                dates = ", ".join(filter(None, [father_birth, father_death]))
+                result += f"- {father_name} - {father_id} - {dates}\n"
+
+            # Mother
+            if mother:
+                mother_name = _extract_person_name(mother)
+                mother_id = mother.get("gramps_id", "")
+                mother_birth, mother_death = next(relative_dates)
+                dates = ", ".join(filter(None, [mother_birth, mother_death]))
+                result += f"- {mother_name} - {mother_id} - {dates}\n"
+
+            # Siblings (other children in same family)
             if siblings:
                 result += "Siblings:\n"
                 for sibling in siblings:
                     sibling_name = _extract_person_name(sibling)
                     sibling_id = sibling.get("gramps_id", "")
-                    sibling_birth, sibling_death = await _get_birth_death_dates(
-                        client, tree_id, sibling
-                    )
+                    sibling_birth, sibling_death = next(relative_dates)
                     dates = ", ".join(filter(None, [sibling_birth, sibling_death]))
                     result += f"- {sibling_name} - {sibling_id} - {dates}\n"
 
@@ -226,24 +201,32 @@ async def format_person_detail(client, tree_id: str, handle: str) -> str:
                 spouse = mother
 
             if spouse:
+                children = extended.get("children", [])
+                # Fan out spouse + children date fetches concurrently (MCP-22);
+                # emission order preserved via next() for byte-identical output.
+                household_dates = iter(
+                    await gather_bounded(
+                        _MEMBER_FETCH_CONCURRENCY,
+                        [
+                            _get_birth_death_dates(client, tree_id, member)
+                            for member in [spouse, *children]
+                        ],
+                    )
+                )
+
                 spouse_name = _extract_person_name(spouse)
                 spouse_id = spouse.get("gramps_id", "")
-                spouse_birth, spouse_death = await _get_birth_death_dates(
-                    client, tree_id, spouse
-                )
+                spouse_birth, spouse_death = next(household_dates)
                 dates = ", ".join(filter(None, [spouse_birth, spouse_death]))
                 result += f"Spouse:\n- {spouse_name} - {spouse_id} - {dates}\n"
 
                 # Children of this spouse
-                children = extended.get("children", [])
                 if children:
                     result += "Children:\n"
                     for child in children:
                         child_name = _extract_person_name(child)
                         child_id = child.get("gramps_id", "")
-                        child_birth, child_death = await _get_birth_death_dates(
-                            client, tree_id, child
-                        )
+                        child_birth, child_death = next(household_dates)
                         dates = ", ".join(filter(None, [child_birth, child_death]))
                         result += f"- {child_name} - {child_id} - {dates}\n"
         except Exception as e:
@@ -254,32 +237,9 @@ async def format_person_detail(client, tree_id: str, handle: str) -> str:
     result += "\nTIMELINE:\n"
     if timeline_data:
         # Pre-fetch every referenced event concurrently (bounded) instead of one
-        # serial GET_EVENT per entry (MCP-22). Unique handles only -- repeated
-        # handles reuse the same result, so output is unchanged. Failures are
-        # captured in place via return_exceptions and handled per entry below.
-        unique_handles = list(
-            dict.fromkeys(
-                te.get("handle", "")
-                for te in timeline_data
-                if isinstance(te, dict) and te.get("handle")
-            )
-        )
-        fetched_events: dict = {}
-        if unique_handles:
-            fetch_results = await gather_bounded(
-                _TIMELINE_FETCH_CONCURRENCY,
-                [
-                    client.make_api_call(
-                        ApiCalls.GET_EVENT,
-                        tree_id=tree_id,
-                        handle=event_handle,
-                        params={"extend": "all"},
-                    )
-                    for event_handle in unique_handles
-                ],
-                return_exceptions=True,
-            )
-            fetched_events = dict(zip(unique_handles, fetch_results))
+        # serial GET_EVENT per entry (MCP-22). Failures are captured in place and
+        # handled per entry via _resolve_event_date below.
+        fetched_events = await prefetch_timeline_events(client, tree_id, timeline_data)
 
         for timeline_event in timeline_data:
             if not isinstance(timeline_event, dict):

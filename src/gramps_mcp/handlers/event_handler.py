@@ -11,11 +11,16 @@ Provides clean, direct formatting of event data from handles.
 import logging
 
 from ..models.api_calls import ApiCalls
+from ..utils import gather_bounded
 from .date_handler import format_date
 from .name_utils import join_surnames
 from .place_handler import format_place
 
 logger = logging.getLogger(__name__)
+
+# A family event has at most two parent lookups (father, mother); fetch them
+# concurrently rather than serially (MCP-22).
+_PARENT_FETCH_CONCURRENCY = 2
 
 
 async def format_event(
@@ -106,55 +111,52 @@ async def format_event(
             family_participants = []
 
             for family in families:
-                family.get("gramps_id", "")
-
-                # Get father and mother from family
+                # Father and mother are two separate GET_PERSON round-trips;
+                # fetch them concurrently (MCP-22). extend=all on the event
+                # resolves the family objects but not their parent handles to
+                # person records, so these lookups cannot be eliminated. Errors
+                # are captured per parent to preserve the original skip behavior:
+                # a failed father fetch abandons the rest of this family.
                 father_handle = family.get("father_handle", "")
                 mother_handle = family.get("mother_handle", "")
 
-                # Process father
-                if father_handle:
-                    try:
-                        father_data = await client.make_api_call(
-                            api_call=ApiCalls.GET_PERSON,
-                            tree_id=tree_id,
-                            handle=father_handle,
+                parents = [
+                    *([("Husband", "father", father_handle)] if father_handle else []),
+                    *([("Wife", "mother", mother_handle)] if mother_handle else []),
+                ]
+                parent_results = iter(
+                    await gather_bounded(
+                        _PARENT_FETCH_CONCURRENCY,
+                        [
+                            client.make_api_call(
+                                api_call=ApiCalls.GET_PERSON,
+                                tree_id=tree_id,
+                                handle=parent_handle,
+                            )
+                            for _, _, parent_handle in parents
+                        ],
+                        return_exceptions=True,
+                    )
+                )
+
+                for spouse_role, parent_noun, parent_handle in parents:
+                    parent_data = next(parent_results)
+                    if isinstance(parent_data, Exception):
+                        logger.warning(
+                            f"Failed to fetch {parent_noun} {parent_handle}: "
+                            f"{parent_data}"
                         )
-                        if father_data:
-                            father_gramps_id = father_data.get("gramps_id", "")
-                            father_name = father_data.get("primary_name", {})
-                            first_name = father_name.get("first_name", "")
-                            surname_list = father_name.get("surname_list", [])
-                            surname = join_surnames(surname_list)
-                            full_name = f"{first_name} {surname}".strip()
+                        break
+                    if parent_data:
+                        parent_gramps_id = parent_data.get("gramps_id", "")
+                        parent_name = parent_data.get("primary_name", {})
+                        first_name = parent_name.get("first_name", "")
+                        surname_list = parent_name.get("surname_list", [])
+                        surname = join_surnames(surname_list)
+                        full_name = f"{first_name} {surname}".strip()
 
-                            family_participants.append(full_name)
-                            participants.append(f"Husband ({father_gramps_id})")
-                    except Exception as e:
-                        logger.warning(f"Failed to fetch father {father_handle}: {e}")
-                        continue
-
-                # Process mother
-                if mother_handle:
-                    try:
-                        mother_data = await client.make_api_call(
-                            api_call=ApiCalls.GET_PERSON,
-                            tree_id=tree_id,
-                            handle=mother_handle,
-                        )
-                        if mother_data:
-                            mother_gramps_id = mother_data.get("gramps_id", "")
-                            mother_name = mother_data.get("primary_name", {})
-                            first_name = mother_name.get("first_name", "")
-                            surname_list = mother_name.get("surname_list", [])
-                            surname = join_surnames(surname_list)
-                            full_name = f"{first_name} {surname}".strip()
-
-                            family_participants.append(full_name)
-                            participants.append(f"Wife ({mother_gramps_id})")
-                    except Exception as e:
-                        logger.warning(f"Failed to fetch mother {mother_handle}: {e}")
-                        continue
+                        family_participants.append(full_name)
+                        participants.append(f"{spouse_role} ({parent_gramps_id})")
 
             # For family events, show both spouses in the title
             if family_participants:
