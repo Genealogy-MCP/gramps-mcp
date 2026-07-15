@@ -83,3 +83,159 @@ class TestFormatMedia:
         client.make_api_call = AsyncMock(side_effect=Exception("timeout"))
         result = await format_media(client, TREE_ID, "handle123")
         assert "Error formatting media" in result
+
+    @pytest.mark.asyncio
+    async def test_audit_fields_present(self):
+        client = _mock_client(
+            {
+                "GET_MEDIA_ITEM": {
+                    "gramps_id": "O0001",
+                    "desc": "Photo of John",
+                    "mime": "image/jpeg",
+                    "date": None,
+                    "path": "images/photo.jpg",
+                    "checksum": "abc123def",
+                    "private": False,
+                }
+            }
+        )
+        result = await format_media(client, TREE_ID, "handle123")
+        assert "path" in result.lower()
+        assert "checksum" in result.lower()
+        assert "private" in result.lower()
+        assert "abc123def" in result
+
+    @pytest.mark.asyncio
+    async def test_private_renders_true(self):
+        client = _mock_client(
+            {
+                "GET_MEDIA_ITEM": {
+                    "gramps_id": "O0001",
+                    "mime": "image/jpeg",
+                    "path": "images/photo.jpg",
+                    "checksum": "x",
+                    "private": True,
+                }
+            }
+        )
+        result = await format_media(client, TREE_ID, "handle123")
+        assert "Private: true" in result
+
+    @pytest.mark.asyncio
+    async def test_private_renders_false(self):
+        client = _mock_client(
+            {
+                "GET_MEDIA_ITEM": {
+                    "gramps_id": "O0001",
+                    "mime": "image/jpeg",
+                    "path": "images/photo.jpg",
+                    "checksum": "x",
+                    "private": False,
+                }
+            }
+        )
+        result = await format_media(client, TREE_ID, "handle123")
+        assert "Private: false" in result
+
+    @pytest.mark.asyncio
+    async def test_audit_fields_present_when_empty(self):
+        client = _mock_client(
+            {
+                "GET_MEDIA_ITEM": {
+                    "gramps_id": "O0001",
+                    "mime": "image/jpeg",
+                    "path": "",
+                    "checksum": "",
+                    "private": False,
+                }
+            }
+        )
+        result = await format_media(client, TREE_ID, "handle123")
+        assert "Path:" in result
+        assert "Checksum:" in result
+        assert "Private: false" in result
+
+    @pytest.mark.asyncio
+    async def test_relative_path_shown_verbatim(self):
+        client = _mock_client(
+            {
+                "GET_MEDIA_ITEM": {
+                    "gramps_id": "O0001",
+                    "mime": "image/jpeg",
+                    "path": "images/photo.jpg",
+                    "checksum": "x",
+                    "private": False,
+                }
+            }
+        )
+        result = await format_media(client, TREE_ID, "handle123")
+        assert "images/photo.jpg" in result
+        assert "suppressed" not in result
+
+    @pytest.mark.asyncio
+    async def test_absolute_path_suppressed(self):
+        client = _mock_client(
+            {
+                "GET_MEDIA_ITEM": {
+                    "gramps_id": "O0001",
+                    "mime": "image/jpeg",
+                    "path": "/etc/passwd",
+                    "checksum": "x",
+                    "private": False,
+                }
+            }
+        )
+        result = await format_media(client, TREE_ID, "handle123")
+        assert "/etc/passwd" not in result
+        assert "[non-relative path suppressed]" in result
+
+    @pytest.mark.asyncio
+    async def test_parent_traversal_path_suppressed(self):
+        client = _mock_client(
+            {
+                "GET_MEDIA_ITEM": {
+                    "gramps_id": "O0001",
+                    "mime": "image/jpeg",
+                    "path": "images/../../secret",
+                    "checksum": "x",
+                    "private": False,
+                }
+            }
+        )
+        result = await format_media(client, TREE_ID, "handle123")
+        assert "secret" not in result
+        assert "[non-relative path suppressed]" in result
+
+    @pytest.mark.asyncio
+    async def test_whitespace_padded_absolute_path_suppressed(self):
+        client = _mock_client(
+            {
+                "GET_MEDIA_ITEM": {
+                    "gramps_id": "O0001",
+                    "mime": "image/jpeg",
+                    "path": "  /etc/passwd",
+                    "checksum": "x",
+                    "private": False,
+                }
+            }
+        )
+        result = await format_media(client, TREE_ID, "handle123")
+        assert "/etc/passwd" not in result
+        assert "[non-relative path suppressed]" in result
+
+    @pytest.mark.asyncio
+    async def test_home_directory_path_suppressed(self):
+        client = _mock_client(
+            {
+                "GET_MEDIA_ITEM": {
+                    "gramps_id": "O0001",
+                    "mime": "image/jpeg",
+                    "path": "~/secret",
+                    "checksum": "x",
+                    "private": False,
+                }
+            }
+        )
+        result = await format_media(client, TREE_ID, "handle123")
+        assert "secret" not in result
+        assert "[non-relative path suppressed]" in result
