@@ -205,3 +205,37 @@ class TestFormatMedia:
         result = await format_media(client, TREE_ID, "handle123")
         assert "secret" not in result
         assert "[non-relative path suppressed]" in result
+
+    @pytest.mark.asyncio
+    async def test_whitespace_padded_absolute_path_suppressed(self):
+        client = _mock_client(
+            {
+                "GET_MEDIA_ITEM": {
+                    "gramps_id": "O0001",
+                    "mime": "image/jpeg",
+                    "path": "  /etc/passwd",
+                    "checksum": "x",
+                    "private": False,
+                }
+            }
+        )
+        result = await format_media(client, TREE_ID, "handle123")
+        assert "/etc/passwd" not in result
+        assert "[non-relative path suppressed]" in result
+
+    @pytest.mark.asyncio
+    async def test_home_directory_path_suppressed(self):
+        client = _mock_client(
+            {
+                "GET_MEDIA_ITEM": {
+                    "gramps_id": "O0001",
+                    "mime": "image/jpeg",
+                    "path": "~/secret",
+                    "checksum": "x",
+                    "private": False,
+                }
+            }
+        )
+        result = await format_media(client, TREE_ID, "handle123")
+        assert "secret" not in result
+        assert "[non-relative path suppressed]" in result

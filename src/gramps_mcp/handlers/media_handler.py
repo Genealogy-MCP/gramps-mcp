@@ -22,9 +22,10 @@ def render_media_path(path: str) -> str:
     """
     Render a media path safely for audit output.
 
-    Reason: MCP-19 forbids leaking server filesystem locations. Absolute paths
-    or parent-directory traversal could disclose host structure, so only
-    tree-relative paths are shown verbatim; anything else is suppressed.
+    Reason: MCP-19 forbids leaking server filesystem locations. Absolute paths,
+    home-directory (`~`) references, and parent-directory traversal could
+    disclose host structure, so only tree-relative paths are shown verbatim;
+    anything else is suppressed.
 
     Args:
         path (str): Stored media path (may be empty).
@@ -35,12 +36,17 @@ def render_media_path(path: str) -> str:
     """
     if not path:
         return path
-    if path[0] in ("/", "\\"):
+    # Reason: inspect the trimmed value so leading whitespace cannot shift an
+    # absolute marker (e.g. "  /etc/passwd") past the positional checks below.
+    probe = path.strip()
+    if not probe:
+        return path
+    if probe[0] in ("/", "\\", "~"):
         return _PATH_SUPPRESSED
     # Windows drive letter, e.g. "C:\\..."
-    if len(path) >= 2 and path[1] == ":":
+    if len(probe) >= 2 and probe[1] == ":":
         return _PATH_SUPPRESSED
-    segments = path.replace("\\", "/").split("/")
+    segments = probe.replace("\\", "/").split("/")
     if ".." in segments:
         return _PATH_SUPPRESSED
     return path

@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Media `get` and `search` output now includes the stored `path`, `checksum`, and `private` fields unconditionally (shown even when empty or `false`), so an auditor can reconcile media against an external manifest without downloading and re-hashing every file. `private` renders as an explicit `true`/`false`. The `path` is emitted verbatim when it is tree-relative, but a new `render_media_path` guard suppresses it with `[non-relative path suppressed]` when the stored value is absolute or contains a `..` traversal segment, closing the one vector by which a malformed record could leak a host filesystem path (MCP-19). Both operations share the single `format_media` formatter, so one change serves both (#52)
+- Media `get` and `search` output now includes the stored `path`, `checksum`, and `private` fields unconditionally (shown even when empty or `false`), so an auditor can reconcile media against an external manifest without downloading and re-hashing every file. `private` renders as an explicit `true`/`false`. The `path` is emitted verbatim when it is tree-relative, but a new `render_media_path` guard suppresses it with `[non-relative path suppressed]` when the stored value is absolute, a home-directory (`~`) reference, or contains a `..` traversal segment (the guard trims surrounding whitespace before inspecting so a padded absolute path cannot slip through), closing the one vector by which a malformed record could leak a host filesystem path (MCP-19). Both operations share the single `format_media` formatter, so one change serves both (#52)
 
 ## [3.3.0] - 2026-07-14
 
