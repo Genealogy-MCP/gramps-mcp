@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.6] - 2026-07-14
+
+### Performance
+
+- `_format_recent_changes` now resolves each transaction's (up to three) changed-object handles to Gramps IDs concurrently via `asyncio.gather` instead of one serial `get_gramps_id_from_handle` round-trip apiece (MCP-22). Because `get_gramps_id_from_handle` swallows its own errors and returns the raw handle, the default gather preserves the per-handle deleted-object fallback, and results are consumed in original order so the rendered "Objects changed" list is byte-identical to the previous serial output (#50)
+
 ## [3.2.5] - 2026-07-14
 
 ### Performance
