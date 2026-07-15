@@ -9,11 +9,17 @@ Family detail handler for Gramps MCP operations.
 import logging
 
 from ..models.api_calls import ApiCalls
+from ..utils import gather_bounded
 from .date_handler import format_date
 from .name_utils import join_surnames
 from .place_handler import format_place
+from .timeline_events import prefetch_timeline_events, resolve_event_date
 
 logger = logging.getLogger(__name__)
+
+# Ceiling on concurrent per-relative GET_PERSON date fetches, so a family with
+# many children does not flood the shared httpx pool (MCP-22).
+_MEMBER_FETCH_CONCURRENCY = 8
 
 
 async def format_family_detail(client, tree_id: str, handle: str) -> str:
@@ -41,41 +47,52 @@ async def format_family_detail(client, tree_id: str, handle: str) -> str:
     result += "\nPARENTS:\n"
     extended = family_data.get("extended", {})
 
-    # Father
     father = extended.get("father", {})
+    mother = extended.get("mother", {})
+    children = extended.get("children", [])
+
+    # Fan out every member date fetch (father, mother, each child) concurrently
+    # instead of one serial GET_PERSON per member (MCP-22). Results stay in
+    # emission order, so consuming them with next() below is byte-identical to
+    # the original serial output.
+    members = [
+        *([father] if father else []),
+        *([mother] if mother else []),
+        *children,
+    ]
+    member_dates = iter(
+        await gather_bounded(
+            _MEMBER_FETCH_CONCURRENCY,
+            [_get_birth_death_dates(client, tree_id, m) for m in members],
+        )
+    )
+
+    # Father
     if father:
         father_name = _extract_person_name(father)
         father_gender = _get_gender_letter(father.get("gender", 2))
         father_id = father.get("gramps_id", "")
-        father_birth, father_death = await _get_birth_death_dates(
-            client, tree_id, father
-        )
+        father_birth, father_death = next(member_dates)
         dates = ", ".join(filter(None, [father_birth, father_death]))
         result += f"Father: {father_name} ({father_gender}) - {father_id} - {dates}\n"
 
     # Mother
-    mother = extended.get("mother", {})
     if mother:
         mother_name = _extract_person_name(mother)
         mother_gender = _get_gender_letter(mother.get("gender", 2))
         mother_id = mother.get("gramps_id", "")
-        mother_birth, mother_death = await _get_birth_death_dates(
-            client, tree_id, mother
-        )
+        mother_birth, mother_death = next(member_dates)
         dates = ", ".join(filter(None, [mother_birth, mother_death]))
         result += f"Mother: {mother_name} ({mother_gender}) - {mother_id} - {dates}\n"
 
     # Children section
-    children = extended.get("children", [])
     if children:
         result += "\nCHILDREN:\n"
         for child in children:
             child_name = _extract_person_name(child)
             child_gender = _get_gender_letter(child.get("gender", 2))
             child_id = child.get("gramps_id", "")
-            child_birth, child_death = await _get_birth_death_dates(
-                client, tree_id, child
-            )
+            child_birth, child_death = next(member_dates)
             dates = ", ".join(filter(None, [child_birth, child_death]))
             result += f"- {child_name} ({child_gender}) - {child_id} - {dates}\n"
 
@@ -104,6 +121,11 @@ async def format_family_detail(client, tree_id: str, handle: str) -> str:
     # Timeline section
     result += "\nTIMELINE:\n"
     if timeline_data:
+        # Pre-fetch every referenced event concurrently (bounded) instead of one
+        # serial GET_EVENT per entry (MCP-22). Failures are captured in place and
+        # handled per entry via resolve_event_date below.
+        fetched_events = await prefetch_timeline_events(client, tree_id, timeline_data)
+
         for timeline_event in timeline_data:
             if not isinstance(timeline_event, dict):
                 continue
@@ -115,20 +137,11 @@ async def format_family_detail(client, tree_id: str, handle: str) -> str:
             event_handle = timeline_event.get("handle", "")
 
             # Get properly formatted date using format_date function
-            event_date = "date unknown"
-            event_data = None
-            if event_handle:
-                try:
-                    event_data = await client.make_api_call(
-                        ApiCalls.GET_EVENT,
-                        tree_id=tree_id,
-                        handle=event_handle,
-                        params={"extend": "all"},
-                    )
-                    event_date = format_date(event_data.get("date", {}))
-                except Exception as e:
-                    logger.warning(f"Failed to fetch event {event_handle}: {e}")
-                    event_date = timeline_event.get("date", "date unknown")
+            event_data, event_date = resolve_event_date(
+                fetched_events.get(event_handle),
+                timeline_event,
+                event_handle,
+            )
 
             # Place - use display_name directly from timeline data
             place_data = timeline_event.get("place", {})
