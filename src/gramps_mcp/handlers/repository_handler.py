@@ -71,6 +71,9 @@ async def format_repository(client, tree_id: str, handle: str) -> str:
             if note_ids:
                 result += f"\nAttached notes: {', '.join(note_ids)}"
 
+        private = repo_data.get("private", False)
+        result += f"\nprivate: {str(private).lower()}"
+
         return result + "\n\n"
 
     except Exception as e:

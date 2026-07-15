@@ -122,6 +122,8 @@ class TestFormatPerson:
         assert "John Smith" in result
         assert "(M)" in result
         assert "I0001" in result
+        # Explicit private flag defaults to false when omitted (#53 audit surface)
+        assert "private: false" in result
 
     @pytest.mark.asyncio
     async def test_person_not_found(self):
@@ -209,6 +211,7 @@ class TestFormatPersonExtended:
                     "media_list": [],
                     "note_list": [],
                     "urls": [],
+                    "private": True,
                     "extended": {
                         "events": [],
                         "families": [{"gramps_id": "F0001"}],
@@ -221,6 +224,7 @@ class TestFormatPersonExtended:
         assert "Family member of:" in result
         assert "child (F0002)" in result
         assert "parent (F0001)" in result
+        assert "private: true" in result
 
     @pytest.mark.asyncio
     async def test_person_with_events_list(self):
@@ -435,6 +439,8 @@ class TestFormatPersonDetail:
         assert "John Smith" in result
         assert "(M)" in result
         assert "I0001" in result
+        # Explicit private flag defaults to false when omitted (#53 audit surface)
+        assert "private: false" in result
 
 
 class TestFormatPersonDetailExtended:
@@ -457,6 +463,7 @@ class TestFormatPersonDetailExtended:
                     "event_ref_list": [{"ref": "b1"}, {"ref": "d1"}],
                     "parent_family_list": [],
                     "family_list": [],
+                    "private": True,
                     "extended": {
                         "events": [
                             {"date": {"dateval": [1, 1, 1800, False]}, "place": ""},
@@ -475,6 +482,7 @@ class TestFormatPersonDetailExtended:
         assert "1800" in result
         assert "Died:" in result
         assert "1870" in result
+        assert "private: true" in result
 
     @pytest.mark.asyncio
     async def test_person_detail_with_parents_and_siblings(self):

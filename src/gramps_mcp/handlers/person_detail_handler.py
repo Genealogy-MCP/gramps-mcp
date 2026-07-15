@@ -340,6 +340,9 @@ async def format_person_detail(client, tree_id: str, handle: str) -> str:
                 note_text += "..."
             result += f"- {note_type}: {note_text} ({note_id})\n"
 
+    private = person_data.get("private", False)
+    result += f"private: {str(private).lower()}\n"
+
     return result
 
 

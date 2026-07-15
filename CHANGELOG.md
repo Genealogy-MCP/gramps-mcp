@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.2] - 2026-07-15
+
+### Added
+
+- Every entity formatter now surfaces an explicit `private: true`/`private: false` line so tree-wide privacy can be audited from `get` and `search` output alike. Person, family, event, place, source, citation, note, and repository renderings each emit the flag on both their search (`format_*`) and detail (`format_*_detail`) paths, always rendering `false` explicitly rather than omitting it — an omitted flag is ambiguous, an explicit `false` is auditable. The place inline path (embedded in a person's Born/Died lines) is deliberately left clean (#53)
+
 ## [3.3.1] - 2026-07-15
 
 ### Fixed

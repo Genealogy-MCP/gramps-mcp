@@ -48,6 +48,26 @@ class TestFormatCitation:
         assert "Census 1900" in result
         assert "Page 42" in result
         assert "C0001" in result
+        assert "private: false" in result
+
+    @pytest.mark.asyncio
+    async def test_citation_private_true(self):
+        client = _mock_client(
+            {
+                "GET_CITATION": {
+                    "gramps_id": "C0004",
+                    "page": "",
+                    "source_handle": "",
+                    "date": None,
+                    "media_list": [],
+                    "note_list": [],
+                    "extended": {},
+                    "private": True,
+                },
+            }
+        )
+        result = await format_citation(client, TREE_ID, "handle123")
+        assert "private: true" in result
 
     @pytest.mark.asyncio
     async def test_citation_with_date(self):

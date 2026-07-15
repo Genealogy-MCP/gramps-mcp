@@ -43,6 +43,7 @@ async def format_note(client, tree_id: str, handle: str) -> str:
         gramps_id = note_data.get("gramps_id")
         note_type = note_data.get("type")
         text = note_data.get("text", {}).get("string")
+        private = note_data.get("private", False)
 
         if not text:
             return ""
@@ -54,7 +55,8 @@ async def format_note(client, tree_id: str, handle: str) -> str:
         if len(text) > MAX_NOTE_LENGTH:
             text = text[: MAX_NOTE_LENGTH - 3] + "..."
 
-        return f"{note_type} Note - {gramps_id} - [{handle}]\n{text}\n\n"
+        header = f"{note_type} Note - {gramps_id} - [{handle}]"
+        return f"{header}\n{text}\nprivate: {str(private).lower()}\n\n"
 
     except Exception as e:
         logger.warning(f"Failed to format note {handle}: {e}")
