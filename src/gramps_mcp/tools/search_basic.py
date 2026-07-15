@@ -38,7 +38,7 @@ from ..models.parameters.search_params import SearchParams
 from ..models.parameters.source_params import SourceSearchParams
 from ._compat import extract_arguments
 from ._errors import McpToolError, raise_tool_error
-from ._gql_hints import gql_hint
+from ._gql_hints import gql_hint, gql_private_reject
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +148,14 @@ async def _search_entities(
     Returns:
         List of TextContent with formatted search results
     """
+    # Reject unfilterable boolean-literal `private` filters before the API
+    # call -- otherwise Gramps silently returns [], which reads as "no private
+    # records exist" (issue #54). Raised outside the try so it is not re-wrapped
+    # as a generic search failure.
+    reject = gql_private_reject(arguments.get("gql", ""))
+    if reject:
+        raise McpToolError(reject)
+
     try:
         params = params_class(**arguments)
 
