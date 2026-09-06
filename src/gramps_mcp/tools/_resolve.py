@@ -24,7 +24,8 @@ from ..models.parameters.source_params import SourceSearchParams
 from ._errors import McpToolError
 
 # Entity type -> (params class, list endpoint) for raw gramps_id resolution.
-# Kept beside _SEARCH_TOOL_DISPATCH so a new entity type updates both.
+# Update this map together with _SEARCH_TOOL_DISPATCH in search_basic.py
+# when adding an entity type.
 _RESOLVE_DISPATCH: Dict[str, tuple] = {
     "person": (BaseGetMultipleParams, ApiCalls.GET_PEOPLE),
     "family": (BaseGetMultipleParams, ApiCalls.GET_FAMILIES),
