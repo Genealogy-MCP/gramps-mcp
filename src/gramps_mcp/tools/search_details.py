@@ -217,10 +217,12 @@ def _stub_if_empty(
 ) -> List[TextContent]:
     """Substitute a stub when a formatter produced nothing to display.
 
-    A resolved record that formats to a zero-length string is
-    indistinguishable from a lookup failure, which leaves the caller with
-    no way to tell "record has no fields" from "record not found"
-    (issue #79).
+    A record that formats to a zero-length string leaves the caller with a
+    response indistinguishable from a transport failure (issue #79).
+
+    The wording deliberately does not assert that the record exists: the
+    handlers collapse a 404 into "" as well, so this layer cannot tell
+    "no displayable fields" from "no such handle".
     """
     if any(item.text.strip() for item in result):
         return result
@@ -228,7 +230,11 @@ def _stub_if_empty(
     return [
         TextContent(
             type="text",
-            text=f"{entity_type} [{handle}] exists but has no displayable content.\n",
+            text=(
+                f"{entity_type} [{handle}] returned no displayable content. "
+                f"Either every field is empty or private, or the handle does "
+                f"not exist. Use search to verify the record.\n"
+            ),
         )
     ]
 

@@ -1093,9 +1093,9 @@ class TestGetToolNativeGrampsIdFilter:
 class TestResolveGrampsId:
     """Handle resolution must read the raw API response, not formatted text.
 
-    A note with an empty text body formats to "" (format_note returns
-    nothing to display), so regex-parsing the formatted search output
-    loses the handle even though the record exists (issue #78).
+    Regex-parsing formatted search output is fragile: any handler whose
+    rendering changes shape silently loses the handle even though the
+    record exists (issue #78). Resolution reads the raw response instead.
     """
 
     @pytest.mark.asyncio
@@ -1240,6 +1240,28 @@ class TestGetToolEmptyResponseStub:
         result = await get_tool({"type": "person", "handle": "h_blank"})
         assert "person" in result[0].text
         assert "h_blank" in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_stub_does_not_assert_the_record_exists(self):
+        """Handlers collapse a 404 into "" too, so the stub must stay agnostic.
+
+        Claiming "exists" for an unknown handle would invert the very
+        confusion issue #79 asks to remove.
+        """
+        from src.gramps_mcp.tools import search_details
+
+        mock_get = AsyncMock(return_value=[TextContent(type="text", text="")])
+        original_get = search_details._GET_TOOL_DISPATCH["note"]
+        search_details._GET_TOOL_DISPATCH["note"] = mock_get
+        try:
+            result = await search_details.get_tool(
+                {"type": "note", "handle": "h_bogus"}
+            )
+        finally:
+            search_details._GET_TOOL_DISPATCH["note"] = original_get
+
+        assert "exists but" not in result[0].text
+        assert "does not exist" in result[0].text
 
     @pytest.mark.asyncio
     async def test_non_empty_result_passes_through(self):
