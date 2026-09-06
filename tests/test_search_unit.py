@@ -669,7 +669,7 @@ class TestGetTypeTool:
     @patch("src.gramps_mcp.tools.search_basic.search_tool", new_callable=AsyncMock)
     async def test_gramps_id_resolution(self, mock_find):
         """gramps_id without handle triggers search then dispatch."""
-        from src.gramps_mcp.tools import search_details
+        from src.gramps_mcp.tools import search_basic, search_details
 
         mock_find.return_value = [
             TextContent(type="text", text="* Event [resolved_handle] - E0001")
@@ -677,24 +677,33 @@ class TestGetTypeTool:
         mock_get = AsyncMock(
             return_value=[TextContent(type="text", text="event details")]
         )
-        original = search_details._GET_TOOL_DISPATCH["event"]
+        original_search = search_basic._SEARCH_TOOL_DISPATCH["event"]
+        original_get = search_details._GET_TOOL_DISPATCH["event"]
+        search_basic._SEARCH_TOOL_DISPATCH["event"] = mock_find
         search_details._GET_TOOL_DISPATCH["event"] = mock_get
         try:
             await search_details.get_tool({"type": "event", "gramps_id": "E0001"})
-            mock_find.assert_awaited_once()
+            mock_find.assert_awaited_once_with({"gramps_id": "E0001", "pagesize": 1})
             mock_get.assert_awaited_once_with({"handle": "resolved_handle"})
         finally:
-            search_details._GET_TOOL_DISPATCH["event"] = original
+            search_basic._SEARCH_TOOL_DISPATCH["event"] = original_search
+            search_details._GET_TOOL_DISPATCH["event"] = original_get
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.tools.search_basic.search_tool", new_callable=AsyncMock)
     async def test_gramps_id_not_resolved_raises(self, mock_find):
         """gramps_id that can't be resolved raises McpToolError."""
+        from src.gramps_mcp.tools import search_basic
         from src.gramps_mcp.tools.search_details import get_tool
 
         mock_find.return_value = [TextContent(type="text", text="No events found")]
-        with pytest.raises(McpToolError, match="Could not resolve"):
-            await get_tool({"type": "event", "gramps_id": "E9999"})
+        original_search = search_basic._SEARCH_TOOL_DISPATCH["event"]
+        search_basic._SEARCH_TOOL_DISPATCH["event"] = mock_find
+        try:
+            with pytest.raises(McpToolError, match="Could not resolve"):
+                await get_tool({"type": "event", "gramps_id": "E9999"})
+        finally:
+            search_basic._SEARCH_TOOL_DISPATCH["event"] = original_search
 
 
 # ============================================================================
@@ -1040,3 +1049,41 @@ class TestPrivateLiteralRejectedPreflight:
             await search_tool({"type": "media", "gql": "private = True"})
 
         client_inst.make_api_call.assert_not_called()
+
+
+class TestGetToolNativeGrampsIdFilter:
+    """gramps_id resolution must use the native ?gramps_id= filter, not gql=.
+
+    Gramps Web API 3.x returns HTTP 500 for any gql= query on /api/notes/
+    (issue #69); the native filter works on every entity type.
+    """
+
+    @pytest.mark.asyncio
+    async def test_note_resolution_uses_native_filter(self):
+        from src.gramps_mcp.tools import search_basic, search_details
+
+        captured = {}
+
+        async def fake_search(arguments):
+            captured.update(arguments)
+            return [TextContent(type="text", text="• **Note** (ID: N0001) - [h42]")]
+
+        mock_get = AsyncMock(
+            return_value=[TextContent(type="text", text="note details")]
+        )
+        original_search = search_basic._SEARCH_TOOL_DISPATCH["note"]
+        original_get = search_details._GET_TOOL_DISPATCH["note"]
+        search_basic._SEARCH_TOOL_DISPATCH["note"] = fake_search
+        search_details._GET_TOOL_DISPATCH["note"] = mock_get
+        try:
+            result = await search_details.get_tool(
+                {"type": "note", "gramps_id": "N0001"}
+            )
+        finally:
+            search_basic._SEARCH_TOOL_DISPATCH["note"] = original_search
+            search_details._GET_TOOL_DISPATCH["note"] = original_get
+
+        assert captured.get("gramps_id") == "N0001"
+        assert "gql" not in captured
+        mock_get.assert_awaited_once_with({"handle": "h42"})
+        assert result[0].text == "note details"

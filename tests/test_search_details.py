@@ -11,7 +11,6 @@ import pytest
 from dotenv import load_dotenv
 from mcp.types import TextContent
 
-from src.gramps_mcp.tools._errors import McpToolError
 from src.gramps_mcp.tools.search_basic import search_tool
 from src.gramps_mcp.tools.search_details import get_tool
 
@@ -279,13 +278,9 @@ async def test_get_source_by_gramps_id():
 @pytest.mark.asyncio
 async def test_get_note_by_gramps_id():
     """Test get_tool with type=note using gramps_id."""
-    try:
-        result = await get_tool({"type": "note", "gramps_id": "N0001"})
-    except McpToolError:
-        pytest.xfail(
-            "Gramps Web GQL engine crashes on note queries "
-            "in API 3.x (HTTP 500 on any note GQL filter)"
-        )
+    # No xfail: since issue #69 the lookup uses the native ?gramps_id=
+    # filter, which does not hit the upstream gql-on-notes 500.
+    result = await get_tool({"type": "note", "gramps_id": "N0001"})
 
     assert len(result) == 1
     assert isinstance(result[0], TextContent)
