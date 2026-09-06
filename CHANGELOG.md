@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.6] - 2026-09-06
+
+### Fixed
+
+- `get` on a record whose formatter produces no output no longer returns a zero-length response, which a caller cannot distinguish from a failure. A note with an empty text body now renders its header (type, `gramps_id`, handle, `private`) with a `(no text)` body marker instead of formatting to `""`. As a backstop for every entity type, `get` substitutes a stub naming the entity type and handle whenever the dispatched formatter yields only whitespace (#79)
+
 ## [3.3.5] - 2026-09-06
 
 ### Fixed

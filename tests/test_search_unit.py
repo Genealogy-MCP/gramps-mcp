@@ -1180,3 +1180,79 @@ class TestResolveGrampsId:
 
         mock_get.assert_awaited_once_with({"handle": "h_empty_note"})
         assert result[0].text == "note details"
+
+
+# ============================================================================
+# Empty formatted output never reaches the caller (issue #79)
+# ============================================================================
+
+
+class TestGetToolEmptyResponseStub:
+    """A resolved record must never format to a zero-length response.
+
+    An empty string is indistinguishable from a failure, so get_tool
+    substitutes a stub naming the entity type and handle.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("empty_text", ["", "   \n"])
+    async def test_blank_dispatch_result_becomes_stub(self, empty_text):
+        from src.gramps_mcp.tools import search_details
+
+        mock_get = AsyncMock(return_value=[TextContent(type="text", text=empty_text)])
+        original_get = search_details._GET_TOOL_DISPATCH["note"]
+        search_details._GET_TOOL_DISPATCH["note"] = mock_get
+        try:
+            result = await search_details.get_tool(
+                {"type": "note", "handle": "h_blank"}
+            )
+        finally:
+            search_details._GET_TOOL_DISPATCH["note"] = original_get
+
+        assert "note" in result[0].text
+        assert "h_blank" in result[0].text
+        assert len(result[0].text.strip()) > 0
+
+    @pytest.mark.asyncio
+    async def test_empty_content_list_becomes_stub(self):
+        from src.gramps_mcp.tools import search_details
+
+        mock_get = AsyncMock(return_value=[])
+        original_get = search_details._GET_TOOL_DISPATCH["place"]
+        search_details._GET_TOOL_DISPATCH["place"] = mock_get
+        try:
+            result = await search_details.get_tool(
+                {"type": "place", "handle": "h_blank"}
+            )
+        finally:
+            search_details._GET_TOOL_DISPATCH["place"] = original_get
+
+        assert "h_blank" in result[0].text
+
+    @pytest.mark.asyncio
+    @patch(
+        "src.gramps_mcp.tools.search_details.get_person_tool", new_callable=AsyncMock
+    )
+    async def test_person_path_also_guarded(self, mock_tool):
+        from src.gramps_mcp.tools.search_details import get_tool
+
+        mock_tool.return_value = [TextContent(type="text", text="")]
+        result = await get_tool({"type": "person", "handle": "h_blank"})
+        assert "person" in result[0].text
+        assert "h_blank" in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_non_empty_result_passes_through(self):
+        from src.gramps_mcp.tools import search_details
+
+        mock_get = AsyncMock(
+            return_value=[TextContent(type="text", text="real content")]
+        )
+        original_get = search_details._GET_TOOL_DISPATCH["note"]
+        search_details._GET_TOOL_DISPATCH["note"] = mock_get
+        try:
+            result = await search_details.get_tool({"type": "note", "handle": "h1"})
+        finally:
+            search_details._GET_TOOL_DISPATCH["note"] = original_get
+
+        assert result[0].text == "real content"

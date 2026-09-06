@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 # Constants
 MAX_NOTE_LENGTH = 500
 
+# Body placeholder for a note that exists but carries no text (issue #79).
+# Returning "" here would be indistinguishable from a lookup failure.
+EMPTY_NOTE_BODY = "(no text)"
+
 
 async def format_note(client, tree_id: str, handle: str) -> str:
     """
@@ -42,17 +46,15 @@ async def format_note(client, tree_id: str, handle: str) -> str:
 
         gramps_id = note_data.get("gramps_id")
         note_type = note_data.get("type")
-        text = note_data.get("text", {}).get("string")
+        text = (note_data.get("text") or {}).get("string") or ""
         private = note_data.get("private", False)
-
-        if not text:
-            return ""
 
         # Clean up text - remove excessive whitespace but preserve paragraph breaks
         text = text.strip()
 
-        # Truncate if too long
-        if len(text) > MAX_NOTE_LENGTH:
+        if not text:
+            text = EMPTY_NOTE_BODY
+        elif len(text) > MAX_NOTE_LENGTH:
             text = text[: MAX_NOTE_LENGTH - 3] + "..."
 
         header = f"{note_type} Note - {gramps_id} - [{handle}]"
