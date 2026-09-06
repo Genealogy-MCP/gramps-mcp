@@ -126,6 +126,10 @@ class TestFormatHttpError:
         err = _make_http_status_error(500)
         result = client._format_http_error(err)
         assert "Server error" in result
+        # A 500 can be deterministic (issue #69: gql= on /api/notes/);
+        # promising a retry will help misleads the LLM into retry loops.
+        assert "try again" not in result.lower()
+        assert "server-side" in result
 
     def test_502(self):
         client = self._client()

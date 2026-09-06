@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.4] - 2026-09-06
+
+### Fixed
+
+- `get` with a `gramps_id` now resolves the handle via the native `?gramps_id=` filter instead of a `gql=` equality query, for every entity type. Gramps Web API 3.x (verified on 3.16.0) returns HTTP 500 for any `gql=` query on `/api/notes/`, which made every note unreadable through `get`; the native filter returns 200 and is the simpler request for a plain equality. `search` remains a transparent GQL passthrough (#69)
+- 5xx errors no longer claim "Please try again later": the notes bug proved a 500 can be deterministic, and the retry promise misled callers into retry loops. The message now includes the status code and states the failure may be a server-side bug that retrying the identical request is unlikely to fix (#69)
+
 ## [3.3.3] - 2026-07-15
 
 ### Fixed
