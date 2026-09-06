@@ -251,7 +251,11 @@ class GrampsWebAPIClient:
         elif status_code == 422:
             return f"Invalid data provided for {url_path}."
         elif status_code >= 500:
-            return f"Server error at {url_path}. Please try again later."
+            return (
+                f"Server error ({status_code}) at {url_path}. "
+                "This may be a server-side bug; retrying the identical "
+                "request is unlikely to help."
+            )
         else:
             return f"Request failed with status {status_code} at {url_path}."
 

@@ -225,13 +225,21 @@ async def get_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
             f"Missing required parameter 'type'. Valid types: {', '.join(valid_types)}"
         )
 
-    # If gramps_id provided but no handle, find the handle first
+    # If gramps_id provided but no handle, find the handle first.
+    # Use the native ?gramps_id= filter, not gql=: Gramps Web API 3.x
+    # returns HTTP 500 for any gql= query on /api/notes/ (issue #69),
+    # and the native filter is the simpler request for a plain equality.
     if gramps_id and not handle:
-        from .search_basic import search_tool
+        from .search_basic import _SEARCH_TOOL_DISPATCH
 
-        search_result = await search_tool(
-            {"type": entity_type, "gql": f'gramps_id="{gramps_id}"', "max_results": 1}
-        )
+        search_func = _SEARCH_TOOL_DISPATCH.get(entity_type)
+        if not search_func:
+            valid_types = ", ".join(sorted(_SEARCH_TOOL_DISPATCH.keys()))
+            raise McpToolError(
+                f"Entity type '{entity_type}' not supported for get. "
+                f"Valid types: {valid_types}"
+            )
+        search_result = await search_func({"gramps_id": gramps_id, "pagesize": 1})
 
         # Extract handle from search result
         search_text = search_result[0].text
