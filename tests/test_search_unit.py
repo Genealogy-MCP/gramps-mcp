@@ -666,44 +666,39 @@ class TestGetTypeTool:
             search_details._GET_TOOL_DISPATCH["note"] = original
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.search_tool", new_callable=AsyncMock)
-    async def test_gramps_id_resolution(self, mock_find):
-        """gramps_id without handle triggers search then dispatch."""
-        from src.gramps_mcp.tools import search_basic, search_details
+    @patch(
+        "src.gramps_mcp.tools._resolve.resolve_gramps_id",
+        new_callable=AsyncMock,
+    )
+    async def test_gramps_id_resolution(self, mock_resolve):
+        """gramps_id without handle triggers raw resolution then dispatch."""
+        from src.gramps_mcp.tools import search_details
 
-        mock_find.return_value = [
-            TextContent(type="text", text="* Event [resolved_handle] - E0001")
-        ]
+        mock_resolve.return_value = "resolved_handle"
         mock_get = AsyncMock(
             return_value=[TextContent(type="text", text="event details")]
         )
-        original_search = search_basic._SEARCH_TOOL_DISPATCH["event"]
         original_get = search_details._GET_TOOL_DISPATCH["event"]
-        search_basic._SEARCH_TOOL_DISPATCH["event"] = mock_find
         search_details._GET_TOOL_DISPATCH["event"] = mock_get
         try:
             await search_details.get_tool({"type": "event", "gramps_id": "E0001"})
-            mock_find.assert_awaited_once_with({"gramps_id": "E0001", "pagesize": 1})
+            mock_resolve.assert_awaited_once_with("event", "E0001")
             mock_get.assert_awaited_once_with({"handle": "resolved_handle"})
         finally:
-            search_basic._SEARCH_TOOL_DISPATCH["event"] = original_search
             search_details._GET_TOOL_DISPATCH["event"] = original_get
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.search_tool", new_callable=AsyncMock)
-    async def test_gramps_id_not_resolved_raises(self, mock_find):
+    @patch(
+        "src.gramps_mcp.tools._resolve.resolve_gramps_id",
+        new_callable=AsyncMock,
+    )
+    async def test_gramps_id_not_resolved_raises(self, mock_resolve):
         """gramps_id that can't be resolved raises McpToolError."""
-        from src.gramps_mcp.tools import search_basic
         from src.gramps_mcp.tools.search_details import get_tool
 
-        mock_find.return_value = [TextContent(type="text", text="No events found")]
-        original_search = search_basic._SEARCH_TOOL_DISPATCH["event"]
-        search_basic._SEARCH_TOOL_DISPATCH["event"] = mock_find
-        try:
-            with pytest.raises(McpToolError, match="Could not resolve"):
-                await get_tool({"type": "event", "gramps_id": "E9999"})
-        finally:
-            search_basic._SEARCH_TOOL_DISPATCH["event"] = original_search
+        mock_resolve.return_value = None
+        with pytest.raises(McpToolError, match="Could not resolve"):
+            await get_tool({"type": "event", "gramps_id": "E9999"})
 
 
 # ============================================================================
@@ -1060,30 +1055,128 @@ class TestGetToolNativeGrampsIdFilter:
 
     @pytest.mark.asyncio
     async def test_note_resolution_uses_native_filter(self):
-        from src.gramps_mcp.tools import search_basic, search_details
-
-        captured = {}
-
-        async def fake_search(arguments):
-            captured.update(arguments)
-            return [TextContent(type="text", text="• **Note** (ID: N0001) - [h42]")]
+        from src.gramps_mcp.tools import search_details
 
         mock_get = AsyncMock(
             return_value=[TextContent(type="text", text="note details")]
         )
-        original_search = search_basic._SEARCH_TOOL_DISPATCH["note"]
         original_get = search_details._GET_TOOL_DISPATCH["note"]
-        search_basic._SEARCH_TOOL_DISPATCH["note"] = fake_search
         search_details._GET_TOOL_DISPATCH["note"] = mock_get
         try:
-            result = await search_details.get_tool(
-                {"type": "note", "gramps_id": "N0001"}
-            )
+            with patch(
+                "src.gramps_mcp.tools._resolve.GrampsWebAPIClient"
+            ) as mock_client_cls:
+                client = mock_client_cls.return_value
+                client.make_api_call = AsyncMock(
+                    return_value=[{"handle": "h42", "gramps_id": "N0001"}]
+                )
+                client.close = AsyncMock()
+
+                result = await search_details.get_tool(
+                    {"type": "note", "gramps_id": "N0001"}
+                )
         finally:
-            search_basic._SEARCH_TOOL_DISPATCH["note"] = original_search
             search_details._GET_TOOL_DISPATCH["note"] = original_get
 
-        assert captured.get("gramps_id") == "N0001"
-        assert "gql" not in captured
+        params = client.make_api_call.await_args.kwargs["params"]
+        assert params.gramps_id == "N0001"
+        assert getattr(params, "gql", None) in (None, "")
         mock_get.assert_awaited_once_with({"handle": "h42"})
+        assert result[0].text == "note details"
+
+
+# ============================================================================
+# Raw-response gramps_id resolution (issue #78)
+# ============================================================================
+
+
+class TestResolveGrampsId:
+    """Handle resolution must read the raw API response, not formatted text.
+
+    A note with an empty text body formats to "" (format_note returns
+    nothing to display), so regex-parsing the formatted search output
+    loses the handle even though the record exists (issue #78).
+    """
+
+    @pytest.mark.asyncio
+    async def test_empty_text_note_resolves(self):
+        from src.gramps_mcp.tools import _resolve
+
+        with patch(
+            "src.gramps_mcp.tools._resolve.GrampsWebAPIClient"
+        ) as mock_client_cls:
+            client = mock_client_cls.return_value
+            client.make_api_call = AsyncMock(
+                return_value=[
+                    {
+                        "handle": "h_empty_note",
+                        "gramps_id": "N0042",
+                        "text": {"_class": "StyledText", "string": ""},
+                    }
+                ]
+            )
+            client.close = AsyncMock()
+
+            handle = await _resolve.resolve_gramps_id("note", "N0042")
+
+        assert handle == "h_empty_note"
+        call = client.make_api_call.await_args
+        assert call.kwargs["api_call"] is _resolve.ApiCalls.GET_NOTES
+        assert call.kwargs["params"].gramps_id == "N0042"
+
+    @pytest.mark.asyncio
+    async def test_no_match_returns_none(self):
+        from src.gramps_mcp.tools import _resolve
+
+        with patch(
+            "src.gramps_mcp.tools._resolve.GrampsWebAPIClient"
+        ) as mock_client_cls:
+            client = mock_client_cls.return_value
+            client.make_api_call = AsyncMock(return_value=[])
+            client.close = AsyncMock()
+
+            handle = await _resolve.resolve_gramps_id("note", "N9999")
+
+        assert handle is None
+
+    @pytest.mark.asyncio
+    async def test_unknown_type_raises(self):
+        from src.gramps_mcp.tools import _resolve
+
+        with pytest.raises(McpToolError, match="not supported"):
+            await _resolve.resolve_gramps_id("bogus", "X0001")
+
+    @pytest.mark.asyncio
+    async def test_get_tool_empty_note_end_to_end(self):
+        """get_tool resolves an empty-text note via the raw response."""
+        from src.gramps_mcp.tools import search_details
+
+        mock_get = AsyncMock(
+            return_value=[TextContent(type="text", text="note details")]
+        )
+        original_get = search_details._GET_TOOL_DISPATCH["note"]
+        search_details._GET_TOOL_DISPATCH["note"] = mock_get
+        try:
+            with patch(
+                "src.gramps_mcp.tools._resolve.GrampsWebAPIClient"
+            ) as mock_client_cls:
+                client = mock_client_cls.return_value
+                client.make_api_call = AsyncMock(
+                    return_value=[
+                        {
+                            "handle": "h_empty_note",
+                            "gramps_id": "N0042",
+                            "text": {"_class": "StyledText", "string": ""},
+                        }
+                    ]
+                )
+                client.close = AsyncMock()
+
+                result = await search_details.get_tool(
+                    {"type": "note", "gramps_id": "N0042"}
+                )
+        finally:
+            search_details._GET_TOOL_DISPATCH["note"] = original_get
+
+        mock_get.assert_awaited_once_with({"handle": "h_empty_note"})
         assert result[0].text == "note details"

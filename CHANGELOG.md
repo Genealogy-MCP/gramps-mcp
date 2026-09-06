@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.5] - 2026-09-06
+
+### Fixed
+
+- `get` with a `gramps_id` now reads the handle from the raw API response instead of regex-parsing the formatted search text. Formatters return an empty string for sparse records (e.g. a note with an empty text body), which made `get` report "Could not resolve handle" for records that exist (#78)
+
 ## [3.3.4] - 2026-09-06
 
 ### Fixed
