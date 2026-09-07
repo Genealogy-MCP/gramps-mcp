@@ -103,3 +103,49 @@ class TestFormatNote:
         client = AsyncMock()
         client.make_api_call = AsyncMock(side_effect=Exception("API error"))
         assert await format_note(client, TREE_ID, "handle123") == ""
+
+    @pytest.mark.asyncio
+    async def test_note_format_flowed_rendered(self):
+        """format=0 (flowed) is the default and still renders."""
+        client = _mock_client(
+            {
+                "GET_NOTE": {
+                    "gramps_id": "N0006",
+                    "type": "General",
+                    "text": {"string": "plain note"},
+                    "format": 0,
+                }
+            }
+        )
+        result = await format_note(client, TREE_ID, "handle123")
+        assert "format: flowed" in result
+
+    @pytest.mark.asyncio
+    async def test_note_format_preformatted_rendered(self):
+        client = _mock_client(
+            {
+                "GET_NOTE": {
+                    "gramps_id": "N0007",
+                    "type": "General",
+                    "text": {"string": "  spaced\n  note"},
+                    "format": 1,
+                }
+            }
+        )
+        result = await format_note(client, TREE_ID, "handle123")
+        assert "format: preformatted" in result
+
+    @pytest.mark.asyncio
+    async def test_note_unknown_format_falls_back_to_int(self):
+        client = _mock_client(
+            {
+                "GET_NOTE": {
+                    "gramps_id": "N0008",
+                    "type": "General",
+                    "text": {"string": "note"},
+                    "format": 7,
+                }
+            }
+        )
+        result = await format_note(client, TREE_ID, "handle123")
+        assert "format: 7" in result

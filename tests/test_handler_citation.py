@@ -118,3 +118,92 @@ class TestFormatCitation:
         client.make_api_call = AsyncMock(side_effect=Exception("error"))
         result = await format_citation(client, TREE_ID, "handle123")
         assert "Error formatting citation" in result
+
+    @pytest.mark.asyncio
+    async def test_citation_confidence_rendered_as_label(self):
+        client = _mock_client(
+            {
+                "GET_CITATION": {
+                    "gramps_id": "C0005",
+                    "page": "",
+                    "source_handle": "",
+                    "date": None,
+                    "confidence": 3,
+                    "extended": {},
+                },
+            }
+        )
+        result = await format_citation(client, TREE_ID, "handle123")
+        assert "confidence: high" in result
+
+    @pytest.mark.asyncio
+    async def test_citation_confidence_zero_still_rendered(self):
+        """confidence=0 is a real value (very low), not an absent field."""
+        client = _mock_client(
+            {
+                "GET_CITATION": {
+                    "gramps_id": "C0006",
+                    "page": "",
+                    "source_handle": "",
+                    "date": None,
+                    "confidence": 0,
+                    "extended": {},
+                },
+            }
+        )
+        result = await format_citation(client, TREE_ID, "handle123")
+        assert "confidence: very low" in result
+
+    @pytest.mark.asyncio
+    async def test_citation_unknown_confidence_falls_back_to_int(self):
+        client = _mock_client(
+            {
+                "GET_CITATION": {
+                    "gramps_id": "C0007",
+                    "page": "",
+                    "source_handle": "",
+                    "date": None,
+                    "confidence": 9,
+                    "extended": {},
+                },
+            }
+        )
+        result = await format_citation(client, TREE_ID, "handle123")
+        assert "confidence: 9" in result
+
+    @pytest.mark.asyncio
+    async def test_citation_tags_rendered_by_name(self):
+        client = _mock_client(
+            {
+                "GET_CITATION": {
+                    "gramps_id": "C0008",
+                    "page": "",
+                    "source_handle": "",
+                    "date": None,
+                    "tag_list": ["th1", "th2"],
+                    "extended": {
+                        "tags": [{"name": "ToDo"}, {"name": "Verified"}],
+                    },
+                },
+            }
+        )
+        result = await format_citation(client, TREE_ID, "handle123")
+        assert "Tags: ToDo, Verified" in result
+        assert "th1" not in result
+
+    @pytest.mark.asyncio
+    async def test_citation_empty_tag_list_omits_line(self):
+        client = _mock_client(
+            {
+                "GET_CITATION": {
+                    "gramps_id": "C0009",
+                    "page": "",
+                    "source_handle": "",
+                    "date": None,
+                    "tag_list": [],
+                    "extended": {},
+                },
+            }
+        )
+        result = await format_citation(client, TREE_ID, "handle123")
+        assert "Tags:" not in result
