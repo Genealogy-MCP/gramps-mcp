@@ -58,8 +58,14 @@ class TestPlaceAltNamesRoundTrip:
             await client.close()
 
     @pytest.mark.asyncio
-    async def test_update_place_alt_names_replace(self):
-        """list_mode='replace' swaps the stored alt_names for the new list."""
+    async def test_update_place_alt_names_overwrites_on_default_merge(self):
+        """An update replaces the stored alt_names even under the default
+        list_mode='merge'.
+
+        The client only merges keys ending in '_list' (client.py), and
+        alt_names does not, so both list modes overwrite. Tracked in #82; this test
+        pins the behaviour that shipping the #61 fix exposes.
+        """
         create_result = await upsert_place_tool(
             {
                 "name": {"value": f"{TEST_PREFIX}Napoli"},
@@ -73,7 +79,6 @@ class TestPlaceAltNamesRoundTrip:
             {
                 "handle": place_handle,
                 "alt_names": [f"{TEST_PREFIX}Parthenope"],
-                "list_mode": "replace",
             }
         )
         assert "Error:" not in update_result[0].text, update_result[0].text
