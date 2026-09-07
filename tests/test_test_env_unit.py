@@ -26,6 +26,15 @@ def test_inherited_password_alone_is_discarded():
     assert (updates, ignored) == (_LOCAL_DEFAULTS, ["GRAMPS_PASSWORD"])
 
 
+def test_local_url_with_half_set_credentials_falls_back_to_seed():
+    env = {"GRAMPS_API_URL": DEFAULT_API_URL, "GRAMPS_PASSWORD": "live-secret"}
+    updates, ignored = resolve_test_env(env)
+    assert (updates, ignored) == (
+        {"GRAMPS_USERNAME": DEFAULT_USERNAME, "GRAMPS_PASSWORD": DEFAULT_PASSWORD},
+        ["GRAMPS_PASSWORD"],
+    )
+
+
 def test_inherited_credentials_without_url_are_all_discarded():
     updates, ignored = resolve_test_env(
         {"GRAMPS_USERNAME": "fede", "GRAMPS_PASSWORD": "live-secret"}
@@ -45,6 +54,10 @@ def test_explicit_url_keeps_inherited_credentials():
     assert resolve_test_env(env) == ({}, [])
 
 
-def test_explicit_url_fills_only_missing_credentials():
-    env = {"GRAMPS_API_URL": DEFAULT_API_URL, "GRAMPS_USERNAME": "seeder"}
-    assert resolve_test_env(env) == ({"GRAMPS_PASSWORD": DEFAULT_PASSWORD}, [])
+def test_remote_url_with_half_set_credentials_is_not_completed():
+    env = {"GRAMPS_API_URL": "https://gramps.example.org", "GRAMPS_USERNAME": "fede"}
+    updates, ignored = resolve_test_env(env)
+    assert (updates, ignored) == (
+        {"GRAMPS_USERNAME": DEFAULT_USERNAME, "GRAMPS_PASSWORD": DEFAULT_PASSWORD},
+        ["GRAMPS_USERNAME"],
+    )

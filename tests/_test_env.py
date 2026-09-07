@@ -21,31 +21,27 @@ _CREDENTIAL_VARS = ("GRAMPS_USERNAME", "GRAMPS_PASSWORD")
 def resolve_test_env(environ: Mapping[str, str]) -> Tuple[Dict[str, str], List[str]]:
     """Resolve the target instance and its credentials from an environment.
 
+    Credentials apply only to an instance the caller named, and only as a
+    complete pair. Anything else falls back to the local seed, so a live
+    password inherited from the shell never reaches the local Docker URL.
+
     Args:
         environ: Environment mapping to read (normally os.environ).
 
     Returns:
         A (updates, ignored) pair. `updates` holds the variables to apply to
         the environment. `ignored` names the inherited credential variables
-        that were discarded because no GRAMPS_API_URL was set.
+        that were discarded because the pair was incomplete.
     """
-    target = environ.get("GRAMPS_API_URL")
+    updates: Dict[str, str] = {}
+    named_instance = bool(environ.get("GRAMPS_API_URL"))
+    if not named_instance:
+        updates["GRAMPS_API_URL"] = DEFAULT_API_URL
 
-    if target:
-        updates = {
-            var: default
-            for var, default in (
-                ("GRAMPS_USERNAME", DEFAULT_USERNAME),
-                ("GRAMPS_PASSWORD", DEFAULT_PASSWORD),
-            )
-            if not environ.get(var)
-        }
+    present = [var for var in _CREDENTIAL_VARS if environ.get(var)]
+    if named_instance and len(present) == len(_CREDENTIAL_VARS):
         return updates, []
 
-    ignored = [var for var in _CREDENTIAL_VARS if environ.get(var)]
-    updates = {
-        "GRAMPS_API_URL": DEFAULT_API_URL,
-        "GRAMPS_USERNAME": DEFAULT_USERNAME,
-        "GRAMPS_PASSWORD": DEFAULT_PASSWORD,
-    }
-    return updates, ignored
+    updates["GRAMPS_USERNAME"] = DEFAULT_USERNAME
+    updates["GRAMPS_PASSWORD"] = DEFAULT_PASSWORD
+    return updates, present
