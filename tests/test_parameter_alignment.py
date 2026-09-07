@@ -328,7 +328,8 @@ class TestParameterAlignment:
         """Test PlaceSaveParams parameters match current implementation."""
         # Place requires place_type on create (model_validator enforced)
         # Optional: handle, gramps_id, name, code, alt_loc, placeref_list, alt_names,
-        # lat, long, urls, media_list, citation_list, note_list, tag_list, private
+        # lat, long, urls, media_list, citation_list, note_list, tag_list,
+        # attribute_list, private, change (last three inherited from BaseDataModel)
         model = PlaceSaveParams
         fields = model.model_fields
 
@@ -363,7 +364,9 @@ class TestParameterAlignment:
             "citation_list",
             "note_list",
             "tag_list",
+            "attribute_list",
             "private",
+            "change",
             "list_mode",
         }
         actual_fields = set(fields.keys())
