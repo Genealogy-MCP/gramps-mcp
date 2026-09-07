@@ -170,7 +170,7 @@ def is_already_seeded(base_url: str, token: str) -> bool:
                 print(f"  Integrity probe: {label} missing")
                 return False
         return True
-    except (httpx.ConnectError, httpx.ReadTimeout):
+    except httpx.TransportError:
         return False
 
 
