@@ -510,7 +510,7 @@ class TestDeleteTool:
         assert "Successfully deleted" in result[0].text
         assert "tag" in result[0].text
         client_inst.bulk_delete.assert_called_once_with(
-            items=[{"_class": "Tag", "handle": "t1"}], tree_id="tree1"
+            namespace="tags", handles=["t1"], tree_id="tree1"
         )
 
 

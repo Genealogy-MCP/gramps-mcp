@@ -36,17 +36,17 @@ DELETE_API_CALLS = {
 }
 
 # Entity types that lack a dedicated DELETE endpoint in API 3.x and must be
-# deleted via POST /objects/delete/. Maps entity type -> Gramps _class name.
+# deleted via POST /objects/delete-by-handle/. Maps entity type -> API namespace.
 # Also used as the routing predicate in delete_tool() to choose bulk vs standard DELETE.
-_ENTITY_CLASS_NAMES: Dict[str, str] = {
-    "tag": "Tag",
+_ENTITY_NAMESPACES: Dict[str, str] = {
+    "tag": "tags",
 }
 
 
 async def _delete_via_bulk(
     client: GrampsWebAPIClient, tree_id: str, entity_type: str, handle: str
 ) -> None:
-    """Delete entity via POST /objects/delete/ (for types without DELETE endpoint).
+    """Delete entity via POST /objects/delete-by-handle/ (types without DELETE).
 
     Args:
         client: Authenticated API client.
@@ -54,10 +54,8 @@ async def _delete_via_bulk(
         entity_type: Entity type string (e.g. "tag").
         handle: Entity handle to delete.
     """
-    class_name = _ENTITY_CLASS_NAMES[entity_type]
-    await client.bulk_delete(
-        items=[{"_class": class_name, "handle": handle}], tree_id=tree_id
-    )
+    namespace = _ENTITY_NAMESPACES[entity_type]
+    await client.bulk_delete(namespace=namespace, handles=[handle], tree_id=tree_id)
 
 
 async def delete_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
@@ -77,11 +75,11 @@ async def delete_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
         entity_type_str = validated.type.value
 
         api_call = DELETE_API_CALLS.get(entity_type_str)
-        uses_bulk = entity_type_str in _ENTITY_CLASS_NAMES
+        uses_bulk = entity_type_str in _ENTITY_NAMESPACES
 
         if not api_call and not uses_bulk:
             valid = sorted(
-                list(DELETE_API_CALLS.keys()) + list(_ENTITY_CLASS_NAMES.keys())
+                list(DELETE_API_CALLS.keys()) + list(_ENTITY_NAMESPACES.keys())
             )
             raise McpToolError(
                 f"Delete not supported for type "
