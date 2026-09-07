@@ -441,41 +441,51 @@ class GrampsWebAPIClient:
         )
 
     async def bulk_delete(
-        self, items: list[dict[str, str]], tree_id: str = "default"
+        self, namespace: str, handles: list[str], tree_id: str = "default"
     ) -> dict:
-        """Delete entities via POST /objects/delete/ (bulk endpoint).
+        """Delete entities via POST /objects/delete-by-handle/.
 
         Used for entity types that lack a dedicated DELETE endpoint in API 3.x
-        (e.g. tags).
+        (e.g. tags). The delete is synchronous and namespaced, so it is
+        recorded with undo data.
 
         Args:
-            items: List of dicts, each with '_class' and 'handle' keys.
-                Example: [{"_class": "Tag", "handle": "abc123"}]
+            namespace: Plural entity namespace as defined by the API
+                (e.g. "tags", "people").
+            handles: Non-empty list of entity handles to delete.
             tree_id: Tree identifier.
 
         Returns:
-            API response dict.
+            API response dict (list of transaction records).
 
         Raises:
-            ValueError: If items list is empty or items are malformed.
+            ValueError: If namespace is empty or handles are missing/malformed.
             GrampsAPIError: If the API call fails.
         """
-        if not items:
-            raise ValueError("bulk_delete requires a non-empty items list")
+        if not namespace or not isinstance(namespace, str):
+            raise ValueError("bulk_delete requires a non-empty namespace string")
 
-        for item in items:
-            if (
-                not isinstance(item, dict)
-                or "_class" not in item
-                or "handle" not in item
-            ):
+        if not handles:
+            raise ValueError("bulk_delete requires a non-empty handles list")
+
+        for handle in handles:
+            if not isinstance(handle, str) or not handle:
                 raise ValueError(
-                    "Each item must be a dict with "
-                    f"'_class' and 'handle' keys, got: {item}"
+                    f"Each handle must be a non-empty string, got: {handle!r}"
                 )
 
-        url = self._build_url(tree_id, "objects/delete/")
-        return await self._make_request(method="POST", url=url, json_data=items)
+        # Reason: never use POST /objects/delete/ here. That endpoint reads only
+        # the query-string arg `namespaces` and silently discards any JSON body;
+        # with no query string it deletes EVERY object in the tree via an async
+        # batch task with no undo data (#81). The trailing slash on
+        # delete-by-handle/ is load-bearing: without it the server issues a 308
+        # redirect that drops the POST body.
+        url = self._build_url(tree_id, "objects/delete-by-handle/")
+        return await self._make_request(
+            method="POST",
+            url=url,
+            json_data={"namespace": namespace, "handles": handles},
+        )
 
 
 # Export the main classes for easy import

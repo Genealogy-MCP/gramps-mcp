@@ -963,6 +963,66 @@ class TestDeleteTypeTool:
             await delete_tool({"type": "note", "handle": "nonexistent_handle_xyz"})
 
 
+class TestDeleteTagKeepsTree:
+    """Regression for #81: deleting one tag must not wipe the tree.
+
+    The old bulk_delete posted a JSON body to POST /objects/delete/, which
+    ignores the body and schedules an async batch delete of EVERY object,
+    completing ~30s after the API returns 200. A delta-based people count with
+    a wait past that window is the only assertion that catches the bug.
+    """
+
+    async def _count_people(self) -> int:
+        """Count people via X-Total-Count on a pagesize=1 list request."""
+        from src.gramps_mcp.client import GrampsWebAPIClient
+        from src.gramps_mcp.config import get_settings
+
+        client = GrampsWebAPIClient()
+        try:
+            settings = get_settings()
+            url = client._build_url(settings.gramps_tree_id, "people/")
+            _, headers = await client._make_request(
+                method="GET",
+                url=url,
+                params={"pagesize": 1},
+                return_headers=True,
+            )
+            return int(headers.get("x-total-count", -1))
+        finally:
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_delete_tag_leaves_other_objects_alone(self):
+        """Create a tag, delete it, assert the people count is unchanged.
+
+        Uses a before/after delta (not an absolute count) so entities left
+        behind by other tests cannot break it. Waits past the old async
+        delete window so the buggy endpoint would be caught, not raced.
+        """
+        import asyncio
+
+        people_before = await self._count_people()
+        assert people_before > 0, "Tree must be seeded before this test"
+
+        result = await upsert_tag_tool(
+            {"name": f"{TEST_PREFIX}DeleteRegression", "color": "#123456"}
+        )
+        tag_handle = extract_handle(result[0].text)
+
+        delete_result = await delete_tool({"type": "tag", "handle": tag_handle})
+        assert "Successfully deleted" in delete_result[0].text
+
+        # Reason: the #81 bug destroyed the tree via a Celery task that
+        # finished ~28s AFTER the delete returned 200. An immediate count
+        # passes even against the buggy code; the wait makes this a real
+        # regression guard. The fixed endpoint is synchronous, so on healthy
+        # code this only costs wall-clock time.
+        await asyncio.sleep(35)
+
+        people_after = await self._count_people()
+        assert people_after == people_before
+
+
 class TestCreateTagTool:
     """Test upsert_tag_tool and list_tags_tool functionality."""
 

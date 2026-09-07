@@ -229,7 +229,8 @@ Bulk operations:
 | Endpoint | Method | Description |
 |---|---|---|
 | `objects/` | POST | Create multiple objects of any type in one request |
-| `objects/delete/` | POST | Delete multiple objects in one request |
+| `objects/delete/` | POST | DANGER: deletes ALL objects when the `namespaces` QUERY arg is absent; ignores any JSON body; async, no undo. Never call from gramps-mcp (#81) |
+| `objects/delete-by-handle/` | POST | Delete listed handles in one namespace (body `{"namespace": ..., "handles": [...]}`; trailing slash required) |
 
 ---
 
@@ -683,7 +684,7 @@ Full GQL documentation is served as MCP resource `gql://documentation`.
 - `metadata/` -- server metadata
 - `types/custom/` -- custom type management
 - `name-formats/`, `name-groups/` -- name display configuration
-- `objects/`, `objects/delete/` -- bulk operations
+- `objects/` -- bulk create (bulk delete is covered via `objects/delete-by-handle/` in `bulk_delete`; raw `objects/delete/` is banned, see #81)
 - `search/index/` -- search index rebuild
 - `media/{h}/face_detection`, `media/{h}/ocr` -- AI media analysis
 - `media/archive/` -- media archive export/import
