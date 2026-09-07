@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.9] - 2026-09-07
+
+### Changed
+
+- The test suite now starts every `make test` run from a pristine tree: `ensure_docker.sh` destroys the containers and volumes, restarts them, and reseeds from the fixture. The per-entity cleanup machinery in `tests/conftest.py` (`HandleRegistry`, the `MCP_TEST_` sweep, the atexit handler, ~420 lines) existed to repair the tree after runs and is deleted; write tests no longer track their entities
+
+### Fixed
+
+- `make docker-seed` is idempotent. It re-imported the fixture on top of an already-seeded tree, doubling every record (2157 people became 4314); it now passes `--skip-if-seeded` and converges. The probe behind `--skip-if-seeded` also changed from "any person exists" to an integrity check on two fixture anchors (person I0001 and repository R0000), so a partially damaged tree triggers a reseed instead of passing as healthy (#77)
+
 ## [3.3.8] - 2026-09-07
 
 ### Fixed
