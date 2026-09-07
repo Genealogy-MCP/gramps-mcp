@@ -6,8 +6,8 @@ save_source, save_citation, save_note, and save_media tools.
 These tests require a working Gramps Web API instance with valid credentials.
 Only tests actual API integration - Pydantic validation is tested elsewhere.
 
-All test entities use the MCP_TEST_ prefix and are tracked in a cleanup
-registry so they are deleted after the session (or on Ctrl+C via atexit).
+All test entities use the MCP_TEST_ prefix. The suite relies on a fresh
+reseed before every run instead of per-entity cleanup.
 """
 
 import re
@@ -53,7 +53,7 @@ class TestCreateNoteTool:
     """Test upsert_note_tool functionality - First in workflow."""
 
     @pytest.mark.asyncio
-    async def test_create_note_success(self, cleanup_registry):
+    async def test_create_note_success(self):
         """Test successful note creation with proper text structure and type."""
         global test_note_handle
 
@@ -76,7 +76,6 @@ class TestCreateNoteTool:
         )
 
         test_note_handle = extract_handle(text)
-        cleanup_registry.track("note", test_note_handle)
 
 
 class TestCreateMediaToolValidation:
@@ -87,7 +86,7 @@ class TestCreateMediaToolValidation:
     """
 
     @pytest.mark.asyncio
-    async def test_update_media_without_file_location(self, cleanup_registry):
+    async def test_update_media_without_file_location(self):
         """Updating an existing media record omitting file_location must succeed."""
         global test_media_handle
 
@@ -101,7 +100,6 @@ class TestCreateMediaToolValidation:
         create_text = create_result[0].text
         assert "successfully" in create_text.lower(), f"Create failed: {create_text}"
         handle = extract_handle(create_text)
-        cleanup_registry.track("media", handle)
 
         # Now update with only desc — no file_location
         update_result = await upsert_media_tool(
@@ -116,7 +114,7 @@ class TestCreateMediaTool:
     """Test upsert_media_tool functionality - Second in workflow."""
 
     @pytest.mark.asyncio
-    async def test_create_media_success(self, cleanup_registry):
+    async def test_create_media_success(self):
         """Test successful media creation with actual file upload."""
         global test_media_handle
 
@@ -142,7 +140,6 @@ class TestCreateMediaTool:
         )
 
         test_media_handle = extract_handle(text)
-        cleanup_registry.track("media", test_media_handle)
 
 
 class TestDownloadMediaTool:
@@ -184,7 +181,7 @@ class TestCreateRepositoryTool:
     """Test upsert_repository_tool functionality - Third in workflow."""
 
     @pytest.mark.asyncio
-    async def test_create_repository_success(self, cleanup_registry):
+    async def test_create_repository_success(self):
         """Test successful repository creation using note handle from previous test."""
         global test_repository_handle, test_note_handle
 
@@ -233,7 +230,6 @@ class TestCreateRepositoryTool:
         handle_match = re.search(r"- \[([^\]]+)\]", text)
         if handle_match:
             test_repository_handle = handle_match.group(1)
-            cleanup_registry.track("repository", test_repository_handle)
         else:
             pytest.fail("Could not extract repository handle for chaining tests")
 
@@ -242,7 +238,7 @@ class TestCreateSourceTool:
     """Test upsert_source_tool functionality - Fourth in workflow."""
 
     @pytest.mark.asyncio
-    async def test_create_source_success(self, cleanup_registry):
+    async def test_create_source_success(self):
         """Test successful source creation using repository and media handles."""
         global \
             test_source_handle, \
@@ -285,14 +281,13 @@ class TestCreateSourceTool:
         )
 
         test_source_handle = extract_handle(text)
-        cleanup_registry.track("source", test_source_handle)
 
 
 class TestCreateCitationTool:
     """Test upsert_citation_tool functionality - Fifth in workflow."""
 
     @pytest.mark.asyncio
-    async def test_create_citation_success(self, cleanup_registry):
+    async def test_create_citation_success(self):
         """Test successful citation creation using source handle."""
         global \
             test_citation_handle, \
@@ -336,14 +331,13 @@ class TestCreateCitationTool:
         )
 
         test_citation_handle = extract_handle(text)
-        cleanup_registry.track("citation", test_citation_handle)
 
 
 class TestCreatePlaceTool:
     """Test upsert_place_tool functionality - Sixth in workflow."""
 
     @pytest.mark.asyncio
-    async def test_create_place_success(self, cleanup_registry):
+    async def test_create_place_success(self):
         """Test successful place creation with proper hierarchy."""
         global test_place_handle
 
@@ -353,7 +347,6 @@ class TestCreatePlaceTool:
         )
 
         country_handle = extract_handle(country_result[0].text)
-        cleanup_registry.track("place", country_handle)
 
         # Create state enclosed by country
         state_result = await upsert_place_tool(
@@ -365,7 +358,6 @@ class TestCreatePlaceTool:
         )
 
         state_handle = extract_handle(state_result[0].text)
-        cleanup_registry.track("place", state_handle)
 
         # Create city enclosed by state
         result = await upsert_place_tool(
@@ -407,14 +399,13 @@ class TestCreatePlaceTool:
         )
 
         test_place_handle = extract_handle(text)
-        cleanup_registry.track("place", test_place_handle)
 
 
 class TestCreateEventTool:
     """Test upsert_event_tool functionality - Seventh in workflow."""
 
     @pytest.mark.asyncio
-    async def test_create_event_success(self, cleanup_registry):
+    async def test_create_event_success(self):
         """Test successful event creation using citation and place handles."""
         global test_event_handle, test_citation_handle, test_place_handle
 
@@ -450,14 +441,13 @@ class TestCreateEventTool:
         )
 
         test_event_handle = extract_handle(text)
-        cleanup_registry.track("event", test_event_handle)
 
 
 class TestCreatePersonTool:
     """Test upsert_person_tool functionality - Eighth in workflow."""
 
     @pytest.mark.asyncio
-    async def test_create_person_success(self, cleanup_registry):
+    async def test_create_person_success(self):
         """Test successful person creation using proper structure and linking events."""
         global \
             test_person_handles, \
@@ -514,10 +504,9 @@ class TestCreatePersonTool:
 
         john_handle = extract_handle(text)
         test_person_handles.append(john_handle)
-        cleanup_registry.track("person", john_handle)
 
     @pytest.mark.asyncio
-    async def test_update_person_with_event_reference(self, cleanup_registry):
+    async def test_update_person_with_event_reference(self):
         """Test updating an existing person with a new event reference - Issue #9."""
         # Step 1: Create a standalone test person
         person_result = await upsert_person_tool(
@@ -533,28 +522,24 @@ class TestCreatePersonTool:
         )
 
         person_handle = extract_handle(person_result[0].text)
-        cleanup_registry.track("person", person_handle)
 
         # Step 2: Create a simple note for our citation
         note_result = await upsert_note_tool(
             {"text": f"{TEST_PREFIX}note for Issue #9 update test", "type": "General"}
         )
-        note_handle = extract_handle(note_result[0].text)
-        cleanup_registry.track("note", note_handle)
+        extract_handle(note_result[0].text)
 
         # Step 3: Create a simple source
         source_result = await upsert_source_tool(
             {"title": f"{TEST_PREFIX}Source for Issue 9"}
         )
         source_handle = extract_handle(source_result[0].text)
-        cleanup_registry.track("source", source_handle)
 
         # Step 4: Create a citation
         citation_result = await upsert_citation_tool(
             {"source_handle": source_handle, "page": f"{TEST_PREFIX}Test Page"}
         )
         citation_handle = extract_handle(citation_result[0].text)
-        cleanup_registry.track("citation", citation_handle)
 
         # Step 5: Create first event (Birth)
         birth_event_result = await upsert_event_tool(
@@ -567,7 +552,6 @@ class TestCreatePersonTool:
         )
 
         birth_event_handle = extract_handle(birth_event_result[0].text)
-        cleanup_registry.track("event", birth_event_handle)
 
         # Step 6: Update person with first event
         await upsert_person_tool(
@@ -595,7 +579,6 @@ class TestCreatePersonTool:
         )
 
         death_event_handle = extract_handle(death_event_result[0].text)
-        cleanup_registry.track("event", death_event_handle)
 
         # Step 8: Update person with BOTH events (issue #9 scenario)
         update_result = await upsert_person_tool(
@@ -626,7 +609,7 @@ class TestCreatePersonTool:
         assert "Death" in text, f"Expected Death event in output but got: {text}"
 
     @pytest.mark.asyncio
-    async def test_create_second_person_success(self, cleanup_registry):
+    async def test_create_second_person_success(self):
         """Test creation of second person for family test."""
         global test_person_handles, test_media_handle, test_note_handle
 
@@ -672,14 +655,13 @@ class TestCreatePersonTool:
 
         mary_handle = extract_handle(text)
         test_person_handles.append(mary_handle)
-        cleanup_registry.track("person", mary_handle)
 
 
 class TestCreateFamilyTool:
     """Test upsert_family_tool functionality - Last in workflow."""
 
     @pytest.mark.asyncio
-    async def test_create_family_success(self, cleanup_registry):
+    async def test_create_family_success(self):
         """Test successful family creation using person handles from previous tests."""
         global test_person_handles, test_media_handle, test_note_handle
 
@@ -726,39 +708,34 @@ class TestCreateFamilyTool:
             f"Expected URL description in output but got: {text}"
         )
 
-        family_handle = extract_handle(text)
-        cleanup_registry.track("family", family_handle)
+        extract_handle(text)
 
 
 class TestListModeReplace:
     """Test list_mode='replace' behavior on update operations."""
 
     @pytest.mark.asyncio
-    async def test_replace_note_list_on_event(self, cleanup_registry):
+    async def test_replace_note_list_on_event(self):
         """Test that list_mode='replace' overwrites note_list instead of merging."""
         # Create two notes
         note1_result = await upsert_note_tool(
             {"text": f"{TEST_PREFIX}First note for list_mode test", "type": "General"}
         )
         note1_handle = extract_handle(note1_result[0].text)
-        cleanup_registry.track("note", note1_handle)
 
         note2_result = await upsert_note_tool(
             {"text": f"{TEST_PREFIX}Second note for list_mode test", "type": "General"}
         )
         note2_handle = extract_handle(note2_result[0].text)
-        cleanup_registry.track("note", note2_handle)
 
         # Create a source and citation for the event (required)
         source_result = await upsert_source_tool(
             {"title": f"{TEST_PREFIX}Source for list_mode test"}
         )
         source_handle = extract_handle(source_result[0].text)
-        cleanup_registry.track("source", source_handle)
 
         citation_result = await upsert_citation_tool({"source_handle": source_handle})
         citation_handle = extract_handle(citation_result[0].text)
-        cleanup_registry.track("citation", citation_handle)
 
         # Create event with first note
         event_result = await upsert_event_tool(
@@ -772,7 +749,6 @@ class TestListModeReplace:
         event_text = event_result[0].text
         assert "Error:" not in event_text
         event_handle = extract_handle(event_text)
-        cleanup_registry.track("event", event_handle)
 
         # Update event with second note only, using list_mode='replace'
         replace_result = await upsert_event_tool(
@@ -848,9 +824,8 @@ class TestPersonAssociations:
             await client.close()
 
     @pytest.mark.asyncio
-    async def test_create_person_with_association(self, cleanup_registry):
+    async def test_create_person_with_association(self):
         cousin = await self._create_person("Cousin", "Assoc")
-        cleanup_registry.track("person", cousin)
 
         result = await upsert_person_tool(
             {
@@ -865,18 +840,15 @@ class TestPersonAssociations:
         text = result[0].text
         assert "Error:" not in text
         main = extract_handle(text)
-        cleanup_registry.track("person", main)
 
         data = await self._get_person(main)
         refs = data.get("person_ref_list", [])
         assert any(r.get("ref") == cousin for r in refs)
 
     @pytest.mark.asyncio
-    async def test_merge_appends_association(self, cleanup_registry):
+    async def test_merge_appends_association(self):
         cousin = await self._create_person("MergeCousin", "Assoc")
         godparent = await self._create_person("MergeGod", "Assoc")
-        cleanup_registry.track("person", cousin)
-        cleanup_registry.track("person", godparent)
 
         create = await upsert_person_tool(
             {
@@ -889,7 +861,6 @@ class TestPersonAssociations:
             }
         )
         main = extract_handle(create[0].text)
-        cleanup_registry.track("person", main)
 
         await upsert_person_tool(
             {
@@ -902,11 +873,9 @@ class TestPersonAssociations:
         assert cousin in refs and godparent in refs
 
     @pytest.mark.asyncio
-    async def test_replace_overwrites_associations(self, cleanup_registry):
+    async def test_replace_overwrites_associations(self):
         cousin = await self._create_person("ReplCousin", "Assoc")
         godparent = await self._create_person("ReplGod", "Assoc")
-        cleanup_registry.track("person", cousin)
-        cleanup_registry.track("person", godparent)
 
         create = await upsert_person_tool(
             {
@@ -919,7 +888,6 @@ class TestPersonAssociations:
             }
         )
         main = extract_handle(create[0].text)
-        cleanup_registry.track("person", main)
 
         await upsert_person_tool(
             {
@@ -1027,7 +995,7 @@ class TestCreateTagTool:
     """Test upsert_tag_tool and list_tags_tool functionality."""
 
     @pytest.mark.asyncio
-    async def test_create_tag_success(self, cleanup_registry):
+    async def test_create_tag_success(self):
         """Test successful tag creation with name and color."""
         result = await upsert_tag_tool(
             {"name": f"{TEST_PREFIX}Tag", "color": "#FF5733", "priority": 5}
@@ -1041,7 +1009,6 @@ class TestCreateTagTool:
         assert "#FF5733" in text
 
         tag_handle = extract_handle(text)
-        cleanup_registry.track("tag", tag_handle)
 
         # Update should raise error (API 3.x doesn't support tag PUT)
         with pytest.raises(McpToolError):
@@ -1074,7 +1041,7 @@ class TestUpsertNoteViaExecuteOperation:
     """
 
     @pytest.mark.asyncio
-    async def test_create_note_via_execute_operation(self, cleanup_registry):
+    async def test_create_note_via_execute_operation(self):
         """Note creation via execute_operation succeeds with correct text."""
         from mcp_codemode import execute_operation
 
@@ -1097,11 +1064,10 @@ class TestUpsertNoteViaExecuteOperation:
         assert "successfully" in text.lower()
         assert f"{TEST_PREFIX}execute_operation dispatch test note" in text
 
-        handle = extract_handle(text)
-        cleanup_registry.track("note", handle)
+        extract_handle(text)
 
     @pytest.mark.asyncio
-    async def test_update_note_via_execute_operation(self, cleanup_registry):
+    async def test_update_note_via_execute_operation(self):
         """Note update via execute_operation succeeds with new text."""
         from mcp_codemode import execute_operation
 
@@ -1123,7 +1089,6 @@ class TestUpsertNoteViaExecuteOperation:
         create_text = create_result[0].text
         assert "successfully" in create_text.lower(), f"Create failed: {create_text}"
         handle = extract_handle(create_text)
-        cleanup_registry.track("note", handle)
 
         # Update via the same dispatch path
         update_result = await execute_operation(

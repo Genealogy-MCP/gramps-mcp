@@ -43,7 +43,7 @@ docker-down: ## Stop and remove test containers and volumes
 	docker compose -f docker-compose.test.yml down -v
 
 docker-seed: ## Seed the running test instance with fixture data
-	uv run python scripts/seed_test_db.py
+	uv run python scripts/seed_test_db.py --skip-if-seeded
 
 coverage: ## Generate HTML coverage report
 	uv run pytest --cov-report=html $(PYTEST_ARGS)

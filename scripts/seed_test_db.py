@@ -10,7 +10,7 @@ the vendored seed.gramps fixture, and rebuilds the search index.
 
 Usage:
     python scripts/seed_test_db.py [--base-url URL] [--timeout SECONDS]
-    python scripts/seed_test_db.py --skip-if-seeded  # fast path for warm Docker
+    python scripts/seed_test_db.py --skip-if-seeded  # no-op when integrity probe passes
 """
 
 import argparse
@@ -140,40 +140,38 @@ def authenticate(base_url: str, username: str, password: str) -> str:
 
 def is_already_seeded(base_url: str, token: str) -> bool:
     """
-    Check whether the test database contains queryable seed data.
+    Integrity-probe the test database for intact seed data.
 
-    Verifies both that data exists (I0001 via GQL) and that the API
-    can serve list queries (people list returns HTTP 200). The second
-    check catches a Gramps Web SQLite corruption state where data
-    exists but list endpoints return HTTP 500.
+    A bare "any person exists" check reads a partially damaged tree as
+    seeded, so this probes two specific anchor records from the fixture:
+    person I0001 and repository R0000. Both must resolve over a healthy
+    (HTTP 200) API for the tree to count as seeded; anything else means
+    the caller should reset and reseed.
 
     Args:
         base_url: Gramps Web base URL.
         token: JWT access token.
 
     Returns:
-        True if seed data is present and the API is healthy.
+        True if both anchor records are present and the API is healthy.
     """
     headers = {"Authorization": f"Bearer {token}"}
+    probes = [
+        ("person I0001", f"{base_url}/api/people/?gramps_id=I0001"),
+        ("repository R0000", f"{base_url}/api/repositories/?gramps_id=R0000"),
+    ]
     try:
-        # Verify list endpoint is healthy (catches post-cleanup 500s)
-        list_resp = httpx.get(
-            f"{base_url}/api/people/?pagesize=1",
-            headers=headers,
-            timeout=10,
-        )
-        if list_resp.status_code != 200:
-            print(f"  API unhealthy (HTTP {list_resp.status_code} on list)")
-            return False
-
-        data = list_resp.json()
-        if not data:
-            return False
-
+        for label, url in probes:
+            resp = httpx.get(url, headers=headers, timeout=10)
+            if resp.status_code != 200:
+                print(f"  Integrity probe: HTTP {resp.status_code} on {label}")
+                return False
+            if not resp.json():
+                print(f"  Integrity probe: {label} missing")
+                return False
         return True
-    except (httpx.ConnectError, httpx.ReadTimeout):
-        pass
-    return False
+    except httpx.TransportError:
+        return False
 
 
 def poll_task(
@@ -333,31 +331,21 @@ def ensure_tree_exists(base_url: str, token: str) -> None:
 
 def verify_data(base_url: str, token: str) -> None:
     """
-    Verify the seed data is queryable by fetching person I0001.
+    Verify the seed data is queryable via the same anchors as the probe.
 
     Args:
         base_url: Gramps Web base URL.
         token: JWT access token.
 
     Raises:
-        SystemExit: If verification fails.
+        SystemExit: If either anchor record is missing.
     """
-    headers = {"Authorization": f"Bearer {token}"}
-    resp = httpx.get(
-        f"{base_url}/api/people/?gramps_id=I0001",
-        headers=headers,
-        timeout=10,
-    )
-    if resp.status_code != 200:
-        print(f"Verification failed ({resp.status_code}): {resp.text}", file=sys.stderr)
-        sys.exit(1)
-    data = resp.json()
-    if not data:
+    if not is_already_seeded(base_url, token):
         print(
-            "Verification failed: person I0001 not found after import", file=sys.stderr
+            "Verification failed: anchor records missing after import", file=sys.stderr
         )
         sys.exit(1)
-    print(f"Verified: person I0001 found ({len(data)} result(s))")
+    print("Verified: anchor records I0001 and R0000 found")
 
 
 def main() -> None:
@@ -384,7 +372,7 @@ def main() -> None:
     parser.add_argument(
         "--skip-if-seeded",
         action="store_true",
-        help="Exit early if seed data already present (fast path for warm Docker)",
+        help="Exit early if the integrity probe (I0001 + R0000) passes",
     )
     args = parser.parse_args()
 
@@ -401,7 +389,7 @@ def main() -> None:
     token = authenticate(args.base_url, args.username, args.password)
 
     if args.skip_if_seeded and is_already_seeded(args.base_url, token):
-        print("Seed data already present (I0001 found) -- skipping import")
+        print("Seed data intact (I0001 + R0000 found) -- skipping import")
         return
 
     # Warm up: ensure tree exists in the web process, then trigger a Celery
