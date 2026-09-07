@@ -29,7 +29,7 @@ class TestFamilyChildRoundTrip:
     """Create family with child_handles and verify via GET."""
 
     @pytest.mark.asyncio
-    async def test_create_family_with_child_round_trip(self, cleanup_registry):
+    async def test_create_family_with_child_round_trip(self):
         """child_handles on create produces correct child_ref_list on GET."""
         person_result = await upsert_person_tool(
             {
@@ -43,13 +43,11 @@ class TestFamilyChildRoundTrip:
             }
         )
         person_handle = extract_handle(person_result[0].text)
-        cleanup_registry.track("person", person_handle)
 
         family_result = await upsert_family_tool({"child_handles": [person_handle]})
         family_text = family_result[0].text
         assert "Error:" not in family_text, f"Expected success: {family_text}"
         family_handle = extract_handle(family_text)
-        cleanup_registry.track("family", family_handle)
 
         client = GrampsWebAPIClient()
         try:
@@ -71,7 +69,7 @@ class TestFamilyChildRoundTrip:
             await client.close()
 
     @pytest.mark.asyncio
-    async def test_clear_children_via_replace_mode(self, cleanup_registry):
+    async def test_clear_children_via_replace_mode(self):
         """Empty child_handles with replace mode clears child_ref_list."""
         person_result = await upsert_person_tool(
             {
@@ -85,11 +83,9 @@ class TestFamilyChildRoundTrip:
             }
         )
         person_handle = extract_handle(person_result[0].text)
-        cleanup_registry.track("person", person_handle)
 
         family_result = await upsert_family_tool({"child_handles": [person_handle]})
         family_handle = extract_handle(family_result[0].text)
-        cleanup_registry.track("family", family_handle)
 
         update_result = await upsert_family_tool(
             {
@@ -121,7 +117,7 @@ class TestMergeCompositeIdentityRoundTrip:
     """End-to-end guards for composite-identity merge dedup (Issue #32)."""
 
     @pytest.mark.asyncio
-    async def test_re_put_same_child_is_idempotent(self, cleanup_registry):
+    async def test_re_put_same_child_is_idempotent(self):
         """Re-PUT the same child via child_handles leaves exactly one child ref.
 
         Guards the enriched-existing vs minimal-new asymmetry: the stored child
@@ -140,11 +136,9 @@ class TestMergeCompositeIdentityRoundTrip:
             }
         )
         person_handle = extract_handle(person_result[0].text)
-        cleanup_registry.track("person", person_handle)
 
         family_result = await upsert_family_tool({"child_handles": [person_handle]})
         family_handle = extract_handle(family_result[0].text)
-        cleanup_registry.track("family", family_handle)
 
         # Re-PUT the same child; merge must not append a duplicate.
         re_put = await upsert_family_tool(
@@ -170,7 +164,7 @@ class TestMergeCompositeIdentityRoundTrip:
             await client.close()
 
     @pytest.mark.asyncio
-    async def test_media_ref_distinct_rects_both_survive(self, cleanup_registry):
+    async def test_media_ref_distinct_rects_both_survive(self):
         """Merge-PUT same media ref with a different rect: both crops survive."""
         media_result = await upsert_media_tool(
             {
@@ -179,7 +173,6 @@ class TestMergeCompositeIdentityRoundTrip:
             }
         )
         media_handle = extract_handle(media_result[0].text)
-        cleanup_registry.track("media", media_handle)
 
         person_result = await upsert_person_tool(
             {
@@ -194,7 +187,6 @@ class TestMergeCompositeIdentityRoundTrip:
             }
         )
         person_handle = extract_handle(person_result[0].text)
-        cleanup_registry.track("person", person_handle)
 
         update = await upsert_person_tool(
             {

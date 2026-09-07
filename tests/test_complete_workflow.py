@@ -11,8 +11,8 @@ Tests the full workflow described in gramps-usage-guide.md:
 
 This test follows the example workflow: Processing a Marriage Record.
 
-All test entities use the MCP_TEST_ prefix and are tracked in a cleanup
-registry so they are deleted after the session (or on Ctrl+C via atexit).
+All test entities use the MCP_TEST_ prefix. The suite relies on a fresh
+reseed before every run instead of per-entity cleanup.
 """
 
 import re
@@ -65,7 +65,7 @@ class TestCompleteWorkflow:
     """
 
     @pytest.mark.asyncio
-    async def test_complete_marriage_record_workflow(self, cleanup_registry):
+    async def test_complete_marriage_record_workflow(self):
         """
         Test the complete workflow by processing a marriage record.
 
@@ -73,7 +73,7 @@ class TestCompleteWorkflow:
         MCP_TEST_Jones on June 15, 1878 at MCP_TEST_ St Marys Church Boston
         from MCP_TEST_ Marriage Register 1875-1880.
         """
-        workflow_data = {"_registry": cleanup_registry}
+        workflow_data = {}
 
         # Step 1: Repository Creation
         await self._step_1_repository_creation(workflow_data)
@@ -111,14 +111,14 @@ class TestCompleteWorkflow:
         print("Workflow completed successfully - all entities created and linked!")
 
     @pytest.mark.asyncio
-    async def test_place_hierarchy_creation(self, cleanup_registry):
+    async def test_place_hierarchy_creation(self):
         """
         Test place creation with proper hierarchy as described in usage guide.
 
         Creates the complete place hierarchy:
         Country -> State -> City -> Church
         """
-        workflow_data = {"_registry": cleanup_registry}
+        workflow_data = {}
 
         await self._create_place_hierarchy(workflow_data)
 
@@ -134,11 +134,11 @@ class TestCompleteWorkflow:
         print(f"  Church: {workflow_data['church_handle']}")
 
     @pytest.mark.asyncio
-    async def test_all_entity_attributes_comprehensive(self, cleanup_registry):
+    async def test_all_entity_attributes_comprehensive(self):
         """
         Test comprehensive entity creation with all attributes from usage guide.
         """
-        workflow_data = {"_registry": cleanup_registry}
+        workflow_data = {}
 
         # Test Note creation
         note_handle = await self._create_test_note(
@@ -184,7 +184,6 @@ class TestCompleteWorkflow:
         repo_match = re.search(r"\[([a-f0-9]+)\]", repo_text)
         assert repo_match, f"No repository handle found in: {repo_text}"
         workflow_data["test_repository_handle"] = repo_match.group(1)
-        cleanup_registry.track("source", workflow_data["test_repository_handle"])
         print(
             "Repository created with all attributes:"
             f" {workflow_data['test_repository_handle']}"
@@ -208,7 +207,6 @@ class TestCompleteWorkflow:
         source_match = re.search(r"\[([a-f0-9]+)\]", source_text)
         assert source_match, f"No source handle found in: {source_text}"
         workflow_data["test_source_handle"] = source_match.group(1)
-        cleanup_registry.track("source", workflow_data["test_source_handle"])
         print(
             f"Source created with all attributes: {workflow_data['test_source_handle']}"
         )
@@ -243,7 +241,6 @@ class TestCompleteWorkflow:
 
     async def _step_1_repository_creation(self, workflow_data: Dict[str, Any]):
         """Step 1: Repository Creation following usage guide."""
-        registry = workflow_data["_registry"]
 
         # First: search for existing repository
         find_result = await search_repository_tool(
@@ -284,11 +281,9 @@ class TestCompleteWorkflow:
             handle_match = re.search(r"\[([^\]]+)\]", create_text)
             assert handle_match, f"No handle found in: {create_text}"
             workflow_data["repository_handle"] = handle_match.group(1)
-            registry.track("repository", workflow_data["repository_handle"])
 
     async def _step_2_source_creation(self, workflow_data: Dict[str, Any]):
         """Step 2: Source Document Creation following usage guide."""
-        registry = workflow_data["_registry"]
 
         find_result = await search_source_tool(
             {"query": f"{TEST_PREFIX}Marriage Register 1875-1880", "pagesize": 5}
@@ -323,11 +318,9 @@ class TestCompleteWorkflow:
             handle_match = re.search(r"\[([a-f0-9]+)\]", create_text)
             assert handle_match, f"No handle found in: {create_text}"
             workflow_data["source_handle"] = handle_match.group(1)
-            registry.track("source", workflow_data["source_handle"])
 
     async def _step_3_citation_creation(self, workflow_data: Dict[str, Any]):
         """Step 3: Citation Creation following usage guide."""
-        registry = workflow_data["_registry"]
 
         note_handle = await self._create_test_note(
             workflow_data,
@@ -389,11 +382,9 @@ class TestCompleteWorkflow:
             handle_match = re.search(r"\[([a-f0-9]+)\]", create_text)
             assert handle_match, f"No handle found in: {create_text}"
             workflow_data["citation_handle"] = handle_match.group(1)
-            registry.track("citation", workflow_data["citation_handle"])
 
     async def _step_4_event_creation(self, workflow_data: Dict[str, Any]):
         """Step 4: Event Creation with place and date following usage guide."""
-        registry = workflow_data["_registry"]
 
         await self._create_place_hierarchy(workflow_data)
 
@@ -441,7 +432,6 @@ class TestCompleteWorkflow:
                 event_handle = None
             assert event_handle, f"No handle found in: {create_text}"
             workflow_data["event_handle"] = event_handle
-            registry.track("event", event_handle)
 
     async def _step_5_person_creation(self, workflow_data: Dict[str, Any]):
         """Step 5: Person Creation and Event Linking following usage guide."""
@@ -471,7 +461,6 @@ class TestCompleteWorkflow:
 
     async def _step_6_family_creation(self, workflow_data: Dict[str, Any]):
         """Step 6: Family Unit Creation following usage guide."""
-        registry = workflow_data["_registry"]
 
         find_result = await search_family_tool(
             {
@@ -507,7 +496,6 @@ class TestCompleteWorkflow:
             handle_match = re.search(r"\[([a-f0-9]+)\]", create_text)
             assert handle_match, f"No handle found in: {create_text}"
             workflow_data["family_handle"] = handle_match.group(1)
-            registry.track("family", workflow_data["family_handle"])
 
     async def _create_or_find_person_with_attributes(
         self,
@@ -521,7 +509,6 @@ class TestCompleteWorkflow:
         event_role: str,
     ) -> str:
         """Create or find a person with complete attributes."""
-        registry = workflow_data["_registry"]
 
         person_note_handle = await self._create_test_note(
             workflow_data,
@@ -589,7 +576,6 @@ class TestCompleteWorkflow:
             handle_match = re.search(r"\[([a-f0-9]+)\]", create_text)
             assert handle_match, f"No handle found in: {create_text}"
             person_handle = handle_match.group(1)
-            registry.track("person", person_handle)
             return person_handle
 
     async def _create_place_hierarchy(self, workflow_data: Dict[str, Any]):
@@ -625,7 +611,6 @@ class TestCompleteWorkflow:
         enclosed_by_handle: str = None,
     ) -> str:
         """Create or find a place following the workflow guidelines."""
-        registry = workflow_data["_registry"]
 
         find_result = await search_place_tool({"query": name, "pagesize": 5})
 
@@ -666,14 +651,12 @@ class TestCompleteWorkflow:
             handle_match = re.search(r"\[([a-f0-9]+)\]", create_text)
             assert handle_match, f"No handle found in: {create_text}"
             place_handle = handle_match.group(1)
-            registry.track("place", place_handle)
             return place_handle
 
     async def _create_test_note(
         self, workflow_data: Dict[str, Any], text: str, note_type: str
     ) -> str:
-        """Create a test note and track it for cleanup."""
-        registry = workflow_data["_registry"]
+        """Create a test note."""
 
         create_result = await upsert_note_tool({"text": text, "type": note_type})
 
@@ -682,7 +665,6 @@ class TestCompleteWorkflow:
         handle_match = re.search(r"\[([a-f0-9]+)\]", create_text)
         assert handle_match, f"No handle found in: {create_text}"
         note_handle = handle_match.group(1)
-        registry.track("note", note_handle)
         return note_handle
 
     async def _create_test_media(
@@ -692,8 +674,7 @@ class TestCompleteWorkflow:
         title: str,
         date_info: Dict[str, Any],
     ) -> str:
-        """Create a test media item and track it for cleanup."""
-        registry = workflow_data["_registry"]
+        """Create a test media item."""
 
         create_result = await upsert_media_tool(
             {
@@ -717,5 +698,4 @@ class TestCompleteWorkflow:
         handle_match = re.search(r"\[([a-f0-9]+)\]", create_text)
         assert handle_match, f"No handle found in: {create_text}"
         media_handle = handle_match.group(1)
-        registry.track("media", media_handle)
         return media_handle

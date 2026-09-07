@@ -74,9 +74,9 @@ When debugging search or execute behavior, look in mcp-codemode, not in this rep
 - **After updating any logic**, check whether existing tests need to be updated. If so, do it.
 - **Tests should live in a `/tests` folder** mirroring the main app structure.
 - **Run tests frequently during development** using `uv run pytest` or `uv run pytest -xvs` for verbose output.
-- **Integration tests require Docker**: Run `make test` to automatically start Docker containers and seed them if available. Without Docker, integration tests auto-skip locally (but fail in CI via `REQUIRE_INTEGRATION=1`). Use `make docker-down` to stop containers when done. Containers are left running between test runs for speed.
+- **Integration tests require Docker**: Run `make test` to automatically start Docker containers and seed them if available. Without Docker, integration tests auto-skip locally (but fail in CI via `REQUIRE_INTEGRATION=1`). Every `make test` run resets the containers and volumes and reseeds from the fixture, so the suite always starts from a pristine tree (issue #77). Use `make docker-down` to stop containers when done.
 - **Mark all tests that hit the API** with `@pytest.mark.integration` (or `pytestmark = pytest.mark.integration` at module level). Unit tests must never require Docker.
-- **Test data**: The seed fixture (`tests/fixtures/seed.gramps`) contains 2,157 people from the Gramps project's example dataset. Write tests create `MCP_TEST_`-prefixed entities and clean up after.
+- **Test data**: The seed fixture (`tests/fixtures/seed.gramps`) contains 2,157 people from the Gramps project's example dataset. Write tests create `MCP_TEST_`-prefixed entities; the per-run reset (not per-test cleanup) restores the pristine tree.
 
 
 ### Style & Conventions
