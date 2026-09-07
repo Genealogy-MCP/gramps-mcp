@@ -13,11 +13,11 @@ API calls supported in this category:
 - DELETE_PLACE: Delete the place
 """
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import Field, model_validator
 
-from .base_params import BaseGetMultipleParams, BaseGetSingleParams
+from .base_params import BaseDataModel, BaseGetMultipleParams, BaseGetSingleParams
 
 
 class PlaceSearchParams(BaseGetMultipleParams):
@@ -32,15 +32,9 @@ class PlaceDetailsParams(BaseGetSingleParams):
     pass
 
 
-class PlaceSaveParams(BaseModel):
+class PlaceSaveParams(BaseDataModel):
     """Parameters for creating or updating a place."""
 
-    handle: Optional[str] = Field(
-        None, min_length=8, description="Place handle (for updates; omit for new place)"
-    )
-    gramps_id: Optional[str] = Field(
-        None, description="Alternate user managed identifier"
-    )
     name: Optional[dict] = Field(
         None, description="Place name object with 'value' field"
     )
@@ -68,19 +62,14 @@ class PlaceSaveParams(BaseModel):
     lat: Optional[str] = Field(None, description="Latitude coordinate")
     long: Optional[str] = Field(None, description="Longitude coordinate")
     urls: Optional[List[dict]] = Field(None, description="Associated URLs")
-    media_list: Optional[List[Dict[str, Any]]] = Field(
-        None, description="List of media references (e.g. [{'ref': 'handle'}])"
-    )
     citation_list: Optional[List[str]] = Field(
         None, description="List of citation handles"
     )
-    note_list: Optional[List[str]] = Field(None, description="List of note handles")
-    tag_list: Optional[List[str]] = Field(None, description="List of tag handles")
-    private: Optional[bool] = Field(None, description="Mark as private")
-    list_mode: Optional[Literal["merge", "replace"]] = Field(
-        default="merge",
-        description=(
-            'List field behavior on update: "merge" (default) appends '
-            'with dedup, "replace" overwrites'
-        ),
-    )
+
+    def to_api_payload(self) -> Dict[str, Any]:
+        """Return API-ready dict with alt_names wrapped as PlaceName objects."""
+        data = super().to_api_payload()
+        alt_names = data.get("alt_names")
+        if alt_names is not None:
+            data["alt_names"] = [{"value": n} for n in alt_names]
+        return data

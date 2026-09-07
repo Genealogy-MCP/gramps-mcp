@@ -6,6 +6,7 @@
 from src.gramps_mcp.models.parameters.base_params import BaseDataModel
 from src.gramps_mcp.models.parameters.family_params import FamilySaveParams
 from src.gramps_mcp.models.parameters.note_params import NoteSaveParams
+from src.gramps_mcp.models.parameters.place_params import PlaceSaveParams
 
 
 class TestBaseDataModelToApiPayload:
@@ -40,6 +41,26 @@ class TestBaseDataModelToApiPayload:
     def test_note_save_params_inherits_base_data_model(self) -> None:
         """NoteSaveParams is a BaseDataModel subclass."""
         assert issubclass(NoteSaveParams, BaseDataModel)
+
+    def test_place_save_params_inherits_base_data_model(self) -> None:
+        """PlaceSaveParams is a BaseDataModel subclass, so client.py dispatches
+        to to_api_payload() instead of raw model_dump()."""
+        assert issubclass(PlaceSaveParams, BaseDataModel)
+
+    def test_place_save_params_wraps_alt_names(self) -> None:
+        """alt_names strings become PlaceName objects the Gramps API accepts."""
+        model = PlaceSaveParams(
+            name={"value": "Piedimonte Matese"},
+            place_type="City",
+            alt_names=["Piedimonte d'Alife"],
+        )
+        result = model.to_api_payload()
+        assert result["alt_names"] == [{"value": "Piedimonte d'Alife"}]
+
+    def test_place_save_params_alt_names_omitted_when_unset(self) -> None:
+        """No alt_names means no alt_names key in the payload."""
+        model = PlaceSaveParams(name={"value": "Napoli"}, place_type="City")
+        assert "alt_names" not in model.to_api_payload()
 
     def test_none_fields_excluded_from_payload(self) -> None:
         """to_api_payload() excludes None fields."""

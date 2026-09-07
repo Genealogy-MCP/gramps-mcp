@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.10] - 2026-09-07
+
+### Fixed
+
+- `upsert_place` can set alternate place names again. `PlaceSaveParams` extended plain `BaseModel`, so `client.py` skipped the `to_api_payload()` hook it dispatches on `BaseDataModel` instances, and each `alt_names` entry reached the API as a raw string instead of a `PlaceName` object; every such request returned `400`. `PlaceSaveParams` now extends `BaseDataModel`, drops the `handle`, `gramps_id`, `note_list`, `media_list`, `tag_list`, `private`, and `list_mode` fields it was redeclaring, and wraps each `alt_names` string into `{"value": ...}` in its `to_api_payload()` override (#61)
+
 ## [3.3.9] - 2026-09-07
 
 ### Changed
