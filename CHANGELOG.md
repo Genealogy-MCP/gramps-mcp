@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.7] - 2026-09-07
+
+### Fixed
+
+- The test suite no longer pairs shell-inherited `GRAMPS_USERNAME`/`GRAMPS_PASSWORD` with the local Docker URL. The three variables address one instance, so they now resolve as a group: with no `GRAMPS_API_URL` set, the suite uses the local seed credentials and prints which inherited variables it ignored. A password exported for the live instance used to make the local seed answer `403` and fail 62 integration tests with "Invalid username or password" (#80)
+
 ## [3.3.6] - 2026-09-06
 
 ### Fixed
