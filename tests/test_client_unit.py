@@ -732,44 +732,50 @@ class TestBulkDelete:
         return client
 
     @pytest.mark.asyncio
-    async def test_rejects_empty_list(self):
-        """Empty items list raises ValueError."""
+    async def test_rejects_empty_handles(self):
+        """Empty handles list raises ValueError."""
         client = self._make_client()
         with pytest.raises(ValueError, match="non-empty"):
-            await client.bulk_delete(items=[])
+            await client.bulk_delete(namespace="tags", handles=[])
 
     @pytest.mark.asyncio
-    async def test_rejects_malformed_items(self):
-        """Items missing _class or handle raise ValueError."""
+    async def test_rejects_empty_namespace(self):
+        """Empty namespace raises ValueError."""
         client = self._make_client()
-        with pytest.raises(ValueError, match="_class"):
-            await client.bulk_delete(items=[{"handle": "h1"}])
+        with pytest.raises(ValueError, match="namespace"):
+            await client.bulk_delete(namespace="", handles=["h1"])
 
     @pytest.mark.asyncio
-    async def test_rejects_non_dict_items(self):
-        """Non-dict items raise ValueError."""
+    async def test_rejects_non_string_handles(self):
+        """Non-string or empty handles raise ValueError."""
         client = self._make_client()
-        with pytest.raises(ValueError, match="_class"):
-            await client.bulk_delete(items=["not a dict"])
+        with pytest.raises(ValueError, match="handle"):
+            await client.bulk_delete(namespace="tags", handles=[{"handle": "h1"}])
+        with pytest.raises(ValueError, match="handle"):
+            await client.bulk_delete(namespace="tags", handles=[""])
 
     @pytest.mark.asyncio
     async def test_builds_correct_request(self):
-        """Successful call posts to objects/delete/ with correct payload."""
+        """Posts to objects/delete-by-handle/ with a namespaced JSON body.
+
+        The URL must keep its trailing slash (a 308 redirect would drop the
+        POST body) and must never be objects/delete/, which ignores the body
+        and deletes the whole tree (#81).
+        """
         client = self._make_client()
         client._make_request = AsyncMock(return_value={})
 
-        await client.bulk_delete(
-            items=[{"_class": "Tag", "handle": "t1"}], tree_id="mytree"
-        )
+        await client.bulk_delete(namespace="tags", handles=["t1"], tree_id="mytree")
 
         client._make_request.assert_called_once()
         call_kwargs = client._make_request.call_args
         method = call_kwargs.kwargs.get("method") or call_kwargs.args[0]
         assert method == "POST"
         url = call_kwargs.kwargs.get("url") or call_kwargs.args[1]
-        assert "objects/delete/" in url
+        assert url.endswith("objects/delete-by-handle/")
+        assert "objects/delete/" not in url
         json_data = call_kwargs.kwargs.get("json_data")
-        assert json_data == [{"_class": "Tag", "handle": "t1"}]
+        assert json_data == {"namespace": "tags", "handles": ["t1"]}
 
 
 # ---------------------------------------------------------------------------

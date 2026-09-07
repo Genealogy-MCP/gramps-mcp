@@ -325,7 +325,8 @@ class HandleRegistry:
                         if entity_type == "tag":
                             try:
                                 await client.bulk_delete(
-                                    items=[{"_class": "Tag", "handle": handle}],
+                                    namespace="tags",
+                                    handles=[handle],
                                     tree_id=tree_id,
                                 )
                                 logger.info(
@@ -542,7 +543,7 @@ async def sweep_test_artifacts() -> int:
         for handle in to_delete.get("tag", []):
             try:
                 await client.bulk_delete(
-                    items=[{"_class": "Tag", "handle": handle}], tree_id=tree_id
+                    namespace="tags", handles=[handle], tree_id=tree_id
                 )
                 deleted_count += 1
                 logger.info(f"Swept tag [{handle}]")

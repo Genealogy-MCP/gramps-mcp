@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.8] - 2026-09-07
+
+### Fixed
+
+- Deleting a tag no longer destroys the entire tree. `bulk_delete` posted its JSON body to `POST /objects/delete/`, which reads only the `namespaces` query arg and silently discards the body; with no query string the server schedules an async batch delete of every object, with no undo data. `bulk_delete` now calls `POST /objects/delete-by-handle/` with `{"namespace": ..., "handles": [...]}` (synchronous, namespaced, undoable). The trailing slash matters: without it a 308 redirect drops the POST body. Adds a delta-based integration regression test that waits past the old async-delete window (#81)
+
 ## [3.3.7] - 2026-09-07
 
 ### Fixed
