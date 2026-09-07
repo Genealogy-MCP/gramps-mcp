@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 from conftest import _mock_client
 
-from src.gramps_mcp.handlers.note_handler import format_note
+from src.gramps_mcp.handlers.note_handler import EMPTY_NOTE_BODY, format_note
 
 TREE_ID = "test-tree"
 
@@ -75,7 +75,8 @@ class TestFormatNote:
         assert len(result) < 600
 
     @pytest.mark.asyncio
-    async def test_note_empty_text(self):
+    async def test_note_empty_text_renders_stub(self):
+        """An existing note with an empty body still identifies itself (#79)."""
         client = _mock_client(
             {
                 "GET_NOTE": {
@@ -85,7 +86,17 @@ class TestFormatNote:
                 }
             }
         )
-        assert await format_note(client, TREE_ID, "handle123") == ""
+        result = await format_note(client, TREE_ID, "handle123")
+        assert "General Note" in result
+        assert "N0003" in result
+        assert "handle123" in result
+        assert EMPTY_NOTE_BODY in result
+
+    @pytest.mark.asyncio
+    async def test_note_missing_text_key_renders_stub(self):
+        client = _mock_client({"GET_NOTE": {"gramps_id": "N0005", "type": "Research"}})
+        result = await format_note(client, TREE_ID, "handle123")
+        assert EMPTY_NOTE_BODY in result
 
     @pytest.mark.asyncio
     async def test_note_api_error(self):

@@ -212,6 +212,33 @@ _GET_TOOL_DISPATCH = {
 }
 
 
+def _stub_if_empty(
+    result: List[TextContent], entity_type: str, handle: str
+) -> List[TextContent]:
+    """Substitute a stub when a formatter produced nothing to display.
+
+    A record that formats to a zero-length string leaves the caller with a
+    response indistinguishable from a transport failure (issue #79).
+
+    The wording deliberately does not assert that the record exists: the
+    handlers collapse a 404 into "" as well, so this layer cannot tell
+    "no displayable fields" from "no such handle".
+    """
+    if any(item.text.strip() for item in result):
+        return result
+
+    return [
+        TextContent(
+            type="text",
+            text=(
+                f"{entity_type} [{handle}] returned no displayable content. "
+                f"Either every field is empty or private, or the handle does "
+                f"not exist. Use search to verify the record.\n"
+            ),
+        )
+    ]
+
+
 async def get_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     """Universal get tool for any entity type by handle or gramps_id."""
     arguments = extract_arguments(ctx, params)
@@ -245,14 +272,17 @@ async def get_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
 
     # Person and family use detailed handlers with timelines
     if entity_type == "person":
-        return await get_person_tool({"person_handle": handle})
+        result = await get_person_tool({"person_handle": handle})
+        return _stub_if_empty(result, entity_type, handle)
     elif entity_type == "family":
-        return await get_family_tool({"family_handle": handle})
+        result = await get_family_tool({"family_handle": handle})
+        return _stub_if_empty(result, entity_type, handle)
 
     # All other entity types use their basic format handlers
     tool_func = _GET_TOOL_DISPATCH.get(entity_type)
     if tool_func:
-        return await tool_func({"handle": handle})
+        result = await tool_func({"handle": handle})
+        return _stub_if_empty(result, entity_type, handle)
 
     valid_types = sorted(list(_GET_TOOL_DISPATCH.keys()) + ["person", "family"])
     raise McpToolError(
