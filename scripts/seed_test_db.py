@@ -29,6 +29,15 @@ DEFAULT_USERNAME = "owner"
 DEFAULT_PASSWORD = "owner"
 DEFAULT_TIMEOUT = 120
 
+# Exact entity counts in tests/fixtures/seed.gramps, used as floors by
+# verify_data. Re-derive after replacing the fixture by counting the
+# "<person ", "<source " and "<citation " tags in the gunzipped XML.
+FIXTURE_COUNTS = {
+    "people": 2157,
+    "sources": 4,
+    "citations": 2854,
+}
+
 
 def wait_for_healthy(base_url: str, timeout: float) -> None:
     """
@@ -329,23 +338,84 @@ def ensure_tree_exists(base_url: str, token: str) -> None:
     print(f"  Tree access: HTTP {resp.status_code}")
 
 
+def count_shortfalls(observed: dict[str, int]) -> list[str]:
+    """
+    Compare observed collection totals against the fixture floors.
+
+    Args:
+        observed: Mapping of collection name to row count, -1 when unknown.
+
+    Returns:
+        One human-readable line per collection that is short or unreadable.
+    """
+    shortfalls = []
+    for collection, expected in FIXTURE_COUNTS.items():
+        actual = observed.get(collection, -1)
+        if actual < 0:
+            shortfalls.append(f"{collection}: count unavailable (expected {expected})")
+        elif actual < expected:
+            shortfalls.append(f"{collection}: {actual} rows, expected >= {expected}")
+    return shortfalls
+
+
+def count_collection(base_url: str, token: str, collection: str) -> int:
+    """
+    Read a collection's total row count from the X-Total-Count header.
+
+    Args:
+        base_url: Gramps Web base URL.
+        token: JWT access token.
+        collection: API collection segment, e.g. "people".
+
+    Returns:
+        The row count, or -1 if the API did not answer with a usable total.
+    """
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        resp = httpx.get(
+            f"{base_url}/api/{collection}/?pagesize=1", headers=headers, timeout=15
+        )
+    except httpx.TransportError as exc:
+        print(f"  {collection}: request failed ({exc})", file=sys.stderr)
+        return -1
+    if resp.status_code != 200:
+        print(f"  {collection}: HTTP {resp.status_code}", file=sys.stderr)
+        return -1
+    try:
+        return int(resp.headers["x-total-count"])
+    except (KeyError, ValueError):
+        return len(resp.json()) if isinstance(resp.json(), list) else -1
+
+
 def verify_data(base_url: str, token: str) -> None:
     """
-    Verify the seed data is queryable via the same anchors as the probe.
+    Verify the imported tree holds at least the fixture's row counts.
+
+    Anchor-record presence cannot tell a full import from a partial one, so
+    this asserts collection totals instead (issue #91).
 
     Args:
         base_url: Gramps Web base URL.
         token: JWT access token.
 
     Raises:
-        SystemExit: If either anchor record is missing.
+        SystemExit: If any collection is short of its fixture floor.
     """
-    if not is_already_seeded(base_url, token):
+    observed = {
+        collection: count_collection(base_url, token, collection)
+        for collection in FIXTURE_COUNTS
+    }
+    shortfalls = count_shortfalls(observed)
+    if shortfalls:
         print(
-            "Verification failed: anchor records missing after import", file=sys.stderr
+            "Verification failed: imported tree is short of the fixture",
+            file=sys.stderr,
         )
+        for line in shortfalls:
+            print(f"  {line}", file=sys.stderr)
         sys.exit(1)
-    print("Verified: anchor records I0001 and R0000 found")
+    summary = ", ".join(f"{name}={observed[name]}" for name in FIXTURE_COUNTS)
+    print(f"Verified fixture row counts: {summary}")
 
 
 def main() -> None:

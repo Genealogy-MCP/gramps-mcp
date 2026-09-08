@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.7.5] - 2026-09-08
+
+### Fixed
+
+- `scripts/seed_test_db.py` no longer reports a successful seed against a tree that holds no data. The post-import gate probed two anchor records (person `I0001`, repository `R0000`), which cannot tell a full import from a partial one, so a run that loaded nothing still printed `Seed complete!` and left the integration suite failing 16 tests for no visible reason. `verify_data` now reads the `X-Total-Count` header for people, sources and citations and asserts the counts in `tests/fixtures/seed.gramps` (2157, 4, 2854), printing every observed count when the tree is short. The cheap anchor probe stays as the `--skip-if-seeded` fast path. This touches test infrastructure only. The shipped server, its dependencies, and the public tool surface are unchanged (#91)
+
 ## [3.7.4] - 2026-09-08
 
 ### Fixed
