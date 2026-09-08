@@ -58,14 +58,8 @@ class TestPlaceAltNamesRoundTrip:
             await client.close()
 
     @pytest.mark.asyncio
-    async def test_update_place_alt_names_overwrites_on_default_merge(self):
-        """An update replaces the stored alt_names even under the default
-        list_mode='merge'.
-
-        The client only merges keys ending in '_list' (client.py), and
-        alt_names does not, so both list modes overwrite. Tracked in #82; this test
-        pins the behaviour that shipping the #61 fix exposes.
-        """
+    async def test_update_place_alt_names_merges_by_default(self):
+        """The default list_mode='merge' appends to stored alt_names (#82)."""
         create_result = await upsert_place_tool(
             {
                 "name": {"value": f"{TEST_PREFIX}Napoli"},
@@ -79,6 +73,76 @@ class TestPlaceAltNamesRoundTrip:
             {
                 "handle": place_handle,
                 "alt_names": [f"{TEST_PREFIX}Parthenope"],
+            }
+        )
+        assert "Error:" not in update_result[0].text, update_result[0].text
+
+        client = GrampsWebAPIClient()
+        try:
+            settings = get_settings()
+            place_data = await client.make_api_call(
+                api_call=ApiCalls.GET_PLACE,
+                tree_id=settings.gramps_tree_id,
+                handle=place_handle,
+            )
+            assert _alt_name_values(place_data) == [
+                f"{TEST_PREFIX}Neapolis",
+                f"{TEST_PREFIX}Parthenope",
+            ], f"Unexpected alt_names: {place_data.get('alt_names')}"
+        finally:
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_update_place_alt_names_merge_is_idempotent(self):
+        """Re-PUTting the same alt_name leaves a single stored entry (#82)."""
+        create_result = await upsert_place_tool(
+            {
+                "name": {"value": f"{TEST_PREFIX}Napoli"},
+                "place_type": "City",
+                "alt_names": [f"{TEST_PREFIX}Neapolis"],
+            }
+        )
+        place_handle = extract_handle(create_result[0].text)
+
+        update_result = await upsert_place_tool(
+            {
+                "handle": place_handle,
+                "alt_names": [f"{TEST_PREFIX}Neapolis"],
+            }
+        )
+        assert "Error:" not in update_result[0].text, update_result[0].text
+
+        client = GrampsWebAPIClient()
+        try:
+            settings = get_settings()
+            place_data = await client.make_api_call(
+                api_call=ApiCalls.GET_PLACE,
+                tree_id=settings.gramps_tree_id,
+                handle=place_handle,
+            )
+            assert _alt_name_values(place_data) == [f"{TEST_PREFIX}Neapolis"], (
+                f"Unexpected alt_names: {place_data.get('alt_names')}"
+            )
+        finally:
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_update_place_alt_names_replace_mode_overwrites(self):
+        """list_mode='replace' overwrites the stored alt_names (#82)."""
+        create_result = await upsert_place_tool(
+            {
+                "name": {"value": f"{TEST_PREFIX}Napoli"},
+                "place_type": "City",
+                "alt_names": [f"{TEST_PREFIX}Neapolis"],
+            }
+        )
+        place_handle = extract_handle(create_result[0].text)
+
+        update_result = await upsert_place_tool(
+            {
+                "handle": place_handle,
+                "alt_names": [f"{TEST_PREFIX}Parthenope"],
+                "list_mode": "replace",
             }
         )
         assert "Error:" not in update_result[0].text, update_result[0].text
