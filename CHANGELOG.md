@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-09-07
+
+### Added
+
+- GQL typed-enum name filters now work: `type.string = "Birth"` (events), `place_type.string = "City"` (places), and `type.string` on families and repositories return real rows. The Gramps GQL engine evaluates filters against Python objects where `GrampsType` has no `.string` attribute, so every name comparison silently returned an empty set (HTTP 200). A new `_gql_type_rewrite` module translates the documented name syntax into the working `type.value = <int>` form before the API call; name-to-int maps come from `GET /api/types/default/{datatype}/map` and are cached per session. Non-type queries pass through byte-for-byte. An integration regression probe asserts the raw untranslated query still returns empty from the server, flagging when upstream fixes GQL and the layer can be deleted (#84)
+
 ## [3.3.11] - 2026-09-07
 
 ### Fixed
