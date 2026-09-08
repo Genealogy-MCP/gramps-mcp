@@ -13,7 +13,9 @@ from src.gramps_mcp.models.parameters.base_params import (
     BaseGetMultipleParams,
     BaseGetSingleParams,
 )
+from src.gramps_mcp.models.parameters.citation_params import CitationData
 from src.gramps_mcp.models.parameters.media_params import MediaSaveParams
+from src.gramps_mcp.models.parameters.note_params import NoteSaveParams
 from src.gramps_mcp.models.parameters.repository_params import (
     RepositoriesParams,
     RepositoryParams,
@@ -282,3 +284,47 @@ class TestSimpleSearchParamsMaxResults:
     def test_below_floor_rejected(self):
         with pytest.raises(ValidationError, match="greater than or equal to 1"):
             SimpleSearchParams(query="smith", max_results=0)
+
+
+class TestCitationDataConfidence:
+    """Test the confidence field on CitationData (#87)."""
+
+    def test_confidence_accepted(self):
+        params = CitationData(handle="abc", confidence=4)
+        assert params.confidence == 4
+        assert params.to_api_payload()["confidence"] == 4
+
+    def test_confidence_defaults_to_none(self):
+        params = CitationData(handle="abc")
+        assert params.confidence is None
+        assert "confidence" not in params.to_api_payload()
+
+    def test_confidence_below_range_rejected(self):
+        with pytest.raises(ValidationError):
+            CitationData(handle="abc", confidence=-1)
+
+    def test_confidence_above_range_rejected(self):
+        with pytest.raises(ValidationError):
+            CitationData(handle="abc", confidence=5)
+
+
+class TestNoteSaveParamsFormat:
+    """Test the format field on NoteSaveParams (#87)."""
+
+    def test_format_accepted(self):
+        params = NoteSaveParams(handle="abc", format=1)
+        assert params.format == 1
+        assert params.to_api_payload()["format"] == 1
+
+    def test_format_defaults_to_none(self):
+        params = NoteSaveParams(handle="abc")
+        assert params.format is None
+        assert "format" not in params.to_api_payload()
+
+    def test_format_below_range_rejected(self):
+        with pytest.raises(ValidationError):
+            NoteSaveParams(handle="abc", format=-1)
+
+    def test_format_above_range_rejected(self):
+        with pytest.raises(ValidationError):
+            NoteSaveParams(handle="abc", format=2)

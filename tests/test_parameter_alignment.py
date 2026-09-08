@@ -139,7 +139,13 @@ class TestParameterAlignment:
         )
 
         # Check no extra fields beyond what guide allows (plus system fields)
-        guide_fields = create_required | {"page", "date", "media", "urls"}
+        guide_fields = create_required | {
+            "page",
+            "date",
+            "media",
+            "urls",
+            "confidence",
+        }
         system_fields = {
             "handle",
             "gramps_id",
@@ -395,7 +401,7 @@ class TestParameterAlignment:
         )
 
         # Check no extra fields beyond what guide allows (plus system fields)
-        guide_fields = create_required
+        guide_fields = create_required | {"format"}
         system_fields = {
             "handle",
             "gramps_id",

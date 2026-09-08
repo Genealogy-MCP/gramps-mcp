@@ -53,6 +53,12 @@ class NoteSaveParams(BaseDataModel):
     type: str | None = Field(
         None, description="The type of note. Required when creating (no handle)."
     )
+    format: int | None = Field(
+        None,
+        ge=0,
+        le=1,
+        description="Text format: 0=flowed (default), 1=preformatted",
+    )
 
     @model_validator(mode="after")
     def _validate_create_required(self) -> "NoteSaveParams":
