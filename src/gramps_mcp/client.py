@@ -378,11 +378,14 @@ class GrampsWebAPIClient:
                     # Merge all fields properly - lists get concatenated,
                     # others get replaced
                     for key, value in json_data.items():
+                        # Reason: a field is a mergeable collection when BOTH
+                        # sides hold a list -- keying on the "_list" name
+                        # convention silently replaced alt_names, urls,
+                        # alternate_names, and alt_loc (#82).
                         if (
                             list_mode == "merge"
-                            and key.endswith("_list")
                             and isinstance(value, list)
-                            and key in existing
+                            and isinstance(existing.get(key), list)
                         ):
                             existing_items = existing.get(key, [])
 
@@ -395,16 +398,15 @@ class GrampsWebAPIClient:
                                 )
                                 sample_new = value[0] if value else None
 
-                                if (
-                                    isinstance(sample_existing, dict)
-                                    and "ref" in sample_existing
-                                    and isinstance(sample_new, dict)
-                                    and "ref" in sample_new
+                                if isinstance(sample_existing, dict) and isinstance(
+                                    sample_new, dict
                                 ):
-                                    # Dedup reference objects on composite
-                                    # identity, not 'ref' alone, so distinct
-                                    # same-ref entries (media rect, child
-                                    # frel/mrel) both survive.
+                                    # Dedup dict entries (ref objects, alt
+                                    # names, urls) on composite identity, not
+                                    # 'ref' alone, so distinct same-ref
+                                    # entries (media rect, child frel/mrel)
+                                    # both survive and re-PUTs of value
+                                    # collections stay idempotent (#82).
                                     merged_data[key] = merge_ref_items(
                                         existing_items, value
                                     )

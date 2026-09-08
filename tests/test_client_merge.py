@@ -569,3 +569,151 @@ class TestClientPostBodies:
             )
 
         await client.close()
+
+
+class TestNonListCollectionMerge:
+    """Non-_list collection fields honour list_mode (Issue #82).
+
+    The merge loop keys on structure (list in payload AND list in existing
+    record), not on the key ending in "_list", so alt_names, urls,
+    alternate_names, and alt_loc merge under the default list_mode="merge".
+    """
+
+    def _make_client(self) -> GrampsWebAPIClient:
+        client = GrampsWebAPIClient()
+        client.auth_manager = MagicMock()
+        client.auth_manager.get_token = AsyncMock()
+        client.auth_manager.get_headers = MagicMock(
+            return_value={"Authorization": "Bearer test"}
+        )
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.close = AsyncMock()
+        return client
+
+    async def _put(self, api_call, handle, existing, update_params):
+        client = self._make_client()
+        with patch.object(
+            client, "_make_request", new_callable=AsyncMock
+        ) as mock_request:
+            mock_request.side_effect = [existing, {"success": True}]
+            await client.make_api_call(
+                api_call=api_call,
+                params=update_params,
+                tree_id="test_tree",
+                handle=handle,
+            )
+            put_data = mock_request.call_args_list[1].kwargs.get("json_data")
+        await client.close()
+        return put_data
+
+    @pytest.mark.asyncio
+    async def test_alt_names_merge_preserves_existing(self):
+        existing = {
+            "handle": "place123",
+            "alt_names": [
+                {"_class": "PlaceName", "value": "Neapolis", "date": None, "lang": ""}
+            ],
+        }
+        put_data = await self._put(
+            ApiCalls.PUT_PLACE,
+            "place123",
+            existing,
+            {"handle": "place123", "alt_names": ["Parthenope"]},
+        )
+        values = [n["value"] for n in put_data["alt_names"]]
+        assert values == ["Neapolis", "Parthenope"]
+
+    @pytest.mark.asyncio
+    async def test_alt_names_merge_is_idempotent(self):
+        existing = {
+            "handle": "place123",
+            "alt_names": [
+                {"_class": "PlaceName", "value": "Neapolis", "date": None, "lang": ""}
+            ],
+        }
+        put_data = await self._put(
+            ApiCalls.PUT_PLACE,
+            "place123",
+            existing,
+            {"handle": "place123", "alt_names": ["Neapolis"]},
+        )
+        assert put_data["alt_names"] == existing["alt_names"]
+
+    @pytest.mark.asyncio
+    async def test_alt_names_replace_mode_replaces(self):
+        existing = {
+            "handle": "place123",
+            "alt_names": [
+                {"_class": "PlaceName", "value": "Neapolis", "date": None, "lang": ""}
+            ],
+        }
+        put_data = await self._put(
+            ApiCalls.PUT_PLACE,
+            "place123",
+            existing,
+            {
+                "handle": "place123",
+                "alt_names": ["Parthenope"],
+                "list_mode": "replace",
+            },
+        )
+        assert put_data["alt_names"] == [{"value": "Parthenope"}]
+
+    @pytest.mark.asyncio
+    async def test_urls_merge_preserves_existing(self):
+        existing = {
+            "handle": "repo123",
+            "urls": [
+                {
+                    "_class": "Url",
+                    "type": {"_class": "UrlType", "string": "Web Home"},
+                    "path": "https://old.example.org",
+                    "desc": "",
+                    "private": False,
+                }
+            ],
+        }
+        put_data = await self._put(
+            ApiCalls.PUT_REPOSITORY,
+            "repo123",
+            existing,
+            {
+                "handle": "repo123",
+                "urls": [{"type": "Web Home", "path": "https://new.example.org"}],
+            },
+        )
+        paths = [u["path"] for u in put_data["urls"]]
+        assert paths == ["https://old.example.org", "https://new.example.org"]
+
+    @pytest.mark.asyncio
+    async def test_alternate_names_merge_preserves_existing(self):
+        existing = {
+            "handle": "person123",
+            "alternate_names": [
+                {"_class": "Name", "first_name": "Giovanni", "suffix": ""}
+            ],
+        }
+        put_data = await self._put(
+            ApiCalls.PUT_PERSON,
+            "person123",
+            existing,
+            {
+                "handle": "person123",
+                "alternate_names": [{"first_name": "John"}],
+            },
+        )
+        first_names = [n["first_name"] for n in put_data["alternate_names"]]
+        assert first_names == ["Giovanni", "John"]
+
+    @pytest.mark.asyncio
+    async def test_field_absent_from_existing_record_is_set_verbatim(self):
+        # Structural check requires a list on BOTH sides; a brand-new field
+        # (not present in the stored record) passes through unchanged.
+        existing = {"handle": "place123"}
+        put_data = await self._put(
+            ApiCalls.PUT_PLACE,
+            "place123",
+            existing,
+            {"handle": "place123", "alt_names": ["Neapolis"]},
+        )
+        assert put_data["alt_names"] == [{"value": "Neapolis"}]

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.1] - 2026-09-07
+
+### Fixed
+
+- Merge on update now covers every collection field, not just keys named `*_list`. The client decided merge vs replace by the `_list` name suffix, so `alt_names`, `urls`, `alternate_names`, and `alt_loc` were silently overwritten on every update even under the default `list_mode="merge"`; the check is now structural (both sides hold a list). Dict entries in any collection dedup on their full normalized identity, with `_class` stripped, typed enums collapsed, empty `Date` objects treated as absent, and the server-computed `sortval` ignored, so the enriched stored form matches the minimal payload form and re-PUTs stay idempotent. `list_mode="replace"` remains the way to remove entries (#82)
+
 ## [3.4.0] - 2026-09-07
 
 ### Added
