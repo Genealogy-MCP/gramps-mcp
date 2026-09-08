@@ -103,7 +103,8 @@ class PersonData(BaseDataModel):
             '"surname_list": [{"surname": "Garcia"}], '
             '"type": "Married Name", '
             '"citation_list": ["<citation_handle>"]}. '
-            "On update: replaces the entire alternate_names list (not merged)"
+            "On update: merged with the stored list by default; "
+            "pass list_mode='replace' to overwrite (#82)"
         ),
     )
     urls: Optional[List[Dict[str, Any]]] = Field(

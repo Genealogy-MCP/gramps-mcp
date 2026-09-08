@@ -30,6 +30,11 @@ def _normalize_ref_item(item: dict) -> dict:
     """
     normalized: dict = {}
     for key, value in item.items():
+        # Reason: within one field's list every item shares its Gramps class
+        # (all PlaceName, all Url), so _class carries no identity -- but only
+        # the enriched GET form has it, so keeping it breaks dedup (#82).
+        if key == "_class":
+            continue
         canonical = _normalize_value(value)
         if canonical is None or canonical == [] or canonical == {}:
             continue
@@ -53,7 +58,13 @@ def _normalize_value(value: Any) -> Any:
     if isinstance(value, dict):
         if set(value.keys()) == {"_class", "string"}:
             return value["string"]
-        return {k: _normalize_value(v) for k, v in value.items()}
+        # Reason: GET expands an unset date into a full Date object of
+        # defaults while the PUT payload omits it; both must key equal.
+        # sortval is 0 only for empty dates (any real date computes a
+        # nonzero serial), text covers text-only dates (#82).
+        if "dateval" in value and not value.get("sortval") and not value.get("text"):
+            return None
+        return _normalize_ref_item(value)
     if isinstance(value, list):
         return [_normalize_value(v) for v in value]
     return value
