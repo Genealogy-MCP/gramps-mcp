@@ -114,6 +114,7 @@ class ApiCalls(Enum):
     GET_TYPES_DEFAULT = ("GET", "types/default")
     GET_TYPES_DEFAULT_DATATYPE = ("GET", "types/default/{datatype}")
     GET_TYPES_DEFAULT_MAP = ("GET", "types/default/{datatype}/map")
+    GET_TYPES_CUSTOM_DATATYPE = ("GET", "types/custom/{datatype}")
 
     # REPORTS operations
     GET_REPORTS = ("GET", "reports/")

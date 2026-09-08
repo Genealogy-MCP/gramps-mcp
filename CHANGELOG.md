@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-09-07
+
+### Added
+
+- Custom type names now match through the same GQL name syntax: `type.string = "LVG"` (a GEDCOM-import custom event type) rewrites to a `type.value = <Custom int>` pre-filter server-side plus a client-side match on the returned type string, capped by `max_results`. Custom names come from `GET /api/types/custom/{datatype}` and are cached with the default maps. A type name that is neither default nor custom now raises an actionable error listing the known names instead of silently returning an empty set; `!=` on a custom name and custom names inside `or` queries are rejected with guidance, since the client-side match is only correct under `and` semantics (#85)
+
 ## [3.4.1] - 2026-09-07
 
 ### Fixed
