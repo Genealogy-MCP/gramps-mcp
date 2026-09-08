@@ -107,6 +107,16 @@ class PersonData(BaseDataModel):
             "pass list_mode='replace' to overwrite (#82)"
         ),
     )
+    citation_list: Optional[List[str]] = Field(
+        None,
+        description=(
+            "List of citation handles evidencing the person record itself "
+            "(identity, not a single event). Optional but recommended: it "
+            "records where the information about this person came from. On "
+            'update the list_mode applies: "merge" (default) appends with '
+            'dedup, "replace" overwrites the whole list.'
+        ),
+    )
     urls: Optional[List[Dict[str, Any]]] = Field(
         None, description="List of URLs associated with the person"
     )
