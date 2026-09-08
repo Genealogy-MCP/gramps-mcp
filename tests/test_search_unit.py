@@ -1084,8 +1084,10 @@ class TestPrivateLiteralRejectedPreflight:
 class TestGetToolNativeGrampsIdFilter:
     """gramps_id resolution must use the native ?gramps_id= filter, not gql=.
 
-    Gramps Web API 3.x returns HTTP 500 for any gql= query on /api/notes/
-    (issue #69); the native filter works on every entity type.
+    The native filter is the simpler request for a plain equality lookup and
+    works on every entity type and every API version. Gramps Web API 3.16.0
+    also returned HTTP 500 for any gql= query on /api/notes/ (issue #69),
+    fixed as of 3.21.1 (issue #89).
     """
 
     @pytest.mark.asyncio
