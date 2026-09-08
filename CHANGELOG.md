@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.7.3] - 2026-09-08
+
+### Changed
+
+- The comment explaining why `get` resolves a `gramps_id` through the native `?gramps_id=` filter no longer claims that Gramps Web API 3.x returns HTTP 500 for `gql=` queries on `/api/notes/`. That bug is fixed as of API 3.21.1, verified against `grampsweb:26.8.1`. The resolution path is unchanged: the native filter needs no GQL quoting, never touches the typed-enum rewrite, and works on every API version (#89)
+
 ## [3.7.2] - 2026-09-08
 
 ### Added

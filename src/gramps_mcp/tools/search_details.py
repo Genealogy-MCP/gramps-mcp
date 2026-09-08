@@ -253,9 +253,12 @@ async def get_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
         )
 
     # If gramps_id provided but no handle, find the handle first.
-    # Use the native ?gramps_id= filter, not gql=: Gramps Web API 3.x
-    # returns HTTP 500 for any gql= query on /api/notes/ (issue #69),
-    # and the native filter is the simpler request for a plain equality.
+    # Reason: the native ?gramps_id= filter is the simpler request for a
+    # plain equality lookup. It needs no GQL quoting and never touches the
+    # typed-enum rewrite in _gql_type_rewrite.py, and it works on every API
+    # version. Gramps Web API 3.16.0 also returned HTTP 500 for any gql=
+    # query on /api/notes/ (issue #69); that is fixed as of 3.21.1 (#89),
+    # so it is no longer a reason on its own.
     if gramps_id and not handle:
         # Read the handle from the raw API response, not from formatted
         # search text -- formatters return "" for sparse records (e.g. a
