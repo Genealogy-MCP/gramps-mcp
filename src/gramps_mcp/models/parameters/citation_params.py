@@ -40,6 +40,15 @@ class CitationData(BaseDataModel):
         ),
     )
     page: Optional[str] = Field(None, description="Page or location within the source")
+    confidence: Optional[int] = Field(
+        None,
+        ge=0,
+        le=4,
+        description=(
+            "Confidence in the citation: 0=very low, 1=low, 2=normal, "
+            "3=high, 4=very high"
+        ),
+    )
     source_handle: Optional[str] = Field(
         None,
         description=(

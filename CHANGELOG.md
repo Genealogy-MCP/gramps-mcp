@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.6.0] - 2026-09-07
+
+### Added
+
+- `upsert_citation` now accepts `confidence` (0=very low, 1=low, 2=normal, 3=high, 4=very high) and `upsert_note` now accepts `format` (0=flowed, 1=preformatted). Both were rendered by `get` but had no write path, so the values were silently dropped from PUT bodies; out-of-range values are now rejected by the param models instead of being sent to the API. The raw-PUT helper the `get` render tests used to set these fields is gone, and the tests write through the upsert tools on both create and update (#87, #55)
+
 ## [3.5.0] - 2026-09-07
 
 ### Added
