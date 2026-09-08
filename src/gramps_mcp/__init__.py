@@ -4,4 +4,4 @@
 
 """Gramps MCP Server - MCP server for Gramps Web API integration."""
 
-__version__ = "3.4.2"
+__version__ = "3.5.0"
