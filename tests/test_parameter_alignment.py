@@ -259,6 +259,7 @@ class TestParameterAlignment:
             "family_list",
             "parent_family_list",
             "alternate_names",
+            "citation_list",
             "urls",
             "person_ref_list",
         }
