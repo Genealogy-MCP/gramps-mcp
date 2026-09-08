@@ -102,3 +102,13 @@ class RepositoryData(BaseDataModel):
     urls: Optional[List[Dict[str, Any]]] = Field(
         None, description="List of URLs associated with the repository"
     )
+    address_list: Optional[List[Dict[str, Any]]] = Field(
+        None,
+        description=(
+            "List of postal addresses for the repository. Each entry accepts "
+            "street, locality, city, county, state, country, postal, phone, "
+            "date, citation_list, note_list, private. On update the list_mode "
+            'applies: "merge" (default) appends with dedup, "replace" '
+            "overwrites the whole list."
+        ),
+    )

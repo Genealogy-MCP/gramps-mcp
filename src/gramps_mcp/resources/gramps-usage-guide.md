@@ -158,7 +158,7 @@ Now create the life event that was documented in that citation:
    → search_repository (search for repository)
    → If found and complete: use existing repository
    → If found but missing info: upsert_repository with handle (update repository)
-   → If not found: upsert_repository without handle (create repository with name, type, optional URL, optional note handle)
+   → If not found: upsert_repository without handle (create repository with name, type, optional URL, optional postal address, optional note handle)
 
 2. Source: "Marriage Register 1875-1880"  
    → If source has media: upsert_media first, get media handle
