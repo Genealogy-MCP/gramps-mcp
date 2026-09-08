@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.7.0] - 2026-09-07
+
+### Added
+
+- `upsert_family` can now record the evidence for a parent-child relationship. The new `child_ref_list` parameter takes full edges, each with its own `citation_list`, `note_list`, `private` flag and `frel`/`mrel` relationship, so a birth act naming both parents attaches to the parent-child edge it actually evidences rather than to the marriage. `child_handles` stays as the shorthand for plain birth children and is ignored when `child_ref_list` is given. On update, an entry for a child already in the family updates that edge in place instead of appending a second one (#60, #63)
+- `upsert_family` accepts a family-level `citation_list` for evidence about the couple, such as a marriage record (#62)
+- `upsert_family` accepts `family_type` for the couple's relationship type: Married, Unmarried, Civil Union, Unknown, or a custom type (#64)
+
+### Fixed
+
+- Family relationship types are sent to Gramps Web as bare name strings. The `{"_class": "ChildRefType", "string": ...}` form the code used before is accepted by the API and then silently discarded, which left every adopted, fostered or step relationship stored as Birth (#60)
+
 ## [3.6.0] - 2026-09-07
 
 ### Added

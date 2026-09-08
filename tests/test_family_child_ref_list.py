@@ -17,13 +17,13 @@ class TestFamilyChildRefListTranslation:
         assert result["child_ref_list"] == [
             {
                 "ref": "h1",
-                "frel": {"_class": "ChildRefType", "string": "Birth"},
-                "mrel": {"_class": "ChildRefType", "string": "Birth"},
+                "frel": "Birth",
+                "mrel": "Birth",
             },
             {
                 "ref": "h2",
-                "frel": {"_class": "ChildRefType", "string": "Birth"},
-                "mrel": {"_class": "ChildRefType", "string": "Birth"},
+                "frel": "Birth",
+                "mrel": "Birth",
             },
         ]
 
