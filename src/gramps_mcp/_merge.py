@@ -15,6 +15,10 @@ holds at most one child_ref per child, so a second entry for the same child is
 never correct. Entries merge by "ref", unioning their nested citation_list and
 note_list, which is what lets a citation attach to an existing parent-child
 edge (#60, #63).
+
+placeref_list is the other exception and gets merge_place_refs: a place sits
+inside exactly one parent at a time, so an undated enclosure replaces the
+stored undated one rather than appending a second parent (#67).
 """
 
 import json
@@ -176,6 +180,60 @@ def merge_ref_items(existing_items: list, new_items: list) -> list:
     return existing_items + additions
 
 
+def _has_date(item: Any) -> bool:
+    """Report whether a place reference carries a real date qualifier.
+
+    A dated entry describes a time-limited historic enclosure; an undated one
+    is the place's current parent.
+
+    Args:
+        item (Any): One placeref_list entry, as stored or as supplied.
+
+    Returns:
+        bool: True when the entry's "date" names an actual time.
+    """
+    if not isinstance(item, dict):
+        return False
+    # Reason: Gramps Web returns an *empty Date object* rather than null for an
+    # undated placeref -- dateval [0, 0, 0, False], year 0, text "" -- so a
+    # truthiness check on "date" marks every stored entry as dated (#67).
+    date = item.get("date")
+    if not isinstance(date, dict):
+        return bool(date)
+    if date.get("text"):
+        return True
+    dateval = date.get("dateval") or []
+    return any(bool(part) for part in dateval)
+
+
+def merge_place_refs(existing_items: list, new_items: list) -> list:
+    """Merge placeref_list entries, treating the undated enclosure as singular.
+
+    A place sits inside exactly one parent at a time, so an incoming undated
+    entry replaces the stored undated one instead of appending a second parent
+    -- otherwise re-parenting a place through enclosed_by would leave it with
+    two parents and no error (#67). Date-qualified entries record historic
+    enclosures, so they accumulate and dedup on their full identity.
+
+    Args:
+        existing_items (list): placeref_list as returned by the merge GET.
+        new_items (list): placeref_list entries from the caller's PUT payload.
+
+    Returns:
+        list: The merged placeref_list.
+    """
+    incoming_undated = [item for item in new_items if not _has_date(item)]
+    if not incoming_undated:
+        return merge_ref_items(existing_items, new_items)
+
+    # Reason: only the last undated entry supplied can be "the" current parent,
+    # so an accidental list of several collapses to the caller's final word
+    # rather than silently stacking parents.
+    kept = [item for item in existing_items if _has_date(item)]
+    dated_new = [item for item in new_items if _has_date(item)]
+    return merge_ref_items(kept, dated_new) + [incoming_undated[-1]]
+
+
 def merge_object(existing: dict, changes: dict, list_mode: str) -> dict:
     """Overlay a PUT payload onto the stored object, merging list fields.
 
@@ -207,7 +265,8 @@ def _merge_list_field(key: str, existing_items: list, new_items: list) -> list:
     """Merge one list field according to what its entries are.
 
     Args:
-        key (str): The field name, which selects the child_ref_list policy.
+        key (str): The field name, which selects the child_ref_list or
+            placeref_list policy.
         existing_items (list): Entries already stored.
         new_items (list): Entries from the PUT payload.
 
@@ -219,6 +278,10 @@ def _merge_list_field(key: str, existing_items: list, new_items: list) -> list:
     # citation attach to an existing parent-child relationship (#60, #63).
     if key == "child_ref_list":
         return merge_child_refs(existing_items, new_items)
+    # Reason: a place has one current parent, so re-parenting must replace the
+    # stored undated enclosure rather than stack a second one (#67).
+    if key == "placeref_list":
+        return merge_place_refs(existing_items, new_items)
     if not existing_items or not new_items:
         return existing_items + new_items
     if isinstance(existing_items[0], dict) and isinstance(new_items[0], dict):

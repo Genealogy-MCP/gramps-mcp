@@ -55,8 +55,22 @@ class PlaceSaveParams(BaseDataModel):
             raise ValueError(f"Required when creating: {', '.join(missing)}")
         return self
 
+    enclosed_by: Optional[str] = Field(
+        None,
+        description=(
+            "Handle of the place that encloses this one, e.g. the state a "
+            "city sits in. Written to placeref_list. On update it replaces "
+            "the current enclosing place rather than adding a second parent. "
+            "Ignored when placeref_list is supplied."
+        ),
+    )
     placeref_list: Optional[List[dict]] = Field(
-        None, description="List of place references"
+        None,
+        description=(
+            "Full enclosure references, each {'ref': <place handle>} with an "
+            "optional 'date' for a historic enclosure. Use enclosed_by for "
+            "the ordinary single-parent case; this field takes precedence."
+        ),
     )
     alt_names: Optional[List[str]] = Field(None, description="Alternative names")
     lat: Optional[str] = Field(None, description="Latitude coordinate")
@@ -67,9 +81,23 @@ class PlaceSaveParams(BaseDataModel):
     )
 
     def to_api_payload(self) -> Dict[str, Any]:
-        """Return API-ready dict with alt_names wrapped as PlaceName objects."""
+        """Build the Gramps place payload from the caller's parameters.
+
+        Wraps alt_names as PlaceName objects and turns the enclosed_by
+        shorthand into the placeref_list entry Gramps actually stores.
+
+        Returns:
+            Dict[str, Any]: The API-ready request body.
+        """
         data = super().to_api_payload()
         alt_names = data.get("alt_names")
         if alt_names is not None:
             data["alt_names"] = [{"value": n} for n in alt_names]
+
+        # Reason: enclosed_by is the guide's name for the enclosure and has no
+        # Gramps counterpart; without this translation it was dropped and the
+        # place was stored with an empty placeref_list (#67).
+        enclosed_by = data.pop("enclosed_by", None)
+        if enclosed_by is not None and data.get("placeref_list") is None:
+            data["placeref_list"] = [{"ref": enclosed_by}]
         return data
