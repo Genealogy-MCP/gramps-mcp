@@ -20,7 +20,7 @@ from ..models.api_calls import ApiCalls
 from ..models.parameters.media_params import MediaDownloadParams, MediaSaveParams
 from ._compat import extract_arguments
 from ._data_helpers import _extract_entity_data, _format_save_response
-from ._errors import McpToolError, raise_tool_error
+from ._errors import McpToolError, parse_params, raise_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ async def upsert_media_tool(ctx: Any = None, params: Any = None) -> List[TextCon
 
     try:
         arguments = extract_arguments(ctx, params)
-        validated = MediaSaveParams(**arguments) if arguments else None
+        validated = parse_params(MediaSaveParams, arguments) if arguments else None
         file_location = validated.file_location if validated else None
 
         settings = get_settings()
@@ -106,7 +106,14 @@ async def upsert_media_tool(ctx: Any = None, params: Any = None) -> List[TextCon
                 initial_media_object = upload_result[0]["new"]
                 media_handle = initial_media_object["handle"]
 
-                final_media_data = initial_media_object.copy()
+                # Reason: the upload response carries server-computed fields
+                # (_class, checksum, thumb) that MediaSaveParams does not declare.
+                # Since #71 forbids extra keys, echoing them back into the PUT
+                # would be rejected, so only writable fields cross the boundary.
+                writable = set(MediaSaveParams.model_fields)
+                final_media_data = {
+                    k: v for k, v in initial_media_object.items() if k in writable
+                }
                 if validated:
                     final_media_data.update(
                         validated.model_dump(
