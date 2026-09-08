@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.7.4] - 2026-09-08
+
+### Fixed
+
+- The Docker test stack now stores the Gramps Web full-text search index in its own PostgreSQL service instead of a SQLite file. On SQLite the gunicorn worker writes that index synchronously while handling a delete, celery drains `update_search_indices_from_transaction` tasks against the same file, and the 5 s busy timeout expires, so `POST /api/objects/delete-by-handle/` intermittently answered HTTP 500 and `TestDeleteTagKeepsTree::test_delete_tag_leaves_other_objects_alone` flaked on every Python version in CI. PostgreSQL has no single-writer constraint, so the delete and the index tasks no longer race. This touches test infrastructure only. The shipped server, its dependencies, and the public tool surface are unchanged (#88)
+
 ## [3.7.3] - 2026-09-08
 
 ### Changed

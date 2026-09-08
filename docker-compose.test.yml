@@ -1,4 +1,22 @@
 services:
+  grampsweb_searchindex_db:
+    # Holds the Gramps Web full-text search index. On the default SQLite
+    # backend the gunicorn worker writes this index synchronously during
+    # delete requests while celery drains index-update tasks against the same
+    # file, and the 5s busy timeout expires (issue #88). PostgreSQL has no
+    # single-writer constraint, so the delete and the index tasks no longer
+    # race.
+    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    environment:
+      POSTGRES_USER: "grampsweb"
+      POSTGRES_PASSWORD: "test-only-search-index-password"
+      POSTGRES_DB: "search_index"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grampsweb -d search_index"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   grampsweb_redis:
     image: redis:7.4-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
     healthcheck:
@@ -13,12 +31,15 @@ services:
     depends_on:
       grampsweb_redis:
         condition: service_healthy
+      grampsweb_searchindex_db:
+        condition: service_healthy
     environment: &grampsweb_env
       GRAMPSWEB_TREE: "Test Tree"
       GRAMPSWEB_SECRET_KEY: "test-only-secret-key-do-not-use-in-production"
       GRAMPSWEB_CELERY_CONFIG__broker_url: "redis://grampsweb_redis:6379/0"
       GRAMPSWEB_CELERY_CONFIG__result_backend: "redis://grampsweb_redis:6379/0"
       GRAMPSWEB_RATELIMIT_STORAGE_URI: "redis://grampsweb_redis:6379/1"
+      GRAMPSWEB_SEARCH_INDEX_DB_URI: "postgresql://grampsweb:test-only-search-index-password@grampsweb_searchindex_db:5432/search_index"
     command: celery -A gramps_webapi.celery worker --loglevel=INFO --pool=solo
     volumes: &grampsweb_volumes
       - gramps_users:/app/users
