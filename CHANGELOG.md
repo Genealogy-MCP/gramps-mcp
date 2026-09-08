@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.2] - 2026-09-07
+
+### Changed
+
+- The GQL guidance now matches what actually executes. The typed-enum hints for events, families, places, and repositories, the `gql://documentation` resource, the `search` operation description, and the dev reference all keep `type.string` as the syntax to write and now state that the MCP layer rewrites it into the matching integer comparison on the same field before the query is sent (`type.value`, or `place_type.value` on places). Each surface also names the two gaps a caller would otherwise hit as a silent empty result: custom type names are not translated yet, and only `=` and `!=` translate, so `~` on a type name matches nothing. The hints for events, families, and repositories, and the `search` operation description, dropped their "not bare `type`" advice, which the rewrite made false (#86)
+
 ## [3.4.1] - 2026-09-07
 
 ### Fixed
