@@ -111,6 +111,22 @@ All families with three daughters.
 
 Copy-paste ready GQL examples for the most common searches.
 
+### Filtering by type name
+
+`type.string` (and `place_type.string` on places) is the syntax to write for
+events, families, places, and repositories. The Gramps GQL engine evaluates
+filters against Python objects and `GrampsType` has no `.string` attribute, so
+sending that comparison to the API unchanged returns HTTP 200 with an empty
+result set and no error. The MCP server rewrites the name into the matching
+`type.value` integer comparison before the query is sent, using the name-to-int
+map from `GET /api/types/default/{datatype}/map`. Write the name, read
+`type.value` in a server log.
+
+Two limits apply. Custom type names have no integer of their own and are not
+translated yet, so a filter on one still returns nothing. Only `=` and `!=`
+translate; `~` on a type name has no integer equivalent and passes through
+unrewritten, which means it also matches nothing.
+
 ### Person
 
 ```sql

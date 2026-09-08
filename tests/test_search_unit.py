@@ -809,6 +809,32 @@ class TestGqlHint:
         hint = gql_hint("repositories", "type = Archive")
         assert "type.string" in hint
 
+    def test_typed_enum_hints_mention_the_translation(self):
+        """Every typed-enum hint tells the caller the MCP rewrites to type.value."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        cases = [
+            ("places", "type = City"),
+            ("events", "type = Birth"),
+            ("families", "type = Married"),
+            ("repositories", "type = Archive"),
+        ]
+        assert all("type.value" in gql_hint(entity, gql) for entity, gql in cases)
+
+    def test_typed_enum_hints_flag_the_custom_name_gap(self):
+        """Custom type names are not translated yet, so the hints must say so."""
+        from src.gramps_mcp.tools._gql_hints import gql_hint
+
+        cases = [
+            ("places", "type = City"),
+            ("events", "type = Birth"),
+            ("families", "type = Married"),
+            ("repositories", "type = Archive"),
+        ]
+        assert all(
+            "Custom type names" in gql_hint(entity, gql) for entity, gql in cases
+        )
+
     def test_bare_text_on_notes(self):
         """'text ~ "research"' on notes suggests text.string."""
         from src.gramps_mcp.tools._gql_hints import gql_hint
