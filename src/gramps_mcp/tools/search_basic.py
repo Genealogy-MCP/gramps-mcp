@@ -39,6 +39,7 @@ from ..models.parameters.source_params import SourceSearchParams
 from ._compat import extract_arguments
 from ._errors import McpToolError, raise_tool_error
 from ._gql_hints import gql_hint, gql_private_reject
+from ._gql_type_rewrite import maybe_rewrite_gql
 
 logger = logging.getLogger(__name__)
 
@@ -152,15 +153,19 @@ async def _search_entities(
     # call -- otherwise Gramps silently returns [], which reads as "no private
     # records exist" (issue #54). Raised outside the try so it is not re-wrapped
     # as a generic search failure.
-    reject = gql_private_reject(arguments.get("gql", ""))
-    if reject:
+    if reject := gql_private_reject(arguments.get("gql", "")):
         raise McpToolError(reject)
+
+    # Translate typed-enum name filters (type.string = "Birth") into the
+    # type.value form -- the only one the GQL engine evaluates (issue #84).
+    if gql := arguments.get("gql"):
+        rewritten = await maybe_rewrite_gql(client, entity_type, gql)
+        if rewritten != gql:
+            arguments = {**arguments, "gql": rewritten}
 
     try:
         params = params_class(**arguments)
-
-        settings = get_settings()
-        tree_id = settings.gramps_tree_id
+        tree_id = get_settings().gramps_tree_id
 
         response = await client.make_api_call(
             api_call=api_call, params=params, tree_id=tree_id
@@ -182,7 +187,6 @@ async def _search_entities(
         else:
             actual_total = total_count if total_count is not None else len(results)
 
-            # Apply pagesize ceiling before formatting
             results_to_display = (
                 results[: params.pagesize] if params.pagesize else results
             )
