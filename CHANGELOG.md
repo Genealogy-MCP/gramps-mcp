@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.7.2] - 2026-09-08
+
+### Added
+
+- `upsert_person` now accepts `citation_list`, so a source can be attached to the person record itself and not only to an event or family. The handles reach the API body on both create and update, and the existing list-merge policy applies unchanged: the default `list_mode: "merge"` appends with dedup, `list_mode: "replace"` overwrites the stored list (#76)
+
 ## [3.7.1] - 2026-09-08
 
 ### Added
