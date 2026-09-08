@@ -130,7 +130,10 @@ Now create the life event that was documented in that citation:
 **Family requires:**
 - **Father handle** (optional): Handle of the father person
 - **Mother handle** (optional): Handle of the mother person  
-- **Children handles** (optional): List of handles of child persons
+- **Children handles** (optional): List of handles of child persons, each recorded as a plain birth child
+- **Child ref list** (optional): Full parent-child edges, used instead of children handles when an edge needs its own detail. Each entry takes a child handle plus the father and mother relationship (`Birth`, `Adopted`, `Stepchild`, `Sponsored`, `Foster`, `Unknown`) and its own citations and notes. Cite a birth act that names both parents here, on the edge it evidences, not on the family
+- **Citations** (optional): Evidence about the couple itself, such as a marriage record. Use `upsert_citation` first, then link to the family
+- **Family type** (optional): The couple's relationship type (`Married`, `Unmarried`, `Civil Union`, `Unknown`)
 - **Notes** (optional): If present, use `upsert_note` tool first, then link to family
 - **Media** (optional): If present, use `upsert_media` tool first, then link to family
 - **URLs** (optional): Web links with type, path, and description

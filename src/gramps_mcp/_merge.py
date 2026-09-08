@@ -7,8 +7,14 @@ Composite-identity dedup for reference-object list merges.
 When merging *_list fields on a PUT (list_mode="merge"), reference-object
 entries (dicts carrying a "ref" handle plus qualifiers) must be deduped on
 their full identity, not the "ref" alone -- otherwise genuinely-distinct
-same-ref entries (media differing by rect, child refs differing by
-frel/mrel, event refs differing by role) are silently dropped.
+same-ref entries (media differing by rect, event refs differing by role) are
+silently dropped.
+
+child_ref_list is the exception and gets merge_child_refs: a Gramps family
+holds at most one child_ref per child, so a second entry for the same child is
+never correct. Entries merge by "ref", unioning their nested citation_list and
+note_list, which is what lets a citation attach to an existing parent-child
+edge (#60, #63).
 """
 
 import json
@@ -76,6 +82,65 @@ def _normalize_value(value: Any) -> Any:
     return value
 
 
+def _merge_string_lists(existing_items: list, new_items: list) -> list:
+    """Append the new string handles not already present, preserving order.
+
+    Args:
+        existing_items (list): Handles already stored.
+        new_items (list): Handles from the PUT payload.
+
+    Returns:
+        list: existing_items followed by the genuinely new handles.
+    """
+    seen = set(existing_items)
+    return existing_items + [item for item in new_items if item not in seen]
+
+
+def merge_child_refs(existing_items: list, new_items: list) -> list:
+    """Merge child_ref entries by child handle, unioning their nested lists.
+
+    A family holds one child_ref per child, so an incoming entry for a child
+    already present updates that entry in place instead of appending a second
+    one: nested citation_list/note_list are unioned and any explicitly supplied
+    scalar (frel, mrel, private) overrides the stored value. Entries for
+    children not yet in the family are appended.
+
+    Args:
+        existing_items (list): child_ref_list as returned by the merge GET.
+        new_items (list): child_ref entries from the user's PUT payload.
+
+    Returns:
+        list: The merged child_ref_list.
+    """
+    merged = [dict(item) if isinstance(item, dict) else item for item in existing_items]
+    index_by_ref = {
+        item["ref"]: position
+        for position, item in enumerate(merged)
+        if isinstance(item, dict) and item.get("ref")
+    }
+
+    for new_item in new_items:
+        if not isinstance(new_item, dict) or not new_item.get("ref"):
+            continue
+        position = index_by_ref.get(new_item["ref"])
+        if position is None:
+            index_by_ref[new_item["ref"]] = len(merged)
+            merged.append(dict(new_item))
+            continue
+
+        target = merged[position]
+        for key, value in new_item.items():
+            # Reason: nested handle lists are additive evidence (a new
+            # citation must not wipe the ones already on the edge), while a
+            # supplied frel/mrel/private is a deliberate correction.
+            if isinstance(value, list) and isinstance(target.get(key), list):
+                target[key] = _merge_string_lists(target[key], value)
+            else:
+                target[key] = value
+
+    return merged
+
+
 def merge_ref_items(existing_items: list, new_items: list) -> list:
     """Append new reference-objects to existing ones, deduped on composite identity.
 
@@ -109,3 +174,55 @@ def merge_ref_items(existing_items: list, new_items: list) -> list:
         and json.dumps(_normalize_ref_item(item), sort_keys=True) not in seen_keys
     ]
     return existing_items + additions
+
+
+def merge_object(existing: dict, changes: dict, list_mode: str) -> dict:
+    """Overlay a PUT payload onto the stored object, merging list fields.
+
+    Args:
+        existing (dict): The entity as currently stored, from the merge GET.
+        changes (dict): The caller's PUT payload.
+        list_mode (str): "merge" to append to stored lists, "replace" to
+            overwrite them wholesale.
+
+    Returns:
+        dict: The stored object with the caller's changes applied.
+    """
+    merged = existing.copy()
+    for key, value in changes.items():
+        stored = existing.get(key)
+        # Reason: a field is a mergeable collection when BOTH sides hold a
+        # list -- keying on the "_list" name convention silently replaced
+        # alt_names, urls, alternate_names, and alt_loc (#82).
+        if list_mode != "merge" or not isinstance(value, list):
+            merged[key] = value
+        elif not isinstance(stored, list):
+            merged[key] = value
+        else:
+            merged[key] = _merge_list_field(key, stored, value)
+    return merged
+
+
+def _merge_list_field(key: str, existing_items: list, new_items: list) -> list:
+    """Merge one list field according to what its entries are.
+
+    Args:
+        key (str): The field name, which selects the child_ref_list policy.
+        existing_items (list): Entries already stored.
+        new_items (list): Entries from the PUT payload.
+
+    Returns:
+        list: The merged entries.
+    """
+    # Reason: a family holds one child_ref per child, so same-ref entries merge
+    # in place instead of appending a duplicate edge -- that is what lets a
+    # citation attach to an existing parent-child relationship (#60, #63).
+    if key == "child_ref_list":
+        return merge_child_refs(existing_items, new_items)
+    if not existing_items or not new_items:
+        return existing_items + new_items
+    if isinstance(existing_items[0], dict) and isinstance(new_items[0], dict):
+        return merge_ref_items(existing_items, new_items)
+    if isinstance(existing_items[0], str) and isinstance(new_items[0], str):
+        return _merge_string_lists(existing_items, new_items)
+    return existing_items + new_items
