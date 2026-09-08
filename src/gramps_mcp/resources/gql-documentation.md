@@ -118,9 +118,10 @@ events, families, places, and repositories. The Gramps GQL engine evaluates
 filters against Python objects and `GrampsType` has no `.string` attribute, so
 sending that comparison to the API unchanged returns HTTP 200 with an empty
 result set and no error. The MCP server rewrites the name into the matching
-`type.value` integer comparison before the query is sent, using the name-to-int
-map from `GET /api/types/default/{datatype}/map`. Write the name, read
-`type.value` in a server log.
+integer comparison on the same field before the query is sent, using the
+name-to-int map from `GET /api/types/default/{datatype}/map`. Only the suffix
+changes, so write the name and read `type.value` in a server log, or
+`place_type.value` on places.
 
 Two limits apply. Custom type names have no integer of their own and are not
 translated yet, so a filter on one still returns nothing. Only `=` and `!=`

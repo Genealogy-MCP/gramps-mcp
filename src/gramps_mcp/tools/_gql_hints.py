@@ -15,14 +15,15 @@ from typing import Dict, List, Tuple
 # Appended to every typed-enum hint. `type.string` stays the canonical
 # documented syntax, but the Gramps GQL engine matches nothing against
 # `.string` (issue #83), so `_gql_type_rewrite` translates the name into the
-# integer form before the query is sent. Callers reading a server log see
-# `type.value`, not what they wrote, and custom names still return nothing
-# until the client-side match lands.
+# integer form before the query is sent. The rewrite keeps the entity's own
+# field name, so a server log shows `place_type.value` on places and
+# `type.value` elsewhere, not what the caller wrote. Custom names still return
+# nothing until the client-side match lands.
 _TYPE_TRANSLATION_NOTE = (
-    "\nThe MCP server rewrites this into the matching `type.value` integer "
-    "comparison before querying, because the Gramps GQL engine matches "
-    "nothing against `.string`. Custom type names are not translated yet and "
-    "still return no results."
+    "\nThe MCP server rewrites this into the matching integer comparison on "
+    "the same field (`.value` in place of `.string`) before querying, because "
+    "the Gramps GQL engine matches nothing against `.string`. Custom type "
+    "names are not translated yet and still return no results."
 )
 
 # Patterns per entity type: (compiled_regex, hint_message)

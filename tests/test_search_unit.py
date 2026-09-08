@@ -810,16 +810,25 @@ class TestGqlHint:
         assert "type.string" in hint
 
     def test_typed_enum_hints_mention_the_translation(self):
-        """Every typed-enum hint tells the caller the MCP rewrites to type.value."""
+        """Every typed-enum hint names the .value rewrite on its own field.
+
+        The rewrite keeps the entity's field name, so places become
+        `place_type.value` and the others `type.value`. A hint that named one
+        field for all four would mislead on places (issue #86 review).
+        """
         from src.gramps_mcp.tools._gql_hints import gql_hint
 
         cases = [
-            ("places", "type = City"),
-            ("events", "type = Birth"),
-            ("families", "type = Married"),
-            ("repositories", "type = Archive"),
+            ("places", "type = City", "place_type.string"),
+            ("events", "type = Birth", "type.string"),
+            ("families", "type = Married", "type.string"),
+            ("repositories", "type = Archive", "type.string"),
         ]
-        assert all("type.value" in gql_hint(entity, gql) for entity, gql in cases)
+        hints = {entity: gql_hint(entity, gql) for entity, gql, _ in cases}
+        assert all(
+            "`.value` in place of `.string`" in hints[entity] and field in hints[entity]
+            for entity, _, field in cases
+        )
 
     def test_typed_enum_hints_flag_the_custom_name_gap(self):
         """Custom type names are not translated yet, so the hints must say so."""

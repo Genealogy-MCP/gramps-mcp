@@ -109,8 +109,11 @@ OPERATION_REGISTRY: dict[str, OperationEntry] = {
             "People: primary_name.first_name, "
             "primary_name.surname_list[0].surname (NOT 'name'). "
             "Places: name.value (NOT 'name'), place_type.string (NOT 'type'). "
-            "Events/Families/Repositories: type.string (NOT 'type'). "
+            "Events/Families/Repositories: type.string. "
             "Notes: text.string (NOT 'text'). "
+            "Type-name filters are rewritten to the integer form "
+            "(`.value` in place of `.string`) before querying; custom type "
+            "names are not translated yet and return no results. "
             'Multi-word values MUST be quoted: name.value ~ "New York".'
         ),
         category="search",
