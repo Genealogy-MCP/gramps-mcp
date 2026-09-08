@@ -12,6 +12,20 @@ mistake patterns -- returns empty string when the query looks correct.
 import re
 from typing import Dict, List, Tuple
 
+# Appended to every typed-enum hint. `type.string` stays the canonical
+# documented syntax, but the Gramps GQL engine matches nothing against
+# `.string` (issue #83), so `_gql_type_rewrite` translates the name into the
+# integer form before the query is sent. The rewrite keeps the entity's own
+# field name, so a server log shows `place_type.value` on places and
+# `type.value` elsewhere, not what the caller wrote. Custom names still return
+# nothing until the client-side match lands.
+_TYPE_TRANSLATION_NOTE = (
+    "\nThe MCP server rewrites this into the matching integer comparison on "
+    "the same field (`.value` in place of `.string`) before querying, because "
+    "the Gramps GQL engine matches nothing against `.string`. Custom type "
+    "names are not translated yet and still return no results."
+)
+
 # Patterns per entity type: (compiled_regex, hint_message)
 # Regex uses negative lookbehind (?<!\.) so dotted paths like
 # primary_name.first_name do NOT trigger a false positive.
@@ -52,7 +66,7 @@ _GQL_HINTS: Dict[str, List[Tuple[re.Pattern, str]]] = {
             re.compile(r"(?<!\.)(?<!\w)\btype\b(?!\.string)", re.IGNORECASE),
             (
                 "Place types use 'place_type.string' (not 'type'). "
-                "Example: place_type.string = City"
+                "Example: place_type.string = City" + _TYPE_TRANSLATION_NOTE
             ),
         ),
     ],
@@ -60,8 +74,8 @@ _GQL_HINTS: Dict[str, List[Tuple[re.Pattern, str]]] = {
         (
             re.compile(r"(?<!\.)(?<!\w)\btype\b(?!\.string)", re.IGNORECASE),
             (
-                "Event types use 'type.string' (not bare 'type'). "
-                "Example: type.string = Birth"
+                "Event types use 'type.string'. "
+                "Example: type.string = Birth" + _TYPE_TRANSLATION_NOTE
             ),
         ),
     ],
@@ -69,8 +83,8 @@ _GQL_HINTS: Dict[str, List[Tuple[re.Pattern, str]]] = {
         (
             re.compile(r"(?<!\.)(?<!\w)\btype\b(?!\.string)", re.IGNORECASE),
             (
-                "Family relationship types use 'type.string' (not bare 'type'). "
-                "Example: type.string = Married"
+                "Family relationship types use 'type.string'. "
+                "Example: type.string = Married" + _TYPE_TRANSLATION_NOTE
             ),
         ),
     ],
@@ -78,8 +92,8 @@ _GQL_HINTS: Dict[str, List[Tuple[re.Pattern, str]]] = {
         (
             re.compile(r"(?<!\.)(?<!\w)\btype\b(?!\.string)", re.IGNORECASE),
             (
-                "Repository types use 'type.string' (not bare 'type'). "
-                "Example: type.string = Archive"
+                "Repository types use 'type.string'. "
+                "Example: type.string = Archive" + _TYPE_TRANSLATION_NOTE
             ),
         ),
     ],

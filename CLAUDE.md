@@ -635,6 +635,19 @@ media_list.length > 0
 private and text.string ~ David
 ```
 
+**Typed-enum name filters are rewritten before they are sent.** `type.string`
+(`place_type.string` on places) is the canonical syntax for events, families,
+places, and repositories, but the Gramps GQL engine matches nothing against
+`.string` and answers HTTP 200 with an empty set. `tools/_gql_type_rewrite.py`
+translates the name into the matching integer comparison on the same field
+(`type.value`, or `place_type.value` on places), with the
+name-to-int map fetched from `GET /api/types/default/{datatype}/map` and cached
+per session. `search_basic._search_entities` calls it on every GQL query.
+Custom type names are not translated yet (issue #85) and still return nothing,
+and only `=` and `!=` translate, so `~` on a type name also matches nothing.
+Delete the module once upstream Gramps Web fixes GQL typed-enum matching; the
+integration regression probe in `tests/test_gql_type_rewrite.py` flags that.
+
 Full GQL documentation is served as MCP resource `gql://documentation`.
 
 ---
