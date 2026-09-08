@@ -19,6 +19,9 @@ MAX_NOTE_LENGTH = 500
 # Returning "" here would be indistinguishable from a lookup failure.
 EMPTY_NOTE_BODY = "(no text)"
 
+# Gramps note formats; unknown values fall back to the raw int.
+FORMAT_LABELS = {0: "flowed", 1: "preformatted"}
+
 
 async def format_note(client, tree_id: str, handle: str) -> str:
     """
@@ -58,7 +61,15 @@ async def format_note(client, tree_id: str, handle: str) -> str:
             text = text[: MAX_NOTE_LENGTH - 3] + "..."
 
         header = f"{note_type} Note - {gramps_id} - [{handle}]"
-        return f"{header}\n{text}\nprivate: {str(private).lower()}\n\n"
+        result = f"{header}\n{text}"
+
+        # Format: key-presence check -- 0 (flowed) is the default and still renders
+        if "format" in note_data:
+            note_format = note_data["format"]
+            label = FORMAT_LABELS.get(note_format, str(note_format))
+            result += f"\nformat: {label}"
+
+        return f"{result}\nprivate: {str(private).lower()}\n\n"
 
     except Exception as e:
         logger.warning(f"Failed to format note {handle}: {e}")

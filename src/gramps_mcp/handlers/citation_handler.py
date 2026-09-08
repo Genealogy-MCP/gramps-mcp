@@ -16,6 +16,15 @@ from .date_handler import format_date
 
 logger = logging.getLogger(__name__)
 
+# Gramps confidence levels (0-4); unknown values fall back to the raw int.
+CONFIDENCE_LABELS = {
+    0: "very low",
+    1: "low",
+    2: "normal",
+    3: "high",
+    4: "very high",
+}
+
 
 async def format_citation(client, tree_id: str, handle: str) -> str:
     """
@@ -119,6 +128,22 @@ async def format_citation(client, tree_id: str, handle: str) -> str:
 
             if backlink_ids:
                 result += f"\nAttached to: {', '.join(backlink_ids)}"
+
+        # Confidence: key-presence check, never truthiness -- 0 means "very low"
+        if "confidence" in citation_data:
+            confidence = citation_data["confidence"]
+            label = CONFIDENCE_LABELS.get(confidence, str(confidence))
+            result += f"\nconfidence: {label}"
+
+        # Tags by name (from extend=all); handles are useless to callers (MCP-19)
+        extended_tags = extended.get("tags", [])
+        tag_names = [
+            t.get("name", "")
+            for t in extended_tags
+            if isinstance(t, dict) and t.get("name")
+        ]
+        if tag_names:
+            result += f"\nTags: {', '.join(tag_names)}"
 
         private = citation_data.get("private", False)
         result += f"\nprivate: {str(private).lower()}"

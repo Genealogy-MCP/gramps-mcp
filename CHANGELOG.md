@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.11] - 2026-09-07
+
+### Fixed
+
+- `get` now renders citation confidence and tags, and note format. Confidence renders as its Gramps label (very low/low/normal/high/very high), note format as flowed/preformatted; unknown ints fall back to the raw number. Both use key-presence checks so the legitimate value `0` still renders. Tags render by name from the `extend=all` payload, never as handles; an empty tag list omits the line (#56)
+
 ## [3.3.10] - 2026-09-07
 
 ### Fixed
