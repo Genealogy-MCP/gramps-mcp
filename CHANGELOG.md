@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.8.0] - 2026-09-07
+
+### Added
+
+- `upsert_place` now accepts `enclosed_by`, the parameter the usage guide already told callers to send. It had no counterpart on `PlaceSaveParams`, so Pydantic dropped it and the tool reported success while storing a place with an empty `placeref_list`, detached from its hierarchy. `enclosed_by` is now translated into a `placeref_list` entry, and `placeref_list` itself is documented as the escape hatch for date-qualified historic enclosures (#67)
+
+### Fixed
+
+- The PUT merge loop moved out of `client.py` into `_merge.py`, which already owned the dedup policy it was calling. `client.py` was one line over the 500-line ceiling and the merge rules had no reason to live in the transport layer
+- Merging a `placeref_list` on PUT no longer stacks parents. A place sits inside exactly one parent at a time, so an undated enclosure replaces the stored undated one; date-qualified entries still accumulate, so a historic enclosure survives a re-parenting. Gramps Web returns an empty `Date` object rather than `null` for an undated enclosure, so "undated" is decided on the date's contents, not its presence (#67)
+
 ## [3.6.0] - 2026-09-07
 
 ### Added

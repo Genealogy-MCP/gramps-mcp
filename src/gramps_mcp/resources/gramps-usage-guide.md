@@ -259,9 +259,13 @@ When potential duplicates are found:
 **Place requires:**
 - **Name** (required): "Boston", "Massachusetts", "United States"
 - **Type** (required): City, County, State, Country, Church, Cemetery, etc.
-- **Enclosed by** (required): Handle of the higher-level place that contains this place
+- **`enclosed_by`** (required): Handle of the higher-level place that contains this place
   - Example hierarchy: Church → City → County → State → Country
   - Continue until you reach Country type (top level)
+  - On update, `enclosed_by` moves the place: it replaces the current enclosing
+    place instead of adding a second parent
+  - For a historic enclosure that ended, pass `placeref_list` entries with a
+    `date` instead; those accumulate
 - **URLs** (optional): Web links with type, path, and description
 
 **Place Process:**
