@@ -57,6 +57,7 @@ class TestParameterAlignment:
             "url",
             "note",
             "urls",
+            "address_list",
         }  # urls might be alternate form of url
         system_fields = {
             "handle",
@@ -99,7 +100,12 @@ class TestParameterAlignment:
         )
 
         # Check fields match current implementation
-        implementation_fields = create_required | {"reporef_list", "author", "pubinfo"}
+        implementation_fields = create_required | {
+            "reporef_list",
+            "author",
+            "pubinfo",
+            "abbrev",
+        }
         system_fields = {
             "handle",
             "gramps_id",
@@ -262,6 +268,8 @@ class TestParameterAlignment:
             "citation_list",
             "urls",
             "person_ref_list",
+            "address_list",
+            "lds_ord_list",
         }
         system_fields = {
             "handle",

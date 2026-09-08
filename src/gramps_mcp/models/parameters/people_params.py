@@ -132,6 +132,28 @@ class PersonData(BaseDataModel):
             '"replace" overwrites the whole list.'
         ),
     )
+    address_list: Optional[List[Dict[str, Any]]] = Field(
+        None,
+        description=(
+            "List of postal addresses where the person lived. Each entry "
+            "accepts street, locality, city, county, state, country, postal, "
+            "phone, date, citation_list, note_list, private. On update the "
+            'list_mode applies: "merge" (default) appends with dedup, '
+            '"replace" overwrites the whole list.'
+        ),
+    )
+    lds_ord_list: Optional[List[Dict[str, Any]]] = Field(
+        None,
+        description=(
+            "List of LDS ordinances for the person. Each entry accepts type, "
+            "date, temple, place, status, famc, citation_list, note_list, "
+            "private. Unlike every other typed enum in this API, type and "
+            "status must be integers here; passing the name string (e.g. "
+            '"Baptism") makes the server answer HTTP 500. On update the '
+            'list_mode applies: "merge" (default) appends with dedup, '
+            '"replace" overwrites the whole list.'
+        ),
+    )
 
 
 class PersonTimelineParams(BaseModel):

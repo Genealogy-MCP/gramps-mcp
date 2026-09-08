@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.8.0] - 2026-09-08
+
+### Added
+
+- Four fields the Gramps Web API has always accepted are now declared on their upsert parameter models, so passing them stores the value instead of dropping it silently. `upsert_source` gains `abbrev` (the short form of a source title, already advertised in the usage guide before the field existed). `upsert_repository` gains `address_list`, the archive's postal address. `upsert_person` gains `address_list`, the addresses a person lived at, and `lds_ord_list`, their LDS ordinances. Before this, a caller passing any of them got a success message and no stored data, because the models drop undeclared input. All four are lists of plain dicts, matching every other nested structure on these models, and all four honour `list_mode` on update, merging with dedup by default and overwriting under `"replace"` (#75)
+
+### Fixed
+
+- Documented that LDS ordinance `type` and `status` must be passed as integers. Every other typed enum in this API takes the name string, but the server answers HTTP 500 for `{"type": "Baptism"}` here. The `lds_ord_list` field description now says so, and an integration test pins the behaviour so a future API version that accepts the name string is caught (#75)
+
 ## [3.7.5] - 2026-09-08
 
 ### Fixed
