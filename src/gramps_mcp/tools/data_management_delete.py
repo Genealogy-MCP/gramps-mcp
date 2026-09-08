@@ -19,7 +19,7 @@ from ..models.api_calls import ApiCalls
 from ..models.parameters.simple_params import DeleteParams
 from ._compat import extract_arguments
 from ._data_helpers import _extract_entity_data
-from ._errors import McpToolError, raise_tool_error
+from ._errors import McpToolError, parse_params, raise_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +131,7 @@ async def upsert_tag_tool(ctx: Any = None, params: Any = None) -> List[TextConte
 
     try:
         arguments = extract_arguments(ctx, params)
-        validated = TagSaveParams(**arguments)
+        validated = parse_params(TagSaveParams, arguments)
 
         if validated.handle:
             raise_tool_error(

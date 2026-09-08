@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.9.0] - 2026-09-08
+
+### Changed
+
+- Every upsert operation now rejects a parameter it does not recognise instead of ignoring it. Until now a misspelled key was dropped in silence: `upsert_event` called with `attributes` rather than `attribute_list` answered "Successfully updated" and wrote nothing, which is indistinguishable from success to the caller and to a reviewer reading the transcript. The rejection names the offending key, suggests the real field when one is close enough to be a typo, and states that nothing was saved, so the caller can correct the call in one step. Read operations are unaffected; this applies to the write models only, where an undeclared key is always a caller mistake (#71)
+
+### Fixed
+
+- Creating media no longer echoes the server's computed fields back in the update that follows the file upload. The upload response carries `checksum`, `thumb`, and `_class`, which are the server's to set and were previously sent straight back. An integration test asserts the created object keeps its checksum and file path (#71)
+- `test_all_entity_attributes_comprehensive` and `test_complete_marriage_record_workflow` were passing parameter names that no model declares, including `publication_info`, `event_role`, and `note_handle`. Silent dropping let both tests assert success over data that was never stored. They now use the declared field names (#71)
+
 ## [3.8.0] - 2026-09-08
 
 ### Added

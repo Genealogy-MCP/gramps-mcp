@@ -163,7 +163,12 @@ class BaseDataModel(BaseModel):
         ),
     )
 
-    model_config = {"populate_by_name": True}
+    # Reason: extra="forbid" (#71). The pydantic default of "ignore" made a
+    # misspelled parameter indistinguishable from success: upsert_event called
+    # with "attributes" instead of "attribute_list" reported "Successfully
+    # updated" and wrote nothing. On a write model an undeclared key is always
+    # a caller mistake, so it has to fail loudly.
+    model_config = {"populate_by_name": True, "extra": "forbid"}
 
     def to_api_payload(self) -> Dict[str, Any]:
         """Return API-ready dict. Subclasses override for custom serialization."""

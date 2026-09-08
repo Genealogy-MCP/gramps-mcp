@@ -169,13 +169,7 @@ class TestCompleteWorkflow:
         repository_result = await upsert_source_tool(
             {
                 "title": f"{TEST_PREFIX}Repository for Comprehensive Testing",
-                "type": "Archive",
-                "url": {
-                    "type": "Website",
-                    "path": "https://test-archive.org",
-                    "description": "Test archive website",
-                },
-                "note_handle": note_handle,
+                "note_list": [note_handle],
             }
         )
 
@@ -193,12 +187,12 @@ class TestCompleteWorkflow:
         source_result = await upsert_source_tool(
             {
                 "title": f"{TEST_PREFIX}Source Document with All Attributes",
-                "repository_handle": workflow_data["test_repository_handle"],
+                "reporef_list": [{"ref": workflow_data["test_repository_handle"]}],
                 "author": "Test Author Name",
-                "publication_info": "Published by Test Publisher, 2024 Edition",
-                "abbreviation": "TEST-SRC-2024",
-                "media_handle": media_handle,
-                "note_handle": note_handle,
+                "pubinfo": "Published by Test Publisher, 2024 Edition",
+                "abbrev": "TEST-SRC-2024",
+                "media_list": [{"ref": media_handle}],
+                "note_list": [note_handle],
             }
         )
 
@@ -544,8 +538,7 @@ class TestCompleteWorkflow:
             await upsert_person_tool(
                 {
                     "handle": existing_handle,
-                    "event_handle": event_handle,
-                    "event_role": event_role,
+                    "event_ref_list": [{"ref": event_handle, "role": event_role}],
                 }
             )
             return existing_handle
@@ -554,20 +547,21 @@ class TestCompleteWorkflow:
                 {
                     "primary_name": {"given_name": given_name, "surname": surname},
                     "gender": gender,
-                    "note_handle": person_note_handle,
-                    "media_handle": person_media_handle,
-                    "url": {
-                        "type": "Website",
-                        "path": (
-                            "https://findagrave.com/memorial/"
-                            f"{given_name.lower()}-{surname.lower()}"
-                        ),
-                        "description": (
-                            f"Find A Grave memorial for {given_name} {surname}"
-                        ),
-                    },
-                    "event_handle": event_handle,
-                    "event_role": event_role,
+                    "note_list": [person_note_handle],
+                    "media_list": [{"ref": person_media_handle}],
+                    "urls": [
+                        {
+                            "type": "Web Home",
+                            "path": (
+                                "https://findagrave.com/memorial/"
+                                f"{given_name.lower()}-{surname.lower()}"
+                            ),
+                            "desc": (
+                                f"Find A Grave memorial for {given_name} {surname}"
+                            ),
+                        }
+                    ],
+                    "event_ref_list": [{"ref": event_handle, "role": event_role}],
                 }
             )
 

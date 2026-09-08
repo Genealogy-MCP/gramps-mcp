@@ -32,6 +32,10 @@ class TagSearchParams(BaseModel):
 class TagSaveParams(BaseModel):
     """Parameters for creating or updating a tag."""
 
+    # Reason: the only write model not built on BaseDataModel, so it needs its
+    # own copy of the #71 setting.
+    model_config = {"extra": "forbid"}
+
     handle: Optional[str] = Field(
         None, description="Tag's handle (for updates; omit for new tag)"
     )
