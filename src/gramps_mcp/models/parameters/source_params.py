@@ -124,3 +124,6 @@ class SourceSaveParams(BaseDataModel):
     )
     author: Optional[str] = Field(None, description="Source author")
     pubinfo: Optional[str] = Field(None, description="Publication information")
+    abbrev: Optional[str] = Field(
+        None, description="Short abbreviation for the source title"
+    )
