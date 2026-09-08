@@ -60,10 +60,16 @@ def _normalize_value(value: Any) -> Any:
             return value["string"]
         # Reason: GET expands an unset date into a full Date object of
         # defaults while the PUT payload omits it; both must key equal.
-        # sortval is 0 only for empty dates (any real date computes a
-        # nonzero serial), text covers text-only dates (#82).
-        if "dateval" in value and not value.get("sortval") and not value.get("text"):
-            return None
+        # Emptiness keys on dateval (all zeros) plus no text, and sortval
+        # is dropped because the server computes it and PUT payloads
+        # legitimately omit it -- keying on it would append a duplicate
+        # on every re-PUT of a dated entry (#82).
+        if "dateval" in value:
+            if not any(value.get("dateval") or []) and not value.get("text"):
+                return None
+            return _normalize_ref_item(
+                {k: v for k, v in value.items() if k != "sortval"}
+            )
         return _normalize_ref_item(value)
     if isinstance(value, list):
         return [_normalize_value(v) for v in value]

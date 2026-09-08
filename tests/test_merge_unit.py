@@ -72,6 +72,21 @@ class TestNormalizeRefItem:
         }
         assert "date" in _normalize_ref_item(item)
 
+    def test_real_date_with_and_without_sortval_key_equal(self):
+        # sortval is computed server-side; the PUT payload omits it. A dated
+        # entry must still dedup against its stored form (#82).
+        enriched = {
+            "value": "Neapolis",
+            "date": {"dateval": [1, 1, 1900, False], "sortval": 2415021},
+        }
+        minimal = {"value": "Neapolis", "date": {"dateval": [1, 1, 1900, False]}}
+        assert _normalize_ref_item(enriched) == _normalize_ref_item(minimal)
+
+    def test_distinct_real_dates_stay_distinct(self):
+        a = {"value": "Neapolis", "date": {"dateval": [1, 1, 1900, False]}}
+        b = {"value": "Neapolis", "date": {"dateval": [2, 1, 1900, False]}}
+        assert _normalize_ref_item(a) != _normalize_ref_item(b)
+
     def test_differing_desc_stays_distinct(self):
         # Full-identity dedup: same path, different desc = two entries.
         a = {"path": "https://example.org", "desc": "Parish register"}
