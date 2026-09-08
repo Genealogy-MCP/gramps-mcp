@@ -302,6 +302,9 @@ class TestParameterAlignment:
             "father_handle",
             "mother_handle",
             "child_handles",
+            "child_ref_list",
+            "citation_list",
+            "family_type",
             "event_ref_list",
         }
         for field_name in family_linking_fields:

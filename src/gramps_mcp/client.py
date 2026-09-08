@@ -17,7 +17,7 @@ from urllib.parse import quote, urljoin
 import httpx
 from pydantic import BaseModel
 
-from ._merge import merge_ref_items
+from ._merge import merge_object
 from .auth import AuthManager
 from .config import get_settings
 from .models.api_calls import ApiCalls
@@ -372,65 +372,7 @@ class GrampsWebAPIClient:
                 )
                 existing = await self._make_request("GET", get_url)
                 if existing:
-                    # Merge existing data with changes
-                    merged_data = existing.copy()
-
-                    # Merge all fields properly - lists get concatenated,
-                    # others get replaced
-                    for key, value in json_data.items():
-                        # Reason: a field is a mergeable collection when BOTH
-                        # sides hold a list -- keying on the "_list" name
-                        # convention silently replaced alt_names, urls,
-                        # alternate_names, and alt_loc (#82).
-                        if (
-                            list_mode == "merge"
-                            and isinstance(value, list)
-                            and isinstance(existing.get(key), list)
-                        ):
-                            existing_items = existing.get(key, [])
-
-                            # Smart deduplication based on list content type
-                            if existing_items and value:
-                                # Check if items are objects with 'ref' field
-                                # (like event_ref_list, media_list)
-                                sample_existing = (
-                                    existing_items[0] if existing_items else None
-                                )
-                                sample_new = value[0] if value else None
-
-                                if isinstance(sample_existing, dict) and isinstance(
-                                    sample_new, dict
-                                ):
-                                    # Dedup dict entries (ref objects, alt
-                                    # names, urls) on composite identity, not
-                                    # 'ref' alone, so distinct same-ref
-                                    # entries (media rect, child frel/mrel)
-                                    # both survive and re-PUTs of value
-                                    # collections stay idempotent (#82).
-                                    merged_data[key] = merge_ref_items(
-                                        existing_items, value
-                                    )
-                                elif isinstance(sample_existing, str) and isinstance(
-                                    sample_new, str
-                                ):
-                                    # Deduplicate simple string handles
-                                    existing_set = set(existing_items)
-                                    new_items = [
-                                        item
-                                        for item in value
-                                        if item not in existing_set
-                                    ]
-                                    merged_data[key] = existing_items + new_items
-                                else:
-                                    # Fallback: simple concatenation for
-                                    # mixed/unknown types
-                                    merged_data[key] = existing_items + value
-                            else:
-                                # If either list is empty, just concatenate
-                                merged_data[key] = existing_items + value
-                        else:
-                            merged_data[key] = value
-                    json_data = merged_data
+                    json_data = merge_object(existing, json_data, list_mode)
 
         # Make the API request
         return await self._make_request(
