@@ -39,7 +39,7 @@ from ..models.parameters.source_params import SourceSearchParams
 from ._compat import extract_arguments
 from ._errors import McpToolError, raise_tool_error
 from ._gql_hints import gql_hint, gql_private_reject
-from ._gql_type_rewrite import maybe_rewrite_gql
+from ._gql_type_rewrite import apply_post_filters, rewrite_search_args
 
 logger = logging.getLogger(__name__)
 
@@ -149,19 +149,14 @@ async def _search_entities(
     Returns:
         List of TextContent with formatted search results
     """
-    # Reject unfilterable boolean-literal `private` filters before the API
-    # call -- otherwise Gramps silently returns [], which reads as "no private
-    # records exist" (issue #54). Raised outside the try so it is not re-wrapped
-    # as a generic search failure.
+    # Boolean-literal `private` filters silently return [] from Gramps (#54);
+    # reject outside the try so the error is not re-wrapped as a search failure.
     if reject := gql_private_reject(arguments.get("gql", "")):
         raise McpToolError(reject)
 
-    # Translate typed-enum name filters (type.string = "Birth") into the
-    # type.value form -- the only one the GQL engine evaluates (issue #84).
-    if gql := arguments.get("gql"):
-        rewritten = await maybe_rewrite_gql(client, entity_type, gql)
-        if rewritten != gql:
-            arguments = {**arguments, "gql": rewritten}
+    # Translate typed-enum name filters into type.value form (#84); custom
+    # names add a client-side post filter on the returned rows (#85).
+    arguments, post_filters = await rewrite_search_args(client, entity_type, arguments)
 
     try:
         params = params_class(**arguments)
@@ -177,6 +172,11 @@ async def _search_entities(
         else:
             results = response.get("data", [])
             total_count = response.get("total_count", len(results))
+
+        if post_filters:
+            # Server total counts every Custom-typed row; recount post-match.
+            results = apply_post_filters(results, post_filters)
+            total_count = len(results)
 
         if not results:
             hint = gql_hint(entity_type, arguments.get("gql", ""))

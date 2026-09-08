@@ -128,3 +128,57 @@ class TestUpstreamRegressionProbe:
             "Upstream Gramps Web now evaluates type.string natively -- "
             "delete the _gql_type_rewrite layer (issue #84)."
         )
+
+
+class TestCustomTypeNames:
+    """Custom names (issue #85) match via Custom pre-filter + client match."""
+
+    @pytest.mark.asyncio
+    async def test_event_custom_lvg(self):
+        result = await search_tool(
+            {"type": "event", "gql": 'type.string = "LVG"', "max_results": 5}
+        )
+        # The seed's only custom event type is LVG (434 rows), so every
+        # fetched row survives the client-side match and the cap holds.
+        assert _found_count(result) > 0
+
+    @pytest.mark.asyncio
+    async def test_place_custom_church(self):
+        result = await search_tool(
+            {"type": "place", "gql": 'place_type.string = "Church"', "max_results": 3}
+        )
+        assert _found_count(result) > 0
+
+    @pytest.mark.asyncio
+    async def test_rewrite_produces_postfilter(self):
+        from src.gramps_mcp.tools._gql_type_rewrite import maybe_rewrite_gql
+
+        client = GrampsWebAPIClient()
+        try:
+            rewrite = await maybe_rewrite_gql(client, "events", 'type = "LVG"')
+        finally:
+            await client.close()
+        assert rewrite.gql == "type.value = 0"
+        assert [(pf.field, pf.name) for pf in rewrite.post_filters] == [("type", "LVG")]
+
+    @pytest.mark.asyncio
+    async def test_unknown_name_errors_actionably(self):
+        from src.gramps_mcp.tools._errors import McpToolError
+
+        with pytest.raises(McpToolError, match="LVG"):
+            await search_tool(
+                {"type": "event", "gql": 'type.string = "Bogus"', "max_results": 3}
+            )
+
+    @pytest.mark.asyncio
+    async def test_postfilter_drops_non_matching_rows(self):
+        # Raw Custom-value rows for places include only Church in the seed;
+        # querying a custom place name returns exactly custom-typed rows.
+        result = await search_tool(
+            {
+                "type": "place",
+                "gql": 'place_type.string = "Church" and name.value ~ a',
+                "max_results": 5,
+            }
+        )
+        assert len(result) == 1
