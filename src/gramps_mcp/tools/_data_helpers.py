@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from ..client import GrampsWebAPIClient
 from ..config import get_settings
 from ..models.api_calls import ApiCalls
-from ._errors import raise_tool_error
+from ._errors import parse_params, raise_tool_error
 from .search_basic import FORMATTER_DISPATCH
 
 logger = logging.getLogger(__name__)
@@ -78,7 +78,7 @@ async def _handle_crud_operation(
         validated_params: Any = (
             params
             if isinstance(params, param_class)
-            else param_class(**(params if isinstance(params, dict) else {}))
+            else parse_params(param_class, params if isinstance(params, dict) else {})
         )
 
         settings = get_settings()
