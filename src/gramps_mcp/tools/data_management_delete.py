@@ -55,7 +55,7 @@ async def delete_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     """
     try:
         arguments = extract_arguments(ctx, params)
-        validated = DeleteParams(**arguments)
+        validated = parse_params(DeleteParams, arguments)
         entity_type_str = validated.type.value
 
         api_call = DELETE_API_CALLS.get(entity_type_str)

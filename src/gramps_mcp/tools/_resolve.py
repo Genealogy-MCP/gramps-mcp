@@ -21,7 +21,7 @@ from ..models.parameters.note_params import NotesParams
 from ..models.parameters.place_params import PlaceSearchParams
 from ..models.parameters.repository_params import RepositoriesParams
 from ..models.parameters.source_params import SourceSearchParams
-from ._errors import McpToolError
+from ._errors import McpToolError, parse_params
 
 # Entity type -> (params class, list endpoint) for raw gramps_id resolution.
 # Update this map together with _SEARCH_TOOL_DISPATCH in search_basic.py
@@ -66,7 +66,7 @@ async def resolve_gramps_id(entity_type: str, gramps_id: str) -> str | None:
             f"Valid types: {valid_types}"
         )
     params_class, api_call = dispatch
-    params = params_class(gramps_id=gramps_id, pagesize=1)
+    params = parse_params(params_class, {"gramps_id": gramps_id, "pagesize": 1})
 
     client = GrampsWebAPIClient()
     try:

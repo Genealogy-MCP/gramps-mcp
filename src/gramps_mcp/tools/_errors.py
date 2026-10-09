@@ -40,9 +40,9 @@ def describe_validation_error(
 ) -> str:
     """Render a pydantic ValidationError as an actionable message (MCP-9).
 
-    Unknown keys get their own phrasing naming the offending key and, when the
-    model is known and one of its fields is close enough to be a typo, the
-    field the caller probably meant. Every other error keeps pydantic's own
+    Unknown keys get their own phrasing naming the offending key, the model's
+    accepted parameters, and, when one of its fields is close enough to be a
+    typo, the field the caller probably meant. Every other error keeps pydantic's own
     text, which is already specific about what was wrong.
 
     Args:
@@ -63,17 +63,17 @@ def describe_validation_error(
         close = difflib.get_close_matches(key, known, n=1, cutoff=0.6)
         parts.append(f"'{key}' (did you mean '{close[0]}'?)" if close else f"'{key}'")
 
+    accepted = f" Accepted parameters: {', '.join(known)}." if known else ""
     return (
         f"Unknown parameter(s) for {error.title}: {', '.join(parts)}. "
-        f"Nothing was saved. Check the operation's accepted parameters "
-        f"with search and retry."
+        f"The operation did not run.{accepted} Retry with the right names."
     )
 
 
 def parse_params(model: type[_ParamsT], arguments: dict) -> _ParamsT:
     """Build a parameter model, converting rejection into an LLM-readable error.
 
-    This is the single parse boundary for write operations: it is the one place
+    This is the single parse boundary for every operation: it is the one place
     that knows both the model and the failure, which is what lets the message
     name the field a misspelled key probably meant.
 
