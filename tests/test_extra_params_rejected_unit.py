@@ -13,6 +13,11 @@ the resulting error names the offending key and its nearest real field.
 import pytest
 from pydantic import ValidationError
 
+from src.gramps_mcp.models.parameters.analysis_params import (
+    AncestorsParams,
+    DescendantsParams,
+    TreeInfoParams,
+)
 from src.gramps_mcp.models.parameters.base_params import (
     BaseGetMultipleParams,
     BaseGetSingleParams,
@@ -36,6 +41,9 @@ from src.gramps_mcp.models.parameters.simple_params import (
 )
 from src.gramps_mcp.models.parameters.source_params import SourceSaveParams
 from src.gramps_mcp.models.parameters.tag_params import TagSaveParams, TagSearchParams
+from src.gramps_mcp.models.parameters.transactions_params import (
+    TransactionHistoryParams,
+)
 from src.gramps_mcp.tools._errors import (
     McpToolError,
     describe_validation_error,
@@ -58,14 +66,18 @@ WRITE_MODELS = [
 # Read and delete models (#95). Each one parses a command an LLM wrote, so it
 # sits on the same side of the trust boundary as the write models above.
 READ_MODELS = [
+    AncestorsParams,
     BaseGetMultipleParams,
     BaseGetSingleParams,
     DeleteParams,
+    DescendantsParams,
     MediaDownloadParams,
     SimpleFindParams,
     SimpleGetParams,
     SimpleSearchParams,
     TagSearchParams,
+    TransactionHistoryParams,
+    TreeInfoParams,
 ]
 
 ALL_MODELS = WRITE_MODELS + READ_MODELS
@@ -173,3 +185,28 @@ class TestParseParams:
         message = str(excinfo.value)
         assert "attributes" in message
         assert "attribute_list" in message
+
+
+def _registry_schemas():
+    """Every params_schema wired into the operation registry, by operation."""
+    from src.gramps_mcp.operations import OPERATION_REGISTRY
+
+    return sorted(
+        ((name, entry.params_schema) for name, entry in OPERATION_REGISTRY.items()),
+        key=lambda pair: pair[0],
+    )
+
+
+@pytest.mark.parametrize(
+    ("operation", "schema"), _registry_schemas(), ids=lambda v: str(v)
+)
+def test_every_registered_schema_forbids_extra(operation, schema):
+    """A model wired into the registry forbids extra keys.
+
+    The hand-kept model lists above miss a model that is added later; the
+    registry is the source of truth for what an LLM can call, so a schema
+    that still uses extra="ignore" fails here regardless of the lists.
+    """
+    assert schema.model_config.get("extra") == "forbid", (
+        f"{operation} uses {schema.__name__} without extra='forbid'"
+    )

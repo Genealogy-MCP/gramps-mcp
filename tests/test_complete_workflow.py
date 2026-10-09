@@ -341,7 +341,7 @@ class TestCompleteWorkflow:
         workflow_data["citation_media_handle"] = media_handle
 
         find_result = await search_citation_tool(
-            {"gql": f'page ~ "{TEST_PREFIX}Page 67 Entry 15"', "pagesize": 5}
+            {"gql": f'page ~ "Marriage of {TEST_PREFIX}John"', "pagesize": 5}
         )
 
         assert isinstance(find_result, list) and len(find_result) == 1
@@ -388,7 +388,8 @@ class TestCompleteWorkflow:
         find_result = await search_event_tool(
             {
                 "gql": (
-                    f'description ~ "{TEST_PREFIX}John" and type.string = "Marriage"'
+                    f'description ~ "{TEST_PREFIX}Marriage ceremony"'
+                    ' and type.string = "Marriage"'
                 ),
                 "pagesize": 5,
             }

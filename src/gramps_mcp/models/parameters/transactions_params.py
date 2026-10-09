@@ -33,6 +33,10 @@ class TransactionHistoryParams(BaseModel):
         Dict[str, Any]: List of transaction history
     """
 
+    # Reason: extra="forbid" (#95). An LLM fills this in; an unknown key is a
+    # caller mistake and must not be dropped in silence.
+    model_config = {"extra": "forbid"}
+
     old: Optional[bool] = Field(
         None, description="Whether to include the raw object data before the change"
     )
