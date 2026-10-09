@@ -683,6 +683,35 @@ class TestUpsertTagTool:
         assert "Updated" in result[0].text
         assert "#00FF00" in result[0].text
 
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools.data_management_delete.GrampsWebAPIClient")
+    @patch(
+        "src.gramps_mcp.tools.data_management_delete.get_settings",
+        return_value=_mock_settings(),
+    )
+    async def test_update_tag_color_only(self, _settings, mock_client_cls):
+        """A handle plus color is a valid partial update; name is not required."""
+        client_inst = AsyncMock()
+        client_inst.make_api_call = AsyncMock(
+            return_value=[{"new": {"handle": "t1", "name": "Kept", "color": "#0F0"}}]
+        )
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        result = await upsert_tag_tool({"handle": "t1", "color": "#0F0"})
+
+        assert client_inst.make_api_call.call_args.kwargs["api_call"] == (
+            ApiCalls.PUT_TAG
+        )
+        assert "Successfully updated tag" in result[0].text
+        assert "Kept" in result[0].text
+
+    @pytest.mark.asyncio
+    async def test_create_tag_requires_name(self):
+        """No handle and no name is rejected before any API call."""
+        with pytest.raises(McpToolError, match="Required when creating: name"):
+            await upsert_tag_tool({"color": "#0F0"})
+
 
 # ---------------------------------------------------------------------------
 # upsert_media_tool

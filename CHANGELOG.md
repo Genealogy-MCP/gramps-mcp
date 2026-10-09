@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `upsert_tag` refused every call that carried a `handle` with "Tag updates are not supported in Gramps Web API 3.x", although `PUT /api/tags/{handle}` answers 200 on the pinned grampsweb 26.6.1 and the change persists. The guard is gone: a handle now routes through `PUT tags/{handle}` like every other upsert, the stored tag is merged with the submitted fields so an omitted `color` or `priority` keeps its value, and the response says "updated" instead of "created". Tags have no list fields, so `list_mode` does not apply. Operation description, parameter docs, and the `CLAUDE.md` coverage table no longer call tags create-only (#97)
+- `upsert_tag` refused every call that carried a `handle` with "Tag updates are not supported in Gramps Web API 3.x", although `PUT /api/tags/{handle}` answers 200 on the pinned grampsweb 26.6.1 and the change persists. The guard is gone: a handle now routes through `PUT tags/{handle}` like every other upsert, the stored tag is merged with the submitted fields so an omitted `color` or `priority` keeps its value, and the response says "updated" instead of "created". `name` is now only required when creating, so a colour-only update (`handle` + `color`) is accepted, and `change` is typed as the Unix-seconds integer Gramps stores instead of a string. Tags have no list fields, so `list_mode` does not apply. Operation description, parameter docs, and the `CLAUDE.md` coverage table no longer call tags create-only (#97)
 
 ## [3.10.0] - 2026-10-09
 

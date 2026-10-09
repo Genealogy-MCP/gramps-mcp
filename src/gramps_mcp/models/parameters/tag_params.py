@@ -14,7 +14,7 @@ API calls supported in this category:
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class TagSearchParams(BaseModel):
@@ -46,11 +46,26 @@ class TagSaveParams(BaseModel):
             "PUT /tags/{handle}; omit to create a new tag."
         ),
     )
-    name: str = Field(description="Tag name", min_length=1)
+    name: Optional[str] = Field(
+        None, description="Tag name (required when creating)", min_length=1
+    )
     color: Optional[str] = Field(
         None, description="Tag color as a hex string, e.g. '#EF2929'"
     )
     priority: Optional[int] = Field(
         None, description="Tag priority; lower sorts first in Gramps"
     )
-    change: Optional[str] = Field(None, description="Change timestamp")
+    # Reason: Gramps stores change as a Unix timestamp int; a str here would
+    # overwrite it on the PUT merge path (#97).
+    change: Optional[int] = Field(
+        None, description="Change timestamp (Unix seconds); set by Gramps"
+    )
+
+    @model_validator(mode="after")
+    def _validate_create_required(self) -> "TagSaveParams":
+        """Enforce required fields when creating (no handle = new tag)."""
+        if self.handle is not None:
+            return self
+        if self.name is None:
+            raise ValueError("Required when creating: name")
+        return self

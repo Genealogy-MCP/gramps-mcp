@@ -1043,6 +1043,17 @@ class TestCreateTagTool:
         assert stored["color"] == "#00FF00"
         assert stored["priority"] == 5
 
+        # Reason: a color-only update must keep the stored name (#97).
+        recolor = await upsert_tag_tool({"handle": tag_handle, "color": "#123456"})
+        assert "Successfully updated tag" in recolor[0].text
+        client = GrampsWebAPIClient()
+        try:
+            stored = await client.make_api_call(ApiCalls.GET_TAG, handle=tag_handle)
+        finally:
+            await client.close()
+        assert stored["name"] == f"{TEST_PREFIX}Tag Updated"
+        assert stored["color"] == "#123456"
+
     @pytest.mark.asyncio
     async def test_find_tags(self):
         """Test listing tags."""
