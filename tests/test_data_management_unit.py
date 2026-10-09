@@ -499,18 +499,20 @@ class TestDeleteTool:
         "src.gramps_mcp.tools.data_management_delete.get_settings",
         return_value=_mock_settings(),
     )
-    async def test_delete_tag_uses_bulk(self, _settings, mock_client_cls):
-        """TAG enum value routes through bulk_delete, not standard DELETE."""
+    async def test_delete_tag_uses_direct_endpoint(self, _settings, mock_client_cls):
+        """TAG routes through DELETE /tags/{handle} like every other type (#90)."""
+        from src.gramps_mcp.models.api_calls import ApiCalls
+
         client_inst = AsyncMock()
-        client_inst.bulk_delete = AsyncMock(return_value={})
+        client_inst.make_api_call = AsyncMock(return_value={})
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
         result = await delete_tool({"type": "tag", "handle": "t1"})
         assert "Successfully deleted" in result[0].text
         assert "tag" in result[0].text
-        client_inst.bulk_delete.assert_called_once_with(
-            namespace="tags", handles=["t1"], tree_id="tree1"
+        client_inst.make_api_call.assert_called_once_with(
+            api_call=ApiCalls.DELETE_TAG, tree_id="tree1", handle="t1"
         )
 
 

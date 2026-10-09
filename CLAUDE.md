@@ -697,7 +697,7 @@ Full GQL documentation is served as MCP resource `gql://documentation`.
 - `metadata/` -- server metadata
 - `types/custom/` -- custom type management
 - `name-formats/`, `name-groups/` -- name display configuration
-- `objects/` -- bulk create (bulk delete is covered via `objects/delete-by-handle/` in `bulk_delete`; raw `objects/delete/` is banned, see #81)
+- `objects/` -- bulk create and `objects/delete-by-handle/` bulk delete. Neither is exposed: every type, tags included, deletes through its own `DELETE {entity}/{handle}` (verified on grampsweb 26.6.1, #90). Raw `objects/delete/` is banned, see #81
 - `search/index/` -- search index rebuild
 - `media/{h}/face_detection`, `media/{h}/ocr` -- AI media analysis
 - `media/archive/` -- media archive export/import
