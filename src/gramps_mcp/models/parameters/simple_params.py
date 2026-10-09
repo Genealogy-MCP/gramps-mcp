@@ -44,6 +44,11 @@ class DeletableEntityType(str, Enum):
 class SimpleFindParams(BaseModel):
     """Simplified parameters for type-based search."""
 
+    # Reason: extra="forbid" (#95). A read parameter is a command an LLM
+    # wrote, not a response from the server, so an undeclared key is always a
+    # caller mistake. With pydantic's default "ignore", search called with
+    # page_size instead of pagesize returned a plausible default page and
+    # nothing said the parameter was dropped.
     model_config = {"extra": "forbid"}
 
     type: EntityType = Field(description="Entity type to search")
@@ -62,6 +67,9 @@ class SimpleFindParams(BaseModel):
 class SimpleSearchParams(BaseModel):
     """Simplified parameters for full-text search."""
 
+    # Reason: extra="forbid" (#95), see SimpleFindParams.
+    model_config = {"extra": "forbid"}
+
     query: str = Field(description="Plain text search query")
     max_results: int = Field(
         default=20, ge=1, le=100, description="Maximum results to return (1-100)."
@@ -70,6 +78,9 @@ class SimpleSearchParams(BaseModel):
 
 class SimpleGetParams(BaseModel):
     """Simplified parameters for getting entity details."""
+
+    # Reason: extra="forbid" (#95), see SimpleFindParams.
+    model_config = {"extra": "forbid"}
 
     type: EntityType = Field(
         description=(
@@ -85,6 +96,9 @@ class SimpleGetParams(BaseModel):
 
 class DeleteParams(BaseModel):
     """Parameters for deleting an entity."""
+
+    # Reason: extra="forbid" (#95), see SimpleFindParams.
+    model_config = {"extra": "forbid"}
 
     type: DeletableEntityType = Field(description="Entity type to delete")
     handle: str = Field(description="Handle of the entity to delete")

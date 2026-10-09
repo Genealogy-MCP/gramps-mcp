@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.0] - 2026-10-09
+
+### Changed
+
+- Read and delete operations now reject a parameter they do not recognise, closing the gap #71 left open on the write side. `search`, `search_text`, `get`, `list_tags`, `download_media`, and `delete` all parse a command the caller wrote, not a response from the server, so an undeclared key is a caller mistake and must not be dropped in silence: `search` called with `page_size` used to return a plausible default page with nothing saying the limit was ignored. The rejection names the offending key, lists the accepted parameters, and suggests the real field when one is close enough to be a typo. Every parameter model, read or write, now goes through the same parse boundary in `tools/_errors.py` (#95)
+- `keys`, `skipkeys`, and `strip` are now declared on the read parameter models. They are documented Gramps Web query parameters that internal callers already relied on, and a forbidding model has to name every key it forwards (#95)
+
+### Fixed
+
+- `search_text` ignored `max_results`. Its registered schema declares the field, but the handler rebuilt the API request from a model that does not, so the limit never reached Gramps Web and the full first page came back regardless. The limit is now passed through as the page size (#95)
+- `test_complete_marriage_record_workflow` and `test_place_hierarchy_creation` searched people, families, events, places, citations, repositories, and sources with a `query` key that no search model declares, so the "find existing record" steps never filtered and passed on whatever the first page held. They now use a GQL filter on the record (#95)
+- `test_displayed_count_reflects_pagesize_truncation` passed `pagesize` to `search_text`, a key the operation does not accept. It now passes `max_results` (#95)
+
 ## [3.9.1] - 2026-10-09
 
 ### Changed

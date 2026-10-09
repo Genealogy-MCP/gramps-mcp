@@ -35,9 +35,11 @@ from ..models.parameters.note_params import NotesParams
 from ..models.parameters.place_params import PlaceSearchParams
 from ..models.parameters.repository_params import RepositoriesParams
 from ..models.parameters.search_params import SearchParams
+from ..models.parameters.simple_params import SimpleSearchParams
 from ..models.parameters.source_params import SourceSearchParams
+from ..models.parameters.tag_params import TagSearchParams
 from ._compat import extract_arguments
-from ._errors import McpToolError, raise_tool_error
+from ._errors import McpToolError, parse_params, raise_tool_error
 from ._gql_hints import gql_hint, gql_private_reject
 from ._gql_type_rewrite import apply_post_filters, rewrite_search_args
 
@@ -159,7 +161,7 @@ async def _search_entities(
     arguments, post_filters = await rewrite_search_args(client, entity_type, arguments)
 
     try:
-        params = params_class(**arguments)
+        params = parse_params(params_class, arguments)
         tree_id = get_settings().gramps_tree_id
 
         response = await client.make_api_call(
@@ -365,9 +367,7 @@ async def list_tags_tool(client, arguments: Dict) -> List[TextContent]:
         List of TextContent with formatted tag listing.
     """
     try:
-        from ..models.parameters.tag_params import TagSearchParams
-
-        params = TagSearchParams(**arguments)
+        params = parse_params(TagSearchParams, arguments)
         settings = get_settings()
         tree_id = settings.gramps_tree_id
 
@@ -424,14 +424,7 @@ async def search_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
 
     arguments = extract_arguments(ctx, params)
 
-    try:
-        validated = SimpleFindParams(**arguments)
-    except Exception as e:
-        raise McpToolError(
-            f"Invalid search parameters: {e}. "
-            f"Required: type (entity type), gql (GQL filter expression). "
-            f"Optional: max_results (default 20)."
-        ) from e
+    validated = parse_params(SimpleFindParams, arguments)
 
     entity_type_str = validated.type.value
     inner_params = {"gql": validated.gql, "pagesize": validated.max_results}
@@ -450,7 +443,14 @@ async def search_text_tool(client, arguments: Dict) -> List[TextContent]:
     Full-text search across all entity types.
     """
     try:
-        params = SearchParams(**arguments)
+        # Reason: the registered schema is SimpleSearchParams, whose
+        # max_results has no counterpart on SearchParams. Until #95 the key was
+        # silently dropped, so the requested limit never reached the API.
+        validated = parse_params(SimpleSearchParams, arguments)
+        params = parse_params(
+            SearchParams,
+            {"query": validated.query, "pagesize": validated.max_results},
+        )
 
         settings = get_settings()
         tree_id = settings.gramps_tree_id

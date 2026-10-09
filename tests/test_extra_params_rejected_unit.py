@@ -1,27 +1,41 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 Federico Castagnini
 
-"""Unit tests for unknown-key rejection on the upsert parameter models (#71).
+"""Unit tests for unknown-key rejection on the parameter models (#71, #95).
 
 Pydantic's default extra="ignore" turned a misspelled parameter into a silent
-data loss: upsert_event(attributes=[...]) reported success and wrote nothing.
-Every write model now forbids extra keys, and the resulting error names the
-offending key and its nearest real field.
+data loss: upsert_event(attributes=[...]) reported success and wrote nothing,
+and search(page_size=5) returned a default page with nothing saying the limit
+was dropped. Every parameter model an LLM fills in now forbids extra keys, and
+the resulting error names the offending key and its nearest real field.
 """
 
 import pytest
 from pydantic import ValidationError
 
+from src.gramps_mcp.models.parameters.base_params import (
+    BaseGetMultipleParams,
+    BaseGetSingleParams,
+)
 from src.gramps_mcp.models.parameters.citation_params import CitationData
 from src.gramps_mcp.models.parameters.event_params import EventSaveParams
 from src.gramps_mcp.models.parameters.family_params import FamilySaveParams
-from src.gramps_mcp.models.parameters.media_params import MediaSaveParams
+from src.gramps_mcp.models.parameters.media_params import (
+    MediaDownloadParams,
+    MediaSaveParams,
+)
 from src.gramps_mcp.models.parameters.note_params import NoteSaveParams
 from src.gramps_mcp.models.parameters.people_params import PersonData
 from src.gramps_mcp.models.parameters.place_params import PlaceSaveParams
 from src.gramps_mcp.models.parameters.repository_params import RepositoryData
+from src.gramps_mcp.models.parameters.simple_params import (
+    DeleteParams,
+    SimpleFindParams,
+    SimpleGetParams,
+    SimpleSearchParams,
+)
 from src.gramps_mcp.models.parameters.source_params import SourceSaveParams
-from src.gramps_mcp.models.parameters.tag_params import TagSaveParams
+from src.gramps_mcp.models.parameters.tag_params import TagSaveParams, TagSearchParams
 from src.gramps_mcp.tools._errors import (
     McpToolError,
     describe_validation_error,
@@ -41,20 +55,46 @@ WRITE_MODELS = [
     TagSaveParams,
 ]
 
+# Read and delete models (#95). Each one parses a command an LLM wrote, so it
+# sits on the same side of the trust boundary as the write models above.
+READ_MODELS = [
+    BaseGetMultipleParams,
+    BaseGetSingleParams,
+    DeleteParams,
+    MediaDownloadParams,
+    SimpleFindParams,
+    SimpleGetParams,
+    SimpleSearchParams,
+    TagSearchParams,
+]
 
-@pytest.mark.parametrize("model", WRITE_MODELS, ids=lambda m: m.__name__)
+ALL_MODELS = WRITE_MODELS + READ_MODELS
+
+
+@pytest.mark.parametrize("model", ALL_MODELS, ids=lambda m: m.__name__)
 def test_unknown_key_is_rejected(model):
-    """Every write model refuses a key it does not declare."""
+    """Every parameter model refuses a key it does not declare."""
     with pytest.raises(ValidationError) as excinfo:
         model(definitely_not_a_field=1)
 
     assert "definitely_not_a_field" in str(excinfo.value)
 
 
-@pytest.mark.parametrize("model", WRITE_MODELS, ids=lambda m: m.__name__)
-def test_no_write_model_silently_ignores_extras(model):
-    """The config is set on every write model, not only the ones tested above."""
+@pytest.mark.parametrize("model", ALL_MODELS, ids=lambda m: m.__name__)
+def test_no_model_silently_ignores_extras(model):
+    """The config is set on every model, not only the ones tested above."""
     assert model.model_config.get("extra") == "forbid"
+
+
+def test_the_reported_read_typo_is_rejected():
+    """The exact call from #95 now fails instead of returning a default page."""
+    with pytest.raises(ValidationError) as excinfo:
+        BaseGetMultipleParams(page_size=5)
+
+    message = describe_validation_error(excinfo.value, BaseGetMultipleParams)
+
+    assert "page_size" in message
+    assert "pagesize" in message
 
 
 def test_the_reported_typo_is_rejected():

@@ -238,7 +238,7 @@ class TestCompleteWorkflow:
 
         # First: search for existing repository
         find_result = await search_repository_tool(
-            {"query": f"{TEST_PREFIX}St Marys Church Boston", "pagesize": 5}
+            {"gql": f'name ~ "{TEST_PREFIX}St Marys Church Boston"', "pagesize": 5}
         )
 
         assert isinstance(find_result, list) and len(find_result) == 1
@@ -280,7 +280,10 @@ class TestCompleteWorkflow:
         """Step 2: Source Document Creation following usage guide."""
 
         find_result = await search_source_tool(
-            {"query": f"{TEST_PREFIX}Marriage Register 1875-1880", "pagesize": 5}
+            {
+                "gql": f'title ~ "{TEST_PREFIX}Marriage Register 1875-1880"',
+                "pagesize": 5,
+            }
         )
 
         assert isinstance(find_result, list) and len(find_result) == 1
@@ -338,7 +341,7 @@ class TestCompleteWorkflow:
         workflow_data["citation_media_handle"] = media_handle
 
         find_result = await search_citation_tool(
-            {"query": f"{TEST_PREFIX}Page 67 Entry 15", "pagesize": 5}
+            {"gql": f'page ~ "{TEST_PREFIX}Page 67 Entry 15"', "pagesize": 5}
         )
 
         assert isinstance(find_result, list) and len(find_result) == 1
@@ -384,7 +387,9 @@ class TestCompleteWorkflow:
 
         find_result = await search_event_tool(
             {
-                "query": f"marriage {TEST_PREFIX}John {TEST_PREFIX}Smith 1878",
+                "gql": (
+                    f'description ~ "{TEST_PREFIX}John" and type.string = "Marriage"'
+                ),
                 "pagesize": 5,
             }
         )
@@ -458,9 +463,9 @@ class TestCompleteWorkflow:
 
         find_result = await search_family_tool(
             {
-                "query": (
-                    f"{TEST_PREFIX}John {TEST_PREFIX}Smith"
-                    f" {TEST_PREFIX}Mary {TEST_PREFIX}Jones"
+                "gql": (
+                    "father_handle.get_person.primary_name.first_name"
+                    f' ~ "{TEST_PREFIX}John"'
                 ),
                 "pagesize": 5,
             }
@@ -518,8 +523,15 @@ class TestCompleteWorkflow:
             {"year": int(birth_year) + 25, "type": "about", "quality": "estimated"},
         )
 
-        search_query = f"{given_name} {surname} {birth_year} {context}"
-        find_result = await search_person_tool({"query": search_query, "pagesize": 5})
+        find_result = await search_person_tool(
+            {
+                "gql": (
+                    f'primary_name.first_name ~ "{given_name}"'
+                    f' and primary_name.surname_list.any.surname ~ "{surname}"'
+                ),
+                "pagesize": 5,
+            }
+        )
 
         assert isinstance(find_result, list) and len(find_result) == 1
         result_text = find_result[0].text
@@ -606,7 +618,9 @@ class TestCompleteWorkflow:
     ) -> str:
         """Create or find a place following the workflow guidelines."""
 
-        find_result = await search_place_tool({"query": name, "pagesize": 5})
+        find_result = await search_place_tool(
+            {"gql": f'name.value ~ "{name}"', "pagesize": 5}
+        )
 
         assert isinstance(find_result, list) and len(find_result) == 1
         result_text = find_result[0].text

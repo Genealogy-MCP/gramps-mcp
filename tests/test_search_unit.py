@@ -255,12 +255,12 @@ class TestSearchEntities:
 
     @pytest.mark.asyncio
     async def test_validation_error_raises(self):
-        """Invalid parameters raise McpToolError."""
+        """Invalid parameters raise McpToolError naming the bad field (MCP-9)."""
         from src.gramps_mcp.models.parameters.source_params import SourceSearchParams
         from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
-        with pytest.raises(McpToolError, match="search"):
+        with pytest.raises(McpToolError, match="Invalid sort key: invalid_sort_key"):
             await _search_entities(
                 client,
                 {"sort": "invalid_sort_key"},
@@ -364,7 +364,7 @@ class TestFindTypeTool:
         """Unknown entity type raises McpToolError from validation."""
         from src.gramps_mcp.tools.search_basic import search_tool
 
-        with pytest.raises(McpToolError, match="Invalid search parameters"):
+        with pytest.raises(McpToolError, match="Input should be 'person'"):
             await search_tool({"type": "unicorn", "gql": "test"})
 
     @pytest.mark.asyncio
@@ -372,7 +372,7 @@ class TestFindTypeTool:
         """Enum-like types with .value that don't match raise McpToolError."""
         from src.gramps_mcp.tools.search_basic import search_tool
 
-        with pytest.raises(McpToolError, match="Invalid search parameters"):
+        with pytest.raises(McpToolError, match="Input should be 'person'"):
             await search_tool({"type": "nonexistent", "gql": "test"})
 
     @pytest.mark.asyncio
@@ -530,7 +530,7 @@ class TestFindAnythingTool:
         )
         mock_client_cls.return_value = client_inst
 
-        result = await search_text_tool({"query": "test", "pagesize": 2})
+        result = await search_text_tool({"query": "test", "max_results": 2})
         text = result[0].text
         assert "showing 2" in text
 
@@ -579,7 +579,7 @@ class TestFindAnythingTool:
         client_inst = _mock_client_instance()
         mock_client_cls.return_value = client_inst
 
-        with pytest.raises(McpToolError, match="search"):
+        with pytest.raises(McpToolError, match="query"):
             await search_text_tool({})
 
 
