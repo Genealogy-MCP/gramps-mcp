@@ -14,6 +14,8 @@ import re
 
 import pytest
 
+from src.gramps_mcp.client import GrampsWebAPIClient
+from src.gramps_mcp.models.api_calls import ApiCalls
 from src.gramps_mcp.tools import (
     delete_tool,
     download_media_tool,
@@ -1018,15 +1020,39 @@ class TestCreateTagTool:
 
         tag_handle = extract_handle(text)
 
-        # Update should raise error (API 3.x doesn't support tag PUT)
-        with pytest.raises(McpToolError):
-            await upsert_tag_tool(
-                {
-                    "handle": tag_handle,
-                    "name": f"{TEST_PREFIX}Tag Updated",
-                    "color": "#00FF00",
-                }
-            )
+        # Reason: PUT /tags/{handle} works on grampsweb 26.6.1 (#97), so a
+        # handle must update the tag in place and the rename must persist.
+        update_result = await upsert_tag_tool(
+            {
+                "handle": tag_handle,
+                "name": f"{TEST_PREFIX}Tag Updated",
+                "color": "#00FF00",
+            }
+        )
+        update_text = update_result[0].text
+        assert "Error:" not in update_text
+        assert "Successfully updated tag" in update_text
+        assert tag_handle in update_text
+
+        client = GrampsWebAPIClient()
+        try:
+            stored = await client.make_api_call(ApiCalls.GET_TAG, handle=tag_handle)
+        finally:
+            await client.close()
+        assert stored["name"] == f"{TEST_PREFIX}Tag Updated"
+        assert stored["color"] == "#00FF00"
+        assert stored["priority"] == 5
+
+        # Reason: a color-only update must keep the stored name (#97).
+        recolor = await upsert_tag_tool({"handle": tag_handle, "color": "#123456"})
+        assert "Successfully updated tag" in recolor[0].text
+        client = GrampsWebAPIClient()
+        try:
+            stored = await client.make_api_call(ApiCalls.GET_TAG, handle=tag_handle)
+        finally:
+            await client.close()
+        assert stored["name"] == f"{TEST_PREFIX}Tag Updated"
+        assert stored["color"] == "#123456"
 
     @pytest.mark.asyncio
     async def test_find_tags(self):

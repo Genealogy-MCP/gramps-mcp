@@ -5,7 +5,7 @@
 """
 Delete and tag operations for Gramps MCP tools.
 
-Handles entity deletion and tag creation (immutable in API 3.x).
+Handles entity deletion and tag create/update.
 """
 
 import logging
@@ -108,24 +108,27 @@ async def upsert_tag_tool(ctx: Any = None, params: Any = None) -> List[TextConte
         arguments = extract_arguments(ctx, params)
         validated = parse_params(TagSaveParams, arguments)
 
-        if validated.handle:
-            raise_tool_error(
-                ValueError(
-                    "Tag updates are not supported in Gramps Web API 3.x. "
-                    "Tags are immutable after creation. To change a tag, "
-                    "delete it and create a new one."
-                ),
-                "tag update",
-            )
-
         settings = get_settings()
         tree_id = settings.gramps_tree_id
 
         client = GrampsWebAPIClient()
         try:
-            result = await client.make_api_call(
-                api_call=ApiCalls.POST_TAGS, params=validated, tree_id=tree_id
-            )
+            # Reason: PUT /tags/{handle} works on grampsweb 26.6.1 (#97). The
+            # client's PUT path merges with the stored tag; tags carry no list
+            # fields, so list_mode is irrelevant and scalars simply replace.
+            if validated.handle:
+                result = await client.make_api_call(
+                    api_call=ApiCalls.PUT_TAG,
+                    params=validated,
+                    tree_id=tree_id,
+                    handle=validated.handle,
+                )
+                operation = "updated"
+            else:
+                result = await client.make_api_call(
+                    api_call=ApiCalls.POST_TAGS, params=validated, tree_id=tree_id
+                )
+                operation = "created"
 
             entity_data = _extract_entity_data(result)
             tag_name = entity_data.get("name", "Unknown")
@@ -134,7 +137,7 @@ async def upsert_tag_tool(ctx: Any = None, params: Any = None) -> List[TextConte
             tag_priority = entity_data.get("priority", 0)
 
             formatted = (
-                f"Successfully created tag:\n\n"
+                f"Successfully {operation} tag:\n\n"
                 f"**{tag_name}** [{tag_handle}]\n"
                 f"Color: {tag_color} | Priority: {tag_priority}"
             )
