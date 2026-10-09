@@ -10,6 +10,7 @@ import pytest
 from mcp.types import TextContent
 
 from src.gramps_mcp.client import GrampsAPIError, GrampsWebAPIClient
+from src.gramps_mcp.models.api_calls import ApiCalls
 from src.gramps_mcp.models.parameters.citation_params import CitationData
 from src.gramps_mcp.models.parameters.event_params import EventSaveParams
 from src.gramps_mcp.models.parameters.media_params import MediaSaveParams
@@ -647,12 +648,40 @@ class TestUpsertTagTool:
         assert "Research" in result[0].text
 
     @pytest.mark.asyncio
-    async def test_update_tag_raises_error(self):
-        """Tag updates are not supported in API 3.x — should raise McpToolError."""
-        with pytest.raises(McpToolError, match="not supported"):
-            await upsert_tag_tool(
-                {"handle": "t1", "name": "Updated", "color": "#00FF00"}
-            )
+    @patch("src.gramps_mcp.tools.data_management_delete.GrampsWebAPIClient")
+    @patch(
+        "src.gramps_mcp.tools.data_management_delete.get_settings",
+        return_value=_mock_settings(),
+    )
+    async def test_update_tag_routes_through_put(self, _settings, mock_client_cls):
+        """A handle sends the tag through PUT /tags/{handle} (#97)."""
+        client_inst = AsyncMock()
+        client_inst.make_api_call = AsyncMock(
+            return_value=[
+                {
+                    "old": {"handle": "t1", "name": "Research"},
+                    "new": {
+                        "handle": "t1",
+                        "name": "Updated",
+                        "color": "#00FF00",
+                        "priority": 2,
+                    },
+                }
+            ]
+        )
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        result = await upsert_tag_tool(
+            {"handle": "t1", "name": "Updated", "color": "#00FF00", "priority": 2}
+        )
+
+        call = client_inst.make_api_call.call_args
+        assert call.kwargs["api_call"] == ApiCalls.PUT_TAG
+        assert call.kwargs["handle"] == "t1"
+        assert "Successfully updated tag" in result[0].text
+        assert "Updated" in result[0].text
+        assert "#00FF00" in result[0].text
 
 
 # ---------------------------------------------------------------------------

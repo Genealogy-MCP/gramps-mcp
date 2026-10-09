@@ -266,10 +266,11 @@ OPERATION_REGISTRY: dict[str, OperationEntry] = {
     ),
     "upsert_tag": OperationEntry(
         name="upsert_tag",
-        summary="Create a tag (immutable after creation in API 3.x)",
+        summary="Create or update a tag",
         description=(
-            "Create a tag with name and color. Tags are immutable after creation "
-            "in API 3.x -- to change a tag, delete and recreate it."
+            "Create a tag with name, color, and priority, or update an existing "
+            "one by passing its handle. On update, omitted fields keep their "
+            "stored value; tags have no list fields, so list_mode does not apply."
         ),
         category="write",
         params_schema=TagSaveParams,

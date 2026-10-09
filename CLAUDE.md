@@ -677,7 +677,7 @@ Full GQL documentation is served as MCP resource `gql://documentation`.
 | `upsert_note` | `POST/PUT notes/{h}` | write |
 | `upsert_media` | `POST/PUT media/{h}` + file upload | write |
 | `upsert_repository` | `POST/PUT repositories/{h}` | write |
-| `upsert_tag` | `POST/PUT tags/{h}` (create-only) | write |
+| `upsert_tag` | `POST/PUT tags/{h}` | write |
 | `delete` | `DELETE {entity}/{h}` | delete |
 | `get_ancestors` | `POST reports/ancestor_report/file` + task polling | analysis |
 | `get_descendants` | `POST reports/descend_report/file` + task polling | analysis |

@@ -40,9 +40,17 @@ class TagSaveParams(BaseModel):
     model_config = {"extra": "forbid"}
 
     handle: Optional[str] = Field(
-        None, description="Tag's handle (for updates; omit for new tag)"
+        None,
+        description=(
+            "Tag's handle. Pass it to update an existing tag via "
+            "PUT /tags/{handle}; omit to create a new tag."
+        ),
     )
     name: str = Field(description="Tag name", min_length=1)
-    color: Optional[str] = Field(None, description="Tag color")
-    priority: Optional[int] = Field(None, description="Tag priority")
+    color: Optional[str] = Field(
+        None, description="Tag color as a hex string, e.g. '#EF2929'"
+    )
+    priority: Optional[int] = Field(
+        None, description="Tag priority; lower sorts first in Gramps"
+    )
     change: Optional[str] = Field(None, description="Change timestamp")
