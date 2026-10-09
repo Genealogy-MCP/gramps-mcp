@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.8.1] - 2026-10-08
+
+### Security
+
+- Moved four locked dependencies past the releases that `pip-audit` now flags, so the audit job passes again. Runtime: pyjwt 2.13.0 to 2.15.1 and soupsieve 2.8.4 to 2.10. Dev only: urllib3 2.7.0 to 2.8.0 and virtualenv 21.6.1 to 21.14.5. None of the advisories is reachable from this server. Its only pyjwt call reads `exp` from the token the configured Gramps server just issued, with signature verification off, and the advisories cover verification, JWKS fetching and key import. The version ranges in `pyproject.toml` are unchanged (#96)
+
 ## [3.8.0] - 2026-09-08
 
 ### Added
