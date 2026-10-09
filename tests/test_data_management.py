@@ -938,6 +938,8 @@ class TestDeleteTagKeepsTree:
     ignores the body and schedules an async batch delete of EVERY object,
     completing ~30s after the API returns 200. A delta-based people count with
     a wait past that window is the only assertion that catches the bug.
+    Tags now go through DELETE /tags/{handle} (#90); the guard stays so a
+    future routing change cannot reintroduce the bulk endpoint unnoticed.
     """
 
     async def _count_people(self) -> int:
@@ -979,6 +981,12 @@ class TestDeleteTagKeepsTree:
 
         delete_result = await delete_tool({"type": "tag", "handle": tag_handle})
         assert "Successfully deleted" in delete_result[0].text
+
+        # Reason: DELETE /tags/{handle} is synchronous, so the handle must be
+        # gone on the very next request. A second delete answering 404 is the
+        # same check the #90 probe used against the pinned image.
+        with pytest.raises(McpToolError):
+            await delete_tool({"type": "tag", "handle": tag_handle})
 
         # Reason: the #81 bug destroyed the tree via a Celery task that
         # finished ~28s AFTER the delete returned 200. An immediate count

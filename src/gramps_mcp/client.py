@@ -24,7 +24,7 @@ from .models.api_calls import ApiCalls
 from .models.api_mapping import validate_api_call_params
 from .models.parameters.base_params import BaseDataModel
 
-# JSON body type: single object or array of objects (e.g. bulk delete)
+# JSON body type: single object or array of objects (e.g. objects/ bulk create)
 JsonBody = Union[Dict, list]
 
 logger = logging.getLogger(__name__)
@@ -382,53 +382,6 @@ class GrampsWebAPIClient:
             json_data=json_data,
             return_headers=with_headers,
             raw=api_call in RAW_BODY_API_CALLS,
-        )
-
-    async def bulk_delete(
-        self, namespace: str, handles: list[str], tree_id: str = "default"
-    ) -> dict:
-        """Delete entities via POST /objects/delete-by-handle/.
-
-        Used for entity types that lack a dedicated DELETE endpoint in API 3.x
-        (e.g. tags). The delete is synchronous and namespaced, so it is
-        recorded with undo data.
-
-        Args:
-            namespace: Plural entity namespace as defined by the API
-                (e.g. "tags", "people").
-            handles: Non-empty list of entity handles to delete.
-            tree_id: Tree identifier.
-
-        Returns:
-            API response dict (list of transaction records).
-
-        Raises:
-            ValueError: If namespace is empty or handles are missing/malformed.
-            GrampsAPIError: If the API call fails.
-        """
-        if not namespace or not isinstance(namespace, str):
-            raise ValueError("bulk_delete requires a non-empty namespace string")
-
-        if not handles:
-            raise ValueError("bulk_delete requires a non-empty handles list")
-
-        for handle in handles:
-            if not isinstance(handle, str) or not handle:
-                raise ValueError(
-                    f"Each handle must be a non-empty string, got: {handle!r}"
-                )
-
-        # Reason: never use POST /objects/delete/ here. That endpoint reads only
-        # the query-string arg `namespaces` and silently discards any JSON body;
-        # with no query string it deletes EVERY object in the tree via an async
-        # batch task with no undo data (#81). The trailing slash on
-        # delete-by-handle/ is load-bearing: without it the server issues a 308
-        # redirect that drops the POST body.
-        url = self._build_url(tree_id, "objects/delete-by-handle/")
-        return await self._make_request(
-            method="POST",
-            url=url,
-            json_data={"namespace": namespace, "handles": handles},
         )
 
 

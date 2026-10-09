@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.9.1] - 2026-10-09
+
+### Changed
+
+- `delete` on a tag now calls `DELETE /api/tags/<handle>` like every other entity type. The bulk route through `POST /api/objects/delete-by-handle/` existed only because of a stale belief that API 3.x had no tag DELETE endpoint; against the pinned grampsweb 26.6.1 image (webapi 3.16.0) the direct call answers 200 and the handle is 404 right after. `GrampsWebAPIClient.bulk_delete` had no other caller and is removed. The #81 regression test keeps guarding that a tag delete never touches the rest of the tree, and now also asserts the handle is gone (#90)
+
 ## [3.9.0] - 2026-10-08
 
 ### Changed
@@ -17,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Creating media no longer echoes the server's computed fields back in the update that follows the file upload. The upload response carries `checksum`, `thumb`, and `_class`, which are the server's to set and were previously sent straight back. An integration test asserts the created object keeps its checksum and file path (#71)
 - `test_all_entity_attributes_comprehensive` and `test_complete_marriage_record_workflow` were passing parameter names that no model declares, including `publication_info`, `event_role`, and `note_handle`. Silent dropping let both tests assert success over data that was never stored. They now use the declared field names (#71)
+
 ## [3.8.1] - 2026-10-08
 
 ### Security
