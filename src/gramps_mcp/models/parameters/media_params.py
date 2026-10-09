@@ -25,6 +25,9 @@ from .base_params import BaseDataModel, BaseGetMultipleParams
 class MediaDownloadParams(BaseModel):
     """Parameters for downloading a media file to local disk."""
 
+    # Reason: extra="forbid" (#95), see BaseGetMultipleParams.
+    model_config = {"extra": "forbid"}
+
     handle: Optional[str] = Field(
         None, min_length=8, description="Media handle identifier"
     )

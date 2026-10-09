@@ -40,6 +40,13 @@ EXTEND_CHOICES = [
 class BaseGetMultipleParams(BaseModel):
     """Common parameters for GET operations that return multiple objects."""
 
+    # Reason: extra="forbid" (#95). A read parameter is a command an LLM
+    # wrote, not a response from the server, so an undeclared key is always a
+    # caller mistake. With pydantic's default "ignore", search called with
+    # page_size instead of pagesize returned a plausible default page and
+    # nothing said the parameter was dropped.
+    model_config = {"extra": "forbid"}
+
     gramps_id: Optional[str] = Field(
         None, description="An alternate user managed identifier"
     )
@@ -64,6 +71,15 @@ class BaseGetMultipleParams(BaseModel):
     profile: Optional[str] = Field(
         None,
         description="Enables the return of summarized information about the object",
+    )
+    keys: Optional[str] = Field(
+        None, description="Comma delimited list of keys to include in the response"
+    )
+    skipkeys: Optional[str] = Field(
+        None, description="Comma delimited list of keys to exclude from the response"
+    )
+    strip: Optional[bool] = Field(
+        None, description="Strip empty or null fields from the response"
     )
 
     @field_validator("extend")
@@ -96,6 +112,9 @@ class BaseGetMultipleParams(BaseModel):
 class BaseGetSingleParams(BaseModel):
     """Common parameters for GET operations that return a single object."""
 
+    # Reason: extra="forbid" (#95), see BaseGetMultipleParams.
+    model_config = {"extra": "forbid"}
+
     backlinks: Optional[bool] = Field(
         None, description="Include handles to objects referring to the object"
     )
@@ -105,6 +124,15 @@ class BaseGetSingleParams(BaseModel):
     profile: Optional[str] = Field(
         None,
         description="Enables the return of summarized information about the object",
+    )
+    keys: Optional[str] = Field(
+        None, description="Comma delimited list of keys to include in the response"
+    )
+    skipkeys: Optional[str] = Field(
+        None, description="Comma delimited list of keys to exclude from the response"
+    )
+    strip: Optional[bool] = Field(
+        None, description="Strip empty or null fields from the response"
     )
 
     @field_validator("extend")

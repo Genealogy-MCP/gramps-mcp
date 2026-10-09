@@ -20,6 +20,9 @@ from pydantic import BaseModel, Field
 class TagSearchParams(BaseModel):
     """Parameters for searching tags."""
 
+    # Reason: extra="forbid" (#95), see BaseGetMultipleParams.
+    model_config = {"extra": "forbid"}
+
     page: Optional[int] = Field(
         None, description="Page number for pagination (1-based)", ge=1
     )

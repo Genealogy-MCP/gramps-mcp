@@ -13,11 +13,13 @@ OperationEntry, search_operations, and summarize_params are provided by
 the shared mcp-codemode library.
 """
 
-from typing import Optional
-
 from mcp_codemode import OperationEntry
-from pydantic import BaseModel, Field
 
+from .models.parameters.analysis_params import (
+    AncestorsParams,
+    DescendantsParams,
+    TreeInfoParams,
+)
 from .models.parameters.citation_params import CitationData
 from .models.parameters.event_params import EventSaveParams
 from .models.parameters.family_params import FamilySaveParams
@@ -58,37 +60,6 @@ from .tools.data_management_delete import delete_tool, upsert_tag_tool
 from .tools.data_management_media import download_media_tool, upsert_media_tool
 from .tools.search_basic import list_tags_tool, search_text_tool, search_tool
 from .tools.search_details import get_tool
-
-# ---------------------------------------------------------------------------
-# Parameter models for analysis tools (moved from server_tools.py)
-# ---------------------------------------------------------------------------
-
-
-class TreeInfoParams(BaseModel):
-    include_statistics: bool = Field(True, description="Include statistics")
-
-
-class DescendantsParams(BaseModel):
-    gramps_id: str = Field(..., description="Person ID")
-    max_generations: Optional[int] = Field(
-        5,
-        description=(
-            "Max generations to retrieve (default: 5, use higher values "
-            "carefully as they can overflow context)"
-        ),
-    )
-
-
-class AncestorsParams(BaseModel):
-    gramps_id: str = Field(..., description="Person ID")
-    max_generations: Optional[int] = Field(
-        5,
-        description=(
-            "Max generations to retrieve (default: 5, use higher values "
-            "carefully as they can overflow context)"
-        ),
-    )
-
 
 # ---------------------------------------------------------------------------
 # OPERATION_REGISTRY — 20 operations

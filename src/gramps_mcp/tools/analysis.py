@@ -20,9 +20,11 @@ from mcp.types import TextContent
 from ..client import GrampsAPIError, GrampsWebAPIClient
 from ..config import get_settings
 from ..models.api_calls import ApiCalls
+from ..models.parameters.analysis_params import AncestorsParams, DescendantsParams
 from ..models.parameters.reports_params import ReportFileParams
+from ..models.parameters.transactions_params import TransactionHistoryParams
 from ..utils import get_gramps_id_from_handle, html_to_markdown, normalize_obj_class
-from ._errors import raise_tool_error
+from ._errors import parse_params, raise_tool_error
 from .search_basic import with_client
 
 logger = logging.getLogger(__name__)
@@ -241,12 +243,10 @@ async def get_descendants_tool(client, arguments: Dict) -> List[TextContent]:
     """
     Find all descendants of a person.
     """
-    gramps_id = arguments.get("gramps_id")
+    validated = parse_params(DescendantsParams, arguments)
+    gramps_id = validated.gramps_id
     try:
-        max_generations = arguments.get("max_generations")
-
-        if not gramps_id:
-            raise ValueError("gramps_id is required")
+        max_generations = validated.max_generations
 
         # Get tree_id from settings
         settings = get_settings()
@@ -321,12 +321,10 @@ async def get_ancestors_tool(client, arguments: Dict) -> List[TextContent]:
     """
     Find all ancestors of a person.
     """
-    gramps_id = arguments.get("gramps_id")
+    validated = parse_params(AncestorsParams, arguments)
+    gramps_id = validated.gramps_id
     try:
-        max_generations = arguments.get("max_generations")
-
-        if not gramps_id:
-            raise ValueError("gramps_id is required")
+        max_generations = validated.max_generations
 
         # Get tree_id from settings
         settings = get_settings()
@@ -402,14 +400,10 @@ async def get_recent_changes_tool(client, arguments: Dict) -> List[TextContent]:
     Get recent changes/modifications to the family tree.
     """
     try:
-        # Import and validate parameters
-        from ..models.parameters.transactions_params import TransactionHistoryParams
-
         # Validate parameters and ensure we get most recent changes first
-        if not arguments:
-            arguments = {}
-        arguments["sort"] = "-id"
-        params = TransactionHistoryParams(**arguments)
+        params = parse_params(
+            TransactionHistoryParams, {**(arguments or {}), "sort": "-id"}
+        )
 
         # Get tree_id from settings
         settings = get_settings()

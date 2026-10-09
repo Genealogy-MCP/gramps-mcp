@@ -151,7 +151,7 @@ async def download_media_tool(ctx: Any = None, params: Any = None) -> List[TextC
 
     try:
         arguments = extract_arguments(ctx, params)
-        validated = MediaDownloadParams(**arguments)
+        validated = parse_params(MediaDownloadParams, arguments)
         destination = validated.destination
 
         # Path security checks (MCP-18, MCP-19)
