@@ -32,7 +32,7 @@ from ._data_helpers import (
     _format_save_response,
     _handle_crud_operation,
 )
-from ._errors import McpToolError, raise_tool_error
+from ._errors import McpToolError, parse_params, raise_tool_error
 
 __all__ = [
     "upsert_person_tool",
@@ -94,7 +94,7 @@ async def upsert_person_tool(ctx: Any = None, params: Any = None) -> List[TextCo
     """
     try:
         arguments = extract_arguments(ctx, params)
-        validated = PersonData(**arguments)
+        validated = parse_params(PersonData, arguments)
 
         settings = get_settings()
         tree_id = settings.gramps_tree_id
@@ -138,7 +138,7 @@ async def upsert_family_tool(ctx: Any = None, params: Any = None) -> List[TextCo
     """
     try:
         arguments = extract_arguments(ctx, params)
-        validated = FamilySaveParams(**arguments)
+        validated = parse_params(FamilySaveParams, arguments)
 
         settings = get_settings()
         tree_id = settings.gramps_tree_id
@@ -218,7 +218,7 @@ async def upsert_citation_tool(
     """
     try:
         arguments = extract_arguments(ctx, params)
-        validated = CitationData(**arguments)
+        validated = parse_params(CitationData, arguments)
 
         # Self-reference check: citation cannot reference itself as source
         if validated.handle and validated.source_handle:
@@ -337,7 +337,7 @@ async def upsert_repository_tool(
     """
     try:
         arguments = extract_arguments(ctx, params)
-        validated = RepositoryData(**arguments)
+        validated = parse_params(RepositoryData, arguments)
 
         settings = get_settings()
         tree_id = settings.gramps_tree_id
