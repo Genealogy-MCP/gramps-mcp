@@ -17,46 +17,22 @@ from mcp.types import TextContent
 
 from ..client import GrampsWebAPIClient
 from ..config import get_settings
-from ..handlers.citation_handler import format_citation
-from ..handlers.event_handler import format_event
-from ..handlers.family_handler import format_family
-from ..handlers.media_handler import format_media
-from ..handlers.note_handler import format_note
-from ..handlers.person_handler import format_person
-from ..handlers.place_handler import format_place
-from ..handlers.repository_handler import format_repository
-from ..handlers.source_handler import format_source
 from ..models.api_calls import ApiCalls
-from ..models.parameters.base_params import BaseGetMultipleParams
-from ..models.parameters.citation_params import GetCitationsParams
-from ..models.parameters.event_params import EventSearchParams
-from ..models.parameters.media_params import MediaSearchParams
-from ..models.parameters.note_params import NotesParams
-from ..models.parameters.place_params import PlaceSearchParams
-from ..models.parameters.repository_params import RepositoriesParams
 from ..models.parameters.search_params import SearchParams
 from ..models.parameters.simple_params import SimpleSearchParams
-from ..models.parameters.source_params import SourceSearchParams
 from ..models.parameters.tag_params import TagSearchParams
 from ._compat import extract_arguments
 from ._errors import McpToolError, parse_params, raise_tool_error
 from ._gql_hints import gql_hint, gql_private_reject
 from ._gql_type_rewrite import apply_post_filters, rewrite_search_args
+from .table_routes import READ_OVERLAYS, collection_call, read_route
 
 logger = logging.getLogger(__name__)
 
 # Shared dispatch: entity type -> format handler.
 # Used by search_basic and data_management.
 FORMATTER_DISPATCH: Dict[str, Callable] = {
-    "person": format_person,
-    "family": format_family,
-    "event": format_event,
-    "place": format_place,
-    "source": format_source,
-    "citation": format_citation,
-    "media": format_media,
-    "note": format_note,
-    "repository": format_repository,
+    entity: overlay.formatter for entity, overlay in READ_OVERLAYS.items()
 }
 
 
@@ -227,131 +203,35 @@ async def _search_entities(
         raise_tool_error(e, context)
 
 
-@with_client
-async def search_person_tool(client, arguments: Dict) -> List[TextContent]:
-    """Search for people by name, ID, or other criteria."""
-    return await _search_entities(
-        client,
-        arguments,
-        BaseGetMultipleParams,
-        ApiCalls.GET_PEOPLE,
-        "people",
-        format_person,
-    )
-
-
-@with_client
-async def search_family_tool(client, arguments: Dict) -> List[TextContent]:
-    """Search for families (family units)."""
-    return await _search_entities(
-        client,
-        arguments,
-        BaseGetMultipleParams,
-        ApiCalls.GET_FAMILIES,
-        "families",
-        format_family,
-    )
-
-
-@with_client
-async def search_event_tool(client, arguments: Dict) -> List[TextContent]:
+def _make_search_tool(entity: str) -> Callable:
     """
-    Search for life events (births, deaths, marriages).
-    """
-    return await _search_entities(
-        client,
-        arguments,
-        EventSearchParams,
-        ApiCalls.GET_EVENTS,
-        "events",
-        format_event,
-    )
+    Build the search handler for one entity from the resource table.
 
+    The list endpoint comes from ``ENTITY_RESOURCES`` and the params class,
+    label and formatter from ``READ_OVERLAYS`` (#101).
 
-@with_client
-async def search_place_tool(client, arguments: Dict) -> List[TextContent]:
-    """
-    Find geographic locations and places.
-    """
-    return await _search_entities(
-        client,
-        arguments,
-        PlaceSearchParams,
-        ApiCalls.GET_PLACES,
-        "places",
-        format_place,
-    )
+    Args:
+        entity (str): Key of ``READ_OVERLAYS`` (``"person"``, ``"event"``, ...).
 
+    Returns:
+        Callable: ``with_client``-wrapped async handler taking an argument dict.
+    """
+    overlay = READ_OVERLAYS[entity]
+    params_class, api_call = read_route(entity)
 
-@with_client
-async def search_source_tool(client, arguments: Dict) -> List[TextContent]:
-    """
-    Search for source materials and documents.
-    """
-    return await _search_entities(
-        client,
-        arguments,
-        SourceSearchParams,
-        ApiCalls.GET_SOURCES,
-        "sources",
-        format_source,
-    )
+    async def search_entity(client, arguments: Dict) -> List[TextContent]:
+        """Search one entity type through its table list endpoint."""
+        return await _search_entities(
+            client,
+            arguments,
+            params_class,
+            api_call,
+            overlay.label,
+            overlay.formatter,
+        )
 
-
-@with_client
-async def search_repository_tool(client, arguments: Dict) -> List[TextContent]:
-    """
-    Search for repositories (archives, libraries, churches, etc.).
-    """
-    return await _search_entities(
-        client,
-        arguments,
-        RepositoriesParams,
-        ApiCalls.GET_REPOSITORIES,
-        "repositories",
-        format_repository,
-    )
-
-
-@with_client
-async def search_media_tool(client, arguments: Dict) -> List[TextContent]:
-    """
-    Find photos, documents, and media files.
-    """
-    return await _search_entities(
-        client,
-        arguments,
-        MediaSearchParams,
-        ApiCalls.GET_MEDIA,
-        "media files",
-        format_media,
-    )
-
-
-@with_client
-async def search_citation_tool(client, arguments: Dict) -> List[TextContent]:
-    """
-    Search for citations and references, showing source details, URLs, and
-    repository info.
-    """
-    return await _search_entities(
-        client,
-        arguments,
-        GetCitationsParams,
-        ApiCalls.GET_CITATIONS,
-        "citations",
-        format_citation,
-    )
-
-
-@with_client
-async def search_note_tool(client, arguments: Dict) -> List[TextContent]:
-    """
-    Search for notes and research notes.
-    """
-    return await _search_entities(
-        client, arguments, NotesParams, ApiCalls.GET_NOTES, "notes", format_note
-    )
+    search_entity.__name__ = search_entity.__qualname__ = f"search_{entity}_tool"
+    return with_client(search_entity)
 
 
 @with_client
@@ -372,7 +252,7 @@ async def list_tags_tool(client, arguments: Dict) -> List[TextContent]:
         tree_id = settings.gramps_tree_id
 
         response = await client.make_api_call(
-            api_call=ApiCalls.GET_TAGS, params=params, tree_id=tree_id
+            api_call=collection_call("tag"), params=params, tree_id=tree_id
         )
 
         results = response if isinstance(response, list) else response.get("data", [])
@@ -396,18 +276,22 @@ async def list_tags_tool(client, arguments: Dict) -> List[TextContent]:
         raise_tool_error(e, "tag search")
 
 
-# Explicit dispatch for search_tool — avoids globals() lookup (MCP-18).
+# Explicit dispatch for search_tool, built from the table (MCP-18, #101).
 _SEARCH_TOOL_DISPATCH: Dict[str, Callable] = {
-    "person": search_person_tool,
-    "family": search_family_tool,
-    "event": search_event_tool,
-    "place": search_place_tool,
-    "source": search_source_tool,
-    "citation": search_citation_tool,
-    "media": search_media_tool,
-    "note": search_note_tool,
-    "repository": search_repository_tool,
+    entity: _make_search_tool(entity) for entity in READ_OVERLAYS
 }
+
+# Reason: kept as module names for callers and tests that import the
+# per-entity handlers directly.
+search_person_tool = _SEARCH_TOOL_DISPATCH["person"]
+search_family_tool = _SEARCH_TOOL_DISPATCH["family"]
+search_event_tool = _SEARCH_TOOL_DISPATCH["event"]
+search_place_tool = _SEARCH_TOOL_DISPATCH["place"]
+search_source_tool = _SEARCH_TOOL_DISPATCH["source"]
+search_citation_tool = _SEARCH_TOOL_DISPATCH["citation"]
+search_media_tool = _SEARCH_TOOL_DISPATCH["media"]
+search_note_tool = _SEARCH_TOOL_DISPATCH["note"]
+search_repository_tool = _SEARCH_TOOL_DISPATCH["repository"]
 
 
 async def search_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:

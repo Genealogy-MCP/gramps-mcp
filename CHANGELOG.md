@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.3] - 2026-10-10
+
+### Changed
+
+- `get`, `search`, `list_tags` and `delete` are now built from the generated resource table. `registry_build.build_registry` turns per-operation overlays (`operation_overlays.py`) into registry entries, checking every overlay entity and verb against the table, and `merge_registry` joins them with the handwritten operations, failing on a name defined twice or a listing order that drifts. The per-entity search and detail handlers are generated from `tools/table_routes.py` read overlays (params class, label, formatter), which take their list endpoint from the table and fail at import when a params field is not a list filter the table knows. `DELETE_API_CALLS` and the gramps_id resolver map are derived from the table as well. Operation names, the count of 20, parameter schemas and response text are unchanged; the upserts stay handwritten (#101)
+
 ## [3.10.2] - 2026-10-10
 
 ### Added

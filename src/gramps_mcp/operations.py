@@ -28,15 +28,13 @@ from .models.parameters.note_params import NoteSaveParams
 from .models.parameters.people_params import PersonData
 from .models.parameters.place_params import PlaceSaveParams
 from .models.parameters.repository_params import RepositoryData
-from .models.parameters.simple_params import (
-    DeleteParams,
-    SimpleFindParams,
-    SimpleGetParams,
-    SimpleSearchParams,
-)
+from .models.parameters.simple_params import SimpleSearchParams
 from .models.parameters.source_params import SourceSaveParams
-from .models.parameters.tag_params import TagSaveParams, TagSearchParams
+from .models.parameters.tag_params import TagSaveParams
 from .models.parameters.transactions_params import TransactionHistoryParams
+from .operation_overlays import TABLE_OVERLAYS
+from .registry_build import build_registry, merge_registry
+from .resource_table import ENTITY_RESOURCES
 
 # Import handlers directly from sub-modules (not tools/__init__.py)
 # to avoid circular imports — server.py imports from this module.
@@ -56,43 +54,17 @@ from .tools.data_management import (
     upsert_repository_tool,
     upsert_source_tool,
 )
-from .tools.data_management_delete import delete_tool, upsert_tag_tool
+from .tools.data_management_delete import upsert_tag_tool
 from .tools.data_management_media import download_media_tool, upsert_media_tool
-from .tools.search_basic import list_tags_tool, search_text_tool, search_tool
-from .tools.search_details import get_tool
+from .tools.search_basic import search_text_tool
 
 # ---------------------------------------------------------------------------
-# OPERATION_REGISTRY — 20 operations
+# Handwritten operations. search, list_tags, get and delete are built from
+# the resource table (TABLE_OPERATIONS below, #101).
 # ---------------------------------------------------------------------------
 
-OPERATION_REGISTRY: dict[str, OperationEntry] = {
-    # --- search (3) ---
-    "search": OperationEntry(
-        name="search",
-        summary=(
-            "Search any entity type using GQL queries. "
-            "Do NOT use 'search_person' -- use this with params.type."
-        ),
-        description=(
-            "Search any entity type using GQL - read gql://documentation "
-            "resource first to understand syntax. "
-            "Key GQL property paths: "
-            "People: primary_name.first_name, "
-            "primary_name.surname_list[0].surname (NOT 'name'). "
-            "Places: name.value (NOT 'name'), place_type.string (NOT 'type'). "
-            "Events/Families/Repositories: type.string. "
-            "Notes: text.string (NOT 'text'). "
-            "Type-name filters are rewritten to the integer form "
-            "(`.value` in place of `.string`) before querying; custom type "
-            "names are not translated yet and return no results. "
-            'Multi-word values MUST be quoted: name.value ~ "New York".'
-        ),
-        category="search",
-        params_schema=SimpleFindParams,
-        handler=search_tool,
-        read_only=True,
-        destructive=False,
-    ),
+_HANDWRITTEN: dict[str, OperationEntry] = {
+    # --- search ---
     "search_text": OperationEntry(
         name="search_text",
         summary="Full-text search across all record types",
@@ -106,36 +78,7 @@ OPERATION_REGISTRY: dict[str, OperationEntry] = {
         read_only=True,
         destructive=False,
     ),
-    "list_tags": OperationEntry(
-        name="list_tags",
-        summary="List all tags in the family tree",
-        description="List all tags in the family tree",
-        category="search",
-        params_schema=TagSearchParams,
-        handler=list_tags_tool,
-        read_only=True,
-        destructive=False,
-    ),
-    # --- read (3) ---
-    "get": OperationEntry(
-        name="get",
-        summary=(
-            "Get full details for any entity by handle or gramps_id. "
-            "Pass params.type to specify the entity kind. "
-            "Do NOT use 'get_person' or 'get_media' -- use 'get' with params.type."
-        ),
-        description=(
-            "Get full details for any entity (person, family, event, place, "
-            "source, citation, media, repository, note) by handle or gramps_id. "
-            "Pass params.type to specify the entity kind. "
-            "Do NOT use 'get_person' or 'get_media' -- use 'get' with params.type."
-        ),
-        category="read",
-        params_schema=SimpleGetParams,
-        handler=get_tool,
-        read_only=True,
-        destructive=False,
-    ),
+    # --- read ---
     "get_tree_stats": OperationEntry(
         name="get_tree_stats",
         summary="Get tree statistics (counts of people, families, events, etc.)",
@@ -278,23 +221,6 @@ OPERATION_REGISTRY: dict[str, OperationEntry] = {
         read_only=False,
         destructive=False,
     ),
-    # --- delete (1) ---
-    "delete": OperationEntry(
-        name="delete",
-        summary=(
-            "Delete any entity by type and handle. "
-            "Do NOT use 'delete_person' -- use 'delete' with params.type."
-        ),
-        description=(
-            "Delete any entity by type and handle. "
-            "Do NOT use 'delete_person' -- use 'delete' with params.type."
-        ),
-        category="delete",
-        params_schema=DeleteParams,
-        handler=delete_tool,
-        read_only=False,
-        destructive=True,
-    ),
     # --- analysis (3) ---
     "get_ancestors": OperationEntry(
         name="get_ancestors",
@@ -335,3 +261,39 @@ OPERATION_REGISTRY: dict[str, OperationEntry] = {
         destructive=False,
     ),
 }
+
+TABLE_OPERATIONS: dict[str, OperationEntry] = build_registry(
+    ENTITY_RESOURCES, TABLE_OVERLAYS
+)
+
+# Listing order of the search meta-tool (empty query lists in this order).
+_OPERATION_ORDER = (
+    "search",
+    "search_text",
+    "list_tags",
+    "get",
+    "get_tree_stats",
+    "download_media",
+    "upsert_person",
+    "upsert_family",
+    "upsert_event",
+    "upsert_place",
+    "upsert_source",
+    "upsert_citation",
+    "upsert_note",
+    "upsert_media",
+    "upsert_repository",
+    "upsert_tag",
+    "delete",
+    "get_ancestors",
+    "get_descendants",
+    "get_recent_changes",
+)
+
+# ---------------------------------------------------------------------------
+# OPERATION_REGISTRY: handwritten plus table-driven operations
+# ---------------------------------------------------------------------------
+
+OPERATION_REGISTRY: dict[str, OperationEntry] = merge_registry(
+    _HANDWRITTEN, TABLE_OPERATIONS, _OPERATION_ORDER
+)
