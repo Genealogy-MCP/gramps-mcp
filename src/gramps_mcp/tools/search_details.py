@@ -10,23 +10,17 @@ entity information using direct API calls.
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 
 from mcp.types import TextContent
 
 from ..config import get_settings
-from ..handlers.citation_handler import format_citation
-from ..handlers.event_handler import format_event
 from ..handlers.family_detail_handler import format_family_detail
-from ..handlers.media_handler import format_media
-from ..handlers.note_handler import format_note
 from ..handlers.person_detail_handler import format_person_detail
-from ..handlers.place_handler import format_place
-from ..handlers.repository_handler import format_repository
-from ..handlers.source_handler import format_source
 from ._compat import extract_arguments
 from ._errors import McpToolError, raise_tool_error
 from .search_basic import with_client
+from .table_routes import READ_OVERLAYS
 
 logger = logging.getLogger(__name__)
 
@@ -85,131 +79,58 @@ async def get_family_tool(client, arguments: Dict) -> List[TextContent]:
         )
 
 
-@with_client
-async def get_event_tool(client, arguments: Dict) -> List[TextContent]:
-    """Get event details by handle."""
-    handle = arguments.get("handle")
-    try:
-        if not handle:
-            raise ValueError("handle is required")
-        settings = get_settings()
-        formatted = await format_event(client, settings.gramps_tree_id, handle)
-        return [TextContent(type="text", text=formatted or "No event data found.")]
-    except Exception as e:
-        raise_tool_error(
-            e, "event details retrieval", entity_type="event", identifier=handle
-        )
+def _make_get_tool(entity: str) -> Callable:
+    """
+    Build the detail handler for one entity from its read overlay.
+
+    Args:
+        entity (str): Key of ``READ_OVERLAYS`` other than person and family.
+
+    Returns:
+        Callable: ``with_client``-wrapped async handler taking ``{"handle"}``.
+    """
+    overlay = READ_OVERLAYS[entity]
+
+    async def get_entity(client, arguments: Dict) -> List[TextContent]:
+        """Get one entity's details by handle."""
+        handle = arguments.get("handle")
+        try:
+            if not handle:
+                raise ValueError("handle is required")
+            settings = get_settings()
+            formatted = await overlay.formatter(client, settings.gramps_tree_id, handle)
+            return [TextContent(type="text", text=formatted or overlay.empty_detail)]
+        except Exception as e:
+            raise_tool_error(
+                e,
+                f"{entity} details retrieval",
+                entity_type=entity,
+                identifier=handle,
+            )
+
+    get_entity.__name__ = get_entity.__qualname__ = f"get_{entity}_tool"
+    return with_client(get_entity)
 
 
-@with_client
-async def get_place_tool(client, arguments: Dict) -> List[TextContent]:
-    """Get place details by handle."""
-    handle = arguments.get("handle")
-    try:
-        if not handle:
-            raise ValueError("handle is required")
-        settings = get_settings()
-        formatted = await format_place(client, settings.gramps_tree_id, handle)
-        return [TextContent(type="text", text=formatted)]
-    except Exception as e:
-        raise_tool_error(
-            e, "place details retrieval", entity_type="place", identifier=handle
-        )
-
-
-@with_client
-async def get_source_tool(client, arguments: Dict) -> List[TextContent]:
-    """Get source details by handle."""
-    handle = arguments.get("handle")
-    try:
-        if not handle:
-            raise ValueError("handle is required")
-        settings = get_settings()
-        formatted = await format_source(client, settings.gramps_tree_id, handle)
-        return [TextContent(type="text", text=formatted)]
-    except Exception as e:
-        raise_tool_error(
-            e, "source details retrieval", entity_type="source", identifier=handle
-        )
-
-
-@with_client
-async def get_citation_tool(client, arguments: Dict) -> List[TextContent]:
-    """Get citation details by handle."""
-    handle = arguments.get("handle")
-    try:
-        if not handle:
-            raise ValueError("handle is required")
-        settings = get_settings()
-        formatted = await format_citation(client, settings.gramps_tree_id, handle)
-        return [TextContent(type="text", text=formatted)]
-    except Exception as e:
-        raise_tool_error(
-            e, "citation details retrieval", entity_type="citation", identifier=handle
-        )
-
-
-@with_client
-async def get_note_tool(client, arguments: Dict) -> List[TextContent]:
-    """Get note details by handle."""
-    handle = arguments.get("handle")
-    try:
-        if not handle:
-            raise ValueError("handle is required")
-        settings = get_settings()
-        formatted = await format_note(client, settings.gramps_tree_id, handle)
-        return [TextContent(type="text", text=formatted)]
-    except Exception as e:
-        raise_tool_error(
-            e, "note details retrieval", entity_type="note", identifier=handle
-        )
-
-
-@with_client
-async def get_media_tool(client, arguments: Dict) -> List[TextContent]:
-    """Get media details by handle."""
-    handle = arguments.get("handle")
-    try:
-        if not handle:
-            raise ValueError("handle is required")
-        settings = get_settings()
-        formatted = await format_media(client, settings.gramps_tree_id, handle)
-        return [TextContent(type="text", text=formatted)]
-    except Exception as e:
-        raise_tool_error(
-            e, "media details retrieval", entity_type="media", identifier=handle
-        )
-
-
-@with_client
-async def get_repository_tool(client, arguments: Dict) -> List[TextContent]:
-    """Get repository details by handle."""
-    handle = arguments.get("handle")
-    try:
-        if not handle:
-            raise ValueError("handle is required")
-        settings = get_settings()
-        formatted = await format_repository(client, settings.gramps_tree_id, handle)
-        return [TextContent(type="text", text=formatted)]
-    except Exception as e:
-        raise_tool_error(
-            e,
-            "repository details retrieval",
-            entity_type="repository",
-            identifier=handle,
-        )
-
+# Person and family keep their detail handlers above (timeline join); every
+# other entity is built from its overlay (#101).
+_DETAIL_ENTITIES = ("person", "family")
 
 # Dispatch map for entity types beyond person/family
-_GET_TOOL_DISPATCH = {
-    "event": get_event_tool,
-    "place": get_place_tool,
-    "source": get_source_tool,
-    "citation": get_citation_tool,
-    "note": get_note_tool,
-    "media": get_media_tool,
-    "repository": get_repository_tool,
+_GET_TOOL_DISPATCH: Dict[str, Callable] = {
+    entity: _make_get_tool(entity)
+    for entity in READ_OVERLAYS
+    if entity not in _DETAIL_ENTITIES
 }
+
+# Reason: kept as module names for callers and tests that import them.
+get_event_tool = _GET_TOOL_DISPATCH["event"]
+get_place_tool = _GET_TOOL_DISPATCH["place"]
+get_source_tool = _GET_TOOL_DISPATCH["source"]
+get_citation_tool = _GET_TOOL_DISPATCH["citation"]
+get_note_tool = _GET_TOOL_DISPATCH["note"]
+get_media_tool = _GET_TOOL_DISPATCH["media"]
+get_repository_tool = _GET_TOOL_DISPATCH["repository"]
 
 
 def _stub_if_empty(
@@ -247,7 +168,7 @@ async def get_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     gramps_id = arguments.get("gramps_id")
 
     if not entity_type:
-        valid_types = sorted(list(_GET_TOOL_DISPATCH.keys()) + ["person", "family"])
+        valid_types = sorted(list(_GET_TOOL_DISPATCH.keys()) + list(_DETAIL_ENTITIES))
         raise McpToolError(
             f"Missing required parameter 'type'. Valid types: {', '.join(valid_types)}"
         )
@@ -287,7 +208,7 @@ async def get_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
         result = await tool_func({"handle": handle})
         return _stub_if_empty(result, entity_type, handle)
 
-    valid_types = sorted(list(_GET_TOOL_DISPATCH.keys()) + ["person", "family"])
+    valid_types = sorted(list(_GET_TOOL_DISPATCH.keys()) + list(_DETAIL_ENTITIES))
     raise McpToolError(
         f"Entity type '{entity_type}' not supported for get. "
         f"Valid types: {', '.join(valid_types)}"
