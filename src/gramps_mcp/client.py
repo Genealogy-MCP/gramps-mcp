@@ -11,7 +11,7 @@ for all Gramps Web API operations through the make_api_call method.
 
 import logging
 import re
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Tuple, Union
 from urllib.parse import quote, urljoin
 
 import httpx
@@ -38,6 +38,10 @@ RAW_BODY_API_CALLS = frozenset(
 )
 
 
+# Verbs a resource-table row can name (collection GET/POST, item GET/PUT/DELETE).
+_RESOURCE_METHODS = ("GET", "POST", "PUT", "DELETE")
+
+
 class GrampsAPIError(Exception):
     """Custom exception for Gramps Web API errors."""
 
@@ -57,6 +61,31 @@ def _normalise_url_keys(json_data: dict) -> None:
     for url in urls:
         if isinstance(url, dict) and "description" in url and "desc" not in url:
             url["desc"] = url.pop("description")
+
+
+def api_body(params: BaseModel) -> Tuple[Dict[str, Any], str]:
+    """
+    Turn a parsed write model into the JSON body and its list_mode.
+
+    Write models serialise through ``to_api_payload()`` (the payload hook
+    every ``BaseDataModel`` has); any other model is dumped as is.
+    ``list_mode`` is an MCP-side switch Gramps does not know, so it is
+    removed from every body, POST included, and returned for the PUT merge.
+
+    Args:
+        params (BaseModel): Parsed params model.
+
+    Returns:
+        Tuple[Dict[str, Any], str]: The body and the list mode
+            (``"merge"`` when the model carries none).
+    """
+    if isinstance(params, BaseDataModel):
+        body = params.to_api_payload()
+    else:
+        body = params.model_dump(exclude_none=True)
+    list_mode = body.pop("list_mode", None) or "merge"
+    _normalise_url_keys(body)
+    return body, list_mode
 
 
 class GrampsWebAPIClient:
@@ -326,9 +355,96 @@ class GrampsWebAPIClient:
             else:
                 validated_params = validate_api_call_params(api_call, params)
 
-        # Build the URL with parameter substitution
-        endpoint = api_call.endpoint
+        # Report-file POSTs carry their options as query params, not a body.
+        as_body = (
+            api_call.method in ("POST", "PUT") and api_call != ApiCalls.POST_REPORT_FILE
+        )
+        return await self._send(
+            api_call.method,
+            api_call.endpoint,
+            validated_params,
+            tree_id,
+            url_params,
+            as_body=as_body,
+            with_headers=with_headers,
+            raw=api_call in RAW_BODY_API_CALLS,
+        )
 
+    async def call_resource(
+        self,
+        method: str,
+        path: str,
+        params: Optional[BaseModel] = None,
+        tree_id: str = "default",
+        with_headers: bool = False,
+        **url_params,
+    ) -> Any:
+        """
+        Call a resource-table path with an already parsed params model.
+
+        The table-driven handlers name the verb and the path template from a
+        resource row instead of an ``ApiCalls`` member. The request goes
+        through the same body, list_mode and PUT merge path as
+        ``make_api_call``.
+
+        Args:
+            method (str): HTTP verb: GET, POST, PUT or DELETE.
+            path (str): Path template from the row, e.g. ``events/{handle}``.
+            params (Optional[BaseModel]): Parsed params; the JSON body for
+                POST/PUT, query params otherwise.
+            tree_id (str): Family tree identifier.
+            with_headers (bool): Also return the response headers.
+            **url_params: Values for the path placeholders (``handle``).
+
+        Returns:
+            Any: Parsed API response.
+
+        Raises:
+            ValueError: Unsupported verb or a missing path placeholder.
+            GrampsAPIError: The API call failed.
+        """
+        if method not in _RESOURCE_METHODS:
+            raise ValueError(
+                f"call_resource sends {', '.join(_RESOURCE_METHODS)}, not {method}."
+            )
+        return await self._send(
+            method,
+            path,
+            params,
+            tree_id,
+            url_params,
+            as_body=method in ("POST", "PUT"),
+            with_headers=with_headers,
+            raw=False,
+        )
+
+    async def _send(
+        self,
+        method: str,
+        endpoint: str,
+        validated_params: Optional[BaseModel],
+        tree_id: str,
+        url_params: Dict[str, Any],
+        as_body: bool,
+        with_headers: bool,
+        raw: bool,
+    ) -> Any:
+        """
+        Build and send one request; the path both entry points share.
+
+        Args:
+            method (str): HTTP verb.
+            endpoint (str): Path template relative to the API root.
+            validated_params (Optional[BaseModel]): Parsed params or None.
+            tree_id (str): Family tree identifier.
+            url_params (Dict[str, Any]): Values for the path placeholders.
+            as_body (bool): Send params as the JSON body, not the query.
+            with_headers (bool): Also return the response headers.
+            raw (bool): Return the body as text without JSON parsing.
+
+        Returns:
+            Any: Parsed API response.
+        """
         # Add tree_id to url_params if endpoint needs it
         if "{tree_id}" in endpoint:
             url_params = dict(url_params)  # Make a copy
@@ -336,54 +452,40 @@ class GrampsWebAPIClient:
 
         url = self._build_url_with_substitution(tree_id, endpoint, url_params)
 
-        # Prepare request parameters
         request_params = None
         json_data = None
-
+        list_mode = "merge"
         if validated_params is not None:
-            # POST/PUT body params use to_api_payload() when available
-            # (all BaseDataModel subclasses); GET/report params use model_dump.
-            if (
-                api_call.method in ["POST", "PUT"]
-                and api_call != ApiCalls.POST_REPORT_FILE
-            ):
-                if isinstance(validated_params, BaseDataModel):
-                    json_data = validated_params.to_api_payload()
-                else:
-                    json_data = validated_params.model_dump(exclude_none=True)
+            if as_body:
+                json_data, list_mode = api_body(validated_params)
             else:
                 request_params = validated_params.model_dump(exclude_none=True)
 
-        # Pop list_mode before sending to API (Gramps doesn't know this field).
-        # Must happen unconditionally — POST bodies must not carry it either.
-        list_mode = "merge"
-        if json_data:
-            list_mode = json_data.pop("list_mode", "merge")
-            _normalise_url_keys(json_data)
-
         # For PUT operations, preserve existing data by merging with changes
-        if api_call.method == "PUT" and json_data:
+        if method == "PUT" and json_data:
             handle = url_params.get("handle") or json_data.get("handle")
             if handle:
-                # Use same endpoint for GET (remove method-specific parts if any)
-                get_endpoint = endpoint
                 get_url = self._build_url_with_substitution(
-                    tree_id, get_endpoint, {"handle": handle}
+                    tree_id, endpoint, {"handle": handle}
                 )
                 existing = await self._make_request("GET", get_url)
                 if existing:
                     json_data = merge_object(existing, json_data, list_mode)
 
-        # Make the API request
         return await self._make_request(
-            method=api_call.method,
+            method=method,
             url=url,
             params=request_params,
             json_data=json_data,
             return_headers=with_headers,
-            raw=api_call in RAW_BODY_API_CALLS,
+            raw=raw,
         )
 
 
 # Export the main classes for easy import
-__all__ = ["GrampsWebAPIClient", "GrampsAPIError", "MIN_API_MAJOR_VERSION"]
+__all__ = [
+    "GrampsWebAPIClient",
+    "GrampsAPIError",
+    "MIN_API_MAJOR_VERSION",
+    "api_body",
+]

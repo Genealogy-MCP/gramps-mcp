@@ -1069,7 +1069,7 @@ class TestUpsertNoteViaExecuteOperation:
     """Test upsert_note through the full Code Mode dispatch path.
 
     Exercises: execute_operation → NoteSaveParams validation →
-    extract_arguments (model_dump) → _handle_crud_operation → API.
+    extract_arguments (model_dump) → upsert_entity → API.
     Verifies the fix from issue #20 (StyledText wrapping via to_api_payload)
     works end-to-end through the dispatch chain.
     """

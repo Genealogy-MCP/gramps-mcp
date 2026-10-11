@@ -21,11 +21,11 @@ from ..models.api_calls import ApiCalls
 from ..models.parameters.search_params import SearchParams
 from ..models.parameters.simple_params import SimpleSearchParams
 from ..models.parameters.tag_params import TagSearchParams
+from ..overlays import READ_OVERLAYS, collection_call, read_route
 from ._compat import extract_arguments
 from ._errors import McpToolError, parse_params, raise_tool_error
 from ._gql_hints import gql_hint, gql_private_reject
 from ._gql_type_rewrite import apply_post_filters, rewrite_search_args
-from .table_routes import READ_OVERLAYS, collection_call, read_route
 
 logger = logging.getLogger(__name__)
 

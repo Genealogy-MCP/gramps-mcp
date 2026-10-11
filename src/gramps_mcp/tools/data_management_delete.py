@@ -17,11 +17,11 @@ from ..client import GrampsWebAPIClient
 from ..config import get_settings
 from ..models.api_calls import ApiCalls
 from ..models.parameters.simple_params import DeleteParams
+from ..overlays import item_call
 from ..resource_table import ENTITY_RESOURCES
 from ._compat import extract_arguments
 from ._data_helpers import _extract_entity_data
 from ._errors import McpToolError, parse_params, raise_tool_error
-from .table_routes import item_call
 
 logger = logging.getLogger(__name__)
 

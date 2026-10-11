@@ -55,11 +55,8 @@ class TagSaveParams(BaseModel):
     priority: Optional[int] = Field(
         None, description="Tag priority; lower sorts first in Gramps"
     )
-    # Reason: Gramps stores change as a Unix timestamp int; a str here would
-    # overwrite it on the PUT merge path (#97).
-    change: Optional[int] = Field(
-        None, description="Change timestamp (Unix seconds); set by Gramps"
-    )
+    # Reason: no `change` field (#102). Gramps sets it on every write, and
+    # the PUT merge keeps the stored int when the caller cannot send one.
 
     @model_validator(mode="after")
     def _validate_create_required(self) -> "TagSaveParams":

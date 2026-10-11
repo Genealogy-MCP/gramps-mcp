@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from .base_params import BaseDataModel
+from .base_params import BaseMediaRefModel
 
 # Reason: Gramps Web resolves a typed enum from the bare name string. A
 # {"_class": ..., "string": ...} dict is accepted but silently ignored and the
@@ -63,7 +63,7 @@ class ChildRefParams(BaseModel):
     )
 
 
-class FamilySaveParams(BaseDataModel):
+class FamilySaveParams(BaseMediaRefModel):
     """Parameters for creating or updating a family."""
 
     father_handle: Optional[str] = Field(None, description="Father's handle")

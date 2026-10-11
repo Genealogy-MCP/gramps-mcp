@@ -306,3 +306,49 @@ class TestBuildRows:
         assert sidecar["gramps_webapi_version"] == "9.9.9"
         assert sidecar["gramps_version"] == "6"
         assert json.loads(json.dumps(sidecar)) == sidecar
+
+
+class TestFieldAdditions:
+    """Policy-supplied fields the stale snapshot components omit (#102)."""
+
+    def test_additions_merge_sorted_into_row(self):
+        """An addition joins the component fields in name order."""
+        rows = codegen.build_rows(
+            _mini_spec(),
+            entities=("tag",),
+            additions={"tag": (FieldSpec("comment", "string"),)},
+        )
+        assert rows["tag"].fields == (
+            FieldSpec("color", "string"),
+            FieldSpec("comment", "string"),
+            FieldSpec("name", "string"),
+            FieldSpec("priority", "integer"),
+        )
+
+    def test_addition_already_in_component_fails(self):
+        """An addition the snapshot now declares must be dropped from policy."""
+        with pytest.raises(codegen.CodegenError, match="tag.name"):
+            codegen.build_rows(
+                _mini_spec(),
+                entities=("tag",),
+                additions={"tag": (FieldSpec("name", "string"),)},
+            )
+
+    def test_read_only_addition_fails(self):
+        """A read-only field cannot be added back as writable."""
+        with pytest.raises(codegen.CodegenError, match="read-only"):
+            codegen.build_rows(
+                _mini_spec(),
+                entities=("tag",),
+                additions={"tag": (FieldSpec("change", "integer"),)},
+            )
+
+    def test_policy_additions_reach_generated_table(self):
+        """Every FIELD_ADDITIONS entry is a field of the checked-in table."""
+        from src.gramps_mcp.resource_policy import FIELD_ADDITIONS
+        from src.gramps_mcp.resource_table import ENTITY_RESOURCES
+
+        assert {
+            entity: [spec in ENTITY_RESOURCES[entity].fields for spec in specs]
+            for entity, specs in FIELD_ADDITIONS.items()
+        } == {entity: [True] * len(specs) for entity, specs in FIELD_ADDITIONS.items()}

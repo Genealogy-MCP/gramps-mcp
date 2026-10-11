@@ -12,6 +12,7 @@ from src.gramps_mcp.models.parameters.base_params import (
     BaseDataModel,
     BaseGetMultipleParams,
     BaseGetSingleParams,
+    BaseMediaRefModel,
 )
 from src.gramps_mcp.models.parameters.citation_params import CitationData
 from src.gramps_mcp.models.parameters.media_params import MediaSaveParams
@@ -115,11 +116,17 @@ class TestBaseDataModel:
         assert model.handle is None
         assert model.gramps_id is None
         assert model.note_list is None
-        assert model.media_list is None
         assert model.attribute_list is None
         assert model.tag_list is None
         assert model.private is None
-        assert model.change is None
+
+    def test_media_list_on_media_ref_models_only(self):
+        """#102: media_list moved to BaseMediaRefModel; `change` is gone."""
+        assert (
+            BaseMediaRefModel().media_list,
+            "media_list" in BaseDataModel.model_fields,
+            "change" in BaseDataModel.model_fields,
+        ) == (None, False, False)
 
 
 class TestSourceSearchParamsValidators:

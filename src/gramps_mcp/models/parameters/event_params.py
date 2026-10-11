@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from .base_params import BaseDataModel, BaseGetMultipleParams
+from .base_params import BaseGetMultipleParams, BaseMediaRefModel
 
 
 class EventSearchParams(BaseGetMultipleParams):
@@ -29,7 +29,7 @@ class EventSearchParams(BaseGetMultipleParams):
     )
 
 
-class EventSaveParams(BaseDataModel):
+class EventSaveParams(BaseMediaRefModel):
     """Parameters for creating or updating an event."""
 
     type: Optional[str] = Field(

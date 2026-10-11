@@ -4,7 +4,9 @@
 """
 Operation registry for Code Mode architecture (MCP-29 through MCP-34).
 
-Single source of truth for all available operations. Each entry describes
+Assembles every available operation: handwritten entries here plus the
+entries ``registry_build`` builds from the generated resource table and
+the overlays in ``overlays.py``. Each entry describes
 an operation's name, category, parameter schema, handler function, and
 behavioral hints. The ``search`` meta-tool queries this registry; the
 ``execute`` meta-tool dispatches to the handler.
@@ -21,18 +23,14 @@ from .models.parameters.analysis_params import (
     TreeInfoParams,
 )
 from .models.parameters.citation_params import CitationData
-from .models.parameters.event_params import EventSaveParams
 from .models.parameters.family_params import FamilySaveParams
 from .models.parameters.media_params import MediaDownloadParams, MediaSaveParams
-from .models.parameters.note_params import NoteSaveParams
 from .models.parameters.people_params import PersonData
-from .models.parameters.place_params import PlaceSaveParams
 from .models.parameters.repository_params import RepositoryData
 from .models.parameters.simple_params import SimpleSearchParams
-from .models.parameters.source_params import SourceSaveParams
 from .models.parameters.tag_params import TagSaveParams
 from .models.parameters.transactions_params import TransactionHistoryParams
-from .operation_overlays import TABLE_OVERLAYS
+from .overlays import table_overlays, upsert_overlays
 from .registry_build import build_registry, merge_registry
 from .resource_table import ENTITY_RESOURCES
 
@@ -46,21 +44,18 @@ from .tools.analysis import (
 )
 from .tools.data_management import (
     upsert_citation_tool,
-    upsert_event_tool,
     upsert_family_tool,
-    upsert_note_tool,
     upsert_person_tool,
-    upsert_place_tool,
     upsert_repository_tool,
-    upsert_source_tool,
 )
 from .tools.data_management_delete import upsert_tag_tool
 from .tools.data_management_media import download_media_tool, upsert_media_tool
 from .tools.search_basic import search_text_tool
 
 # ---------------------------------------------------------------------------
-# Handwritten operations. search, list_tags, get and delete are built from
-# the resource table (TABLE_OPERATIONS below, #101).
+# Handwritten operations. search, list_tags, get and delete (#101) and the
+# event, place, source and note upserts (#102) are built from the resource
+# table (TABLE_OPERATIONS and UPSERT_OPERATIONS below).
 # ---------------------------------------------------------------------------
 
 _HANDWRITTEN: dict[str, OperationEntry] = {
@@ -106,7 +101,7 @@ _HANDWRITTEN: dict[str, OperationEntry] = {
         read_only=True,
         destructive=False,
     ),
-    # --- write (10) ---
+    # --- write (6 handwritten; event, place, source, note are table-built) ---
     "upsert_person": OperationEntry(
         name="upsert_person",
         summary="Create or update a person record",
@@ -130,36 +125,6 @@ _HANDWRITTEN: dict[str, OperationEntry] = {
         read_only=False,
         destructive=False,
     ),
-    "upsert_event": OperationEntry(
-        name="upsert_event",
-        summary="Create or update a life event",
-        description=("Create or update life event including person/place associations"),
-        category="write",
-        params_schema=EventSaveParams,
-        handler=upsert_event_tool,
-        read_only=False,
-        destructive=False,
-    ),
-    "upsert_place": OperationEntry(
-        name="upsert_place",
-        summary="Create or update a geographic location",
-        description="Create or update geographic location",
-        category="write",
-        params_schema=PlaceSaveParams,
-        handler=upsert_place_tool,
-        read_only=False,
-        destructive=False,
-    ),
-    "upsert_source": OperationEntry(
-        name="upsert_source",
-        summary="Create or update a source document",
-        description="Create or update source document",
-        category="write",
-        params_schema=SourceSaveParams,
-        handler=upsert_source_tool,
-        read_only=False,
-        destructive=False,
-    ),
     "upsert_citation": OperationEntry(
         name="upsert_citation",
         summary="Create or update a citation",
@@ -167,16 +132,6 @@ _HANDWRITTEN: dict[str, OperationEntry] = {
         category="write",
         params_schema=CitationData,
         handler=upsert_citation_tool,
-        read_only=False,
-        destructive=False,
-    ),
-    "upsert_note": OperationEntry(
-        name="upsert_note",
-        summary="Create or update a textual note",
-        description="Create or update textual note including object associations",
-        category="write",
-        params_schema=NoteSaveParams,
-        handler=upsert_note_tool,
         read_only=False,
         destructive=False,
     ),
@@ -263,7 +218,11 @@ _HANDWRITTEN: dict[str, OperationEntry] = {
 }
 
 TABLE_OPERATIONS: dict[str, OperationEntry] = build_registry(
-    ENTITY_RESOURCES, TABLE_OVERLAYS
+    ENTITY_RESOURCES, table_overlays()
+)
+
+UPSERT_OPERATIONS: dict[str, OperationEntry] = build_registry(
+    ENTITY_RESOURCES, upsert_overlays()
 )
 
 # Listing order of the search meta-tool (empty query lists in this order).
@@ -295,5 +254,5 @@ _OPERATION_ORDER = (
 # ---------------------------------------------------------------------------
 
 OPERATION_REGISTRY: dict[str, OperationEntry] = merge_registry(
-    _HANDWRITTEN, TABLE_OPERATIONS, _OPERATION_ORDER
+    _HANDWRITTEN, {**TABLE_OPERATIONS, **UPSERT_OPERATIONS}, _OPERATION_ORDER
 )

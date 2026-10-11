@@ -1,5 +1,5 @@
 """
-Unit tests for table-driven registry assembly (#101, slice S2 of #99).
+Unit tests for table-driven registry assembly (#101, #102; slices S2-S3 of #99).
 
 No Docker, no network: the tests read the generated resource table and
 build registries from small in-memory overlays.
@@ -167,9 +167,32 @@ class TestOperationRegistry:
             for name, entry in TABLE_OPERATIONS.items()
         } == {"search": True, "list_tags": True, "get": True, "delete": True}
 
+    def test_upserts_come_from_table(self):
+        """event, place, source and note upserts are build_registry entries."""
+        from src.gramps_mcp.operations import OPERATION_REGISTRY, UPSERT_OPERATIONS
+        from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
+
+        assert {
+            name: (OPERATION_REGISTRY[name] is entry, entry.handler)
+            for name, entry in UPSERT_OPERATIONS.items()
+        } == {
+            f"upsert_{e}": (True, UPSERT_HANDLERS[e])
+            for e in ("event", "place", "source", "note")
+        }
+
+    def test_upsert_overlay_needs_put_on_item(self):
+        """A bound entity whose row lacks PUT fails the write-row check."""
+        from src.gramps_mcp.overlays import write_row
+
+        table = {"note": replace(ENTITY_RESOURCES["note"], item_verbs=("GET",))}
+        with pytest.raises(ValueError, match="PUT"):
+            write_row("note", table)
+
     def test_overlay_entities_match_param_enums(self):
         """Overlays cover exactly the entity enums the params schemas accept."""
-        from src.gramps_mcp.operation_overlays import TABLE_OVERLAYS
+        from src.gramps_mcp.overlays import table_overlays
+
+        TABLE_OVERLAYS = table_overlays()
 
         assert {o.name: set(o.entities) for o in TABLE_OVERLAYS} == {
             "search": {e.value for e in EntityType},
@@ -184,7 +207,7 @@ class TestTableRoutes:
 
     def test_collection_call_from_table(self):
         """The list endpoint resolves to the matching ApiCalls member."""
-        from src.gramps_mcp.tools.table_routes import collection_call
+        from src.gramps_mcp.overlays import collection_call
 
         assert [collection_call(e) for e in ("person", "media", "tag")] == [
             ApiCalls.GET_PEOPLE,
@@ -194,7 +217,7 @@ class TestTableRoutes:
 
     def test_item_call_from_table(self):
         """The item endpoint resolves to the matching ApiCalls member."""
-        from src.gramps_mcp.tools.table_routes import item_call
+        from src.gramps_mcp.overlays import item_call
 
         assert [item_call(e, "DELETE") for e in ("media", "tag")] == [
             ApiCalls.DELETE_MEDIA_ITEM,
@@ -203,7 +226,7 @@ class TestTableRoutes:
 
     def test_path_follows_table_row(self):
         """A changed row path changes the resolved endpoint."""
-        from src.gramps_mcp.tools.table_routes import collection_call
+        from src.gramps_mcp.overlays import collection_call
 
         table = {
             "person": replace(ENTITY_RESOURCES["person"], collection_path="notes/")
@@ -212,7 +235,7 @@ class TestTableRoutes:
 
     def test_verb_missing_from_table_rejected(self):
         """A verb the row does not list raises."""
-        from src.gramps_mcp.tools.table_routes import item_call
+        from src.gramps_mcp.overlays import item_call
 
         table = {"tag": replace(ENTITY_RESOURCES["tag"], item_verbs=("GET",))}
         with pytest.raises(ValueError, match="DELETE"):
@@ -220,14 +243,14 @@ class TestTableRoutes:
 
     def test_unknown_entity_rejected(self):
         """An entity absent from the table raises."""
-        from src.gramps_mcp.tools.table_routes import collection_call
+        from src.gramps_mcp.overlays import collection_call
 
         with pytest.raises(ValueError, match="unicorn"):
             collection_call("unicorn")
 
     def test_list_params_must_be_in_table(self):
         """A params class field the table does not list is rejected."""
-        from src.gramps_mcp.tools.table_routes import check_list_params
+        from src.gramps_mcp.overlays import check_list_params
 
         class _Bogus(BaseModel):
             not_a_list_param: int = 0
@@ -237,7 +260,7 @@ class TestTableRoutes:
 
     def test_overlay_params_are_table_list_params(self):
         """Every read overlay's params class passes the table check."""
-        from src.gramps_mcp.tools.table_routes import READ_OVERLAYS, check_list_params
+        from src.gramps_mcp.overlays import READ_OVERLAYS, check_list_params
 
         assert [
             check_list_params(o.params_class, e) for e, o in READ_OVERLAYS.items()
@@ -254,8 +277,8 @@ class TestTableRoutes:
 
     def test_resolve_map_derived_from_table(self):
         """gramps_id resolution uses the table list endpoint per entity."""
+        from src.gramps_mcp.overlays import READ_OVERLAYS
         from src.gramps_mcp.tools._resolve import _RESOLVE_DISPATCH
-        from src.gramps_mcp.tools.table_routes import READ_OVERLAYS
 
         assert _RESOLVE_DISPATCH == {
             entity: (

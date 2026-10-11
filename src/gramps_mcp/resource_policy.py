@@ -8,9 +8,11 @@ The gramps-webapi OpenAPI document declares no request-body schemas on POST
 and PUT and marks nothing `readOnly`, so codegen needs three maps from a
 human: which component describes each entity, which component fields the
 server computes, and the Person field list taken from upstream
-`PersonSchema` at the pinned version. Later slices add the per-entity
-overlays here.
+`PersonSchema` at the pinned version, plus the fields the snapshot omits
+but the server stores. Per-entity operation overlays live in `overlays.py`.
 """
+
+from .resource_rows import FieldSpec
 
 # Entity name (as the `type` parameter of get/search/delete spells it) to the
 # `components.schemas` entry that describes its record.
@@ -90,3 +92,22 @@ PERSON_SCHEMA_FIELDS = (
     "tag_list",
     "urls",
 )
+
+# Writable fields the server stores but the pinned snapshot's components do
+# not declare. Each was verified by a POST then GET round trip on the Docker
+# test instance (Gramps 6.0.8, gramps-webapi 3.16.0) for #102. Codegen adds
+# them to the row and fails once the snapshot declares one itself, so an
+# entry is dropped here as soon as upstream fixes the component.
+FIELD_ADDITIONS = {
+    "family": (FieldSpec("urls", "array[URL]"),),
+    "note": (
+        FieldSpec("attribute_list", "array[Attribute]"),
+        FieldSpec("media_list", "array[MediaReference]"),
+        FieldSpec("note_list", "array[string]"),
+    ),
+    "place": (FieldSpec("attribute_list", "array[Attribute]"),),
+    "repository": (
+        FieldSpec("attribute_list", "array[Attribute]"),
+        FieldSpec("media_list", "array[MediaReference]"),
+    ),
+}

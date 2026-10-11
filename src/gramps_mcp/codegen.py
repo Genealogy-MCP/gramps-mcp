@@ -26,6 +26,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from .resource_policy import (
     ENTITY_COLLECTIONS,
     ENTITY_COMPONENTS,
+    FIELD_ADDITIONS,
     PERSON_SCHEMA_FIELDS,
     READ_ONLY_FIELDS,
 )
@@ -131,23 +132,60 @@ def _component_fields(properties: Dict[str, Any]) -> Tuple[FieldSpec, ...]:
     )
 
 
+def _add_fields(
+    entity: str, fields: Tuple[FieldSpec, ...], extra: Tuple[FieldSpec, ...]
+) -> Tuple[FieldSpec, ...]:
+    """Merge policy-supplied fields into a row, in name order.
+
+    Args:
+        entity: Entity name, for error messages.
+        fields: Fields read from the snapshot component.
+        extra: FIELD_ADDITIONS entries for the entity.
+
+    Returns:
+        All fields sorted by name, or `fields` unchanged when `extra` is empty.
+
+    Raises:
+        CodegenError: An addition is read-only or already in the component.
+    """
+    if not extra:
+        return fields
+    present = {spec.name for spec in fields}
+    for spec in extra:
+        if spec.name in READ_ONLY_FIELDS:
+            raise CodegenError(f"FIELD_ADDITIONS {entity}.{spec.name} is read-only")
+        if spec.name in present:
+            # Reason: the snapshot caught up with the server; the policy
+            # entry is now redundant and could mask a type change.
+            raise CodegenError(
+                f"FIELD_ADDITIONS {entity}.{spec.name} is already in the "
+                "snapshot component; remove it from resource_policy"
+            )
+    return tuple(sorted(fields + extra, key=lambda spec: spec.name))
+
+
 def build_rows(
     spec: Dict[str, Any],
     entities: Iterable[str] = tuple(ENTITY_COMPONENTS),
+    additions: Optional[Dict[str, Tuple[FieldSpec, ...]]] = None,
 ) -> Dict[str, EntityResource]:
     """Build one EntityResource per entity from the spec and the policy maps.
 
     Args:
         spec: Parsed OpenAPI 3 document as gramps-webapi serves it.
         entities: Entity names to include, in output order.
+        additions: Extra writable fields per entity; defaults to
+            `resource_policy.FIELD_ADDITIONS`.
 
     Returns:
         Entity name to its resource row.
 
     Raises:
         CodegenError: A path or component the policy names is absent from
-            the spec, or the Person component disagrees with the policy list.
+            the spec, the Person component disagrees with the policy list,
+            or an addition is read-only or already declared.
     """
+    additions = FIELD_ADDITIONS if additions is None else additions
     components = spec.get("components", {}).get("schemas", {})
     paths = spec.get("paths", {})
     rows: Dict[str, EntityResource] = {}
@@ -165,6 +203,7 @@ def build_rows(
             raise CodegenError(f"snapshot has no component {component_name}")
         else:
             fields = _component_fields(component.get("properties", {}))
+        fields = _add_fields(entity, fields, additions.get(entity, ()))
         rows[entity] = EntityResource(
             entity=entity,
             component=component_name,
