@@ -19,20 +19,13 @@ from ..client import GrampsAPIError, GrampsWebAPIClient
 from ..config import get_settings
 from ..models.api_calls import ApiCalls
 from ..models.parameters.citation_params import CitationData
-from ..models.parameters.event_params import EventSaveParams
 from ..models.parameters.family_params import FamilySaveParams
-from ..models.parameters.note_params import NoteSaveParams
 from ..models.parameters.people_params import PersonData
-from ..models.parameters.place_params import PlaceSaveParams
 from ..models.parameters.repository_params import RepositoryData
-from ..models.parameters.source_params import SourceSaveParams
 from ._compat import extract_arguments
-from ._data_helpers import (
-    _extract_entity_data,
-    _format_save_response,
-    _handle_crud_operation,
-)
+from ._data_helpers import _extract_entity_data, _format_save_response
 from ._errors import McpToolError, parse_params, raise_tool_error
+from .upsert_table import UPSERT_HANDLERS
 
 __all__ = [
     "upsert_person_tool",
@@ -173,40 +166,6 @@ async def upsert_family_tool(ctx: Any = None, params: Any = None) -> List[TextCo
         raise_tool_error(e, "family save")
 
 
-async def upsert_event_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
-    """
-    Create or update life event including person/place associations.
-    """
-    arguments = extract_arguments(ctx, params)
-    return await _handle_crud_operation(
-        arguments, "event", ApiCalls.POST_EVENTS, ApiCalls.PUT_EVENT, EventSaveParams
-    )
-
-
-async def upsert_place_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
-    """
-    Create or update geographic location.
-    """
-    arguments = extract_arguments(ctx, params)
-    return await _handle_crud_operation(
-        arguments, "place", ApiCalls.POST_PLACES, ApiCalls.PUT_PLACE, PlaceSaveParams
-    )
-
-
-async def upsert_source_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
-    """
-    Create or update source document.
-    """
-    arguments = extract_arguments(ctx, params)
-    return await _handle_crud_operation(
-        arguments,
-        "source",
-        ApiCalls.POST_SOURCES,
-        ApiCalls.PUT_SOURCE,
-        SourceSaveParams,
-    )
-
-
 async def upsert_citation_tool(
     ctx: Any = None, params: Any = None
 ) -> List[TextContent]:
@@ -319,16 +278,6 @@ async def upsert_citation_tool(
         raise_tool_error(e, "citation save")
 
 
-async def upsert_note_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
-    """
-    Create or update textual note including object associations.
-    """
-    arguments = extract_arguments(ctx, params)
-    return await _handle_crud_operation(
-        arguments, "note", ApiCalls.POST_NOTES, ApiCalls.PUT_NOTE, NoteSaveParams
-    )
-
-
 async def upsert_repository_tool(
     ctx: Any = None, params: Any = None
 ) -> List[TextContent]:
@@ -371,3 +320,11 @@ async def upsert_repository_tool(
 
     except Exception as e:
         raise_tool_error(e, "repository save")
+
+
+# Event, place, source and note save through the generic table-driven
+# upsert (#102); these names stay importable for callers and tests.
+upsert_event_tool = UPSERT_HANDLERS["event"]
+upsert_place_tool = UPSERT_HANDLERS["place"]
+upsert_source_tool = UPSERT_HANDLERS["source"]
+upsert_note_tool = UPSERT_HANDLERS["note"]

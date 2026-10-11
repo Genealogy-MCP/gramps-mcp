@@ -81,6 +81,19 @@ class MediaSaveParams(BaseDataModel):
         ),
     )
 
+    def to_api_payload(self) -> Dict[str, Any]:
+        """
+        Return the media record body without the upload source path.
+
+        Reason: file_location names a file on the caller's disk for the
+        upload step; Gramps has no such field, and an update PUT used to
+        send it in the body (#102).
+
+        Returns:
+            Dict[str, Any]: API-ready media fields.
+        """
+        return self.model_dump(exclude={"file_location"}, exclude_none=True)
+
     @model_validator(mode="after")
     def _validate_create_required(self) -> "MediaSaveParams":
         """Enforce required fields when creating (no handle = new entity)."""

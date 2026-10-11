@@ -15,7 +15,11 @@ from typing import Any
 
 from pydantic import Field, model_validator
 
-from .base_params import BaseDataModel, BaseGetMultipleParams, BaseGetSingleParams
+from .base_params import (
+    BaseGetMultipleParams,
+    BaseGetSingleParams,
+    BaseMediaRefModel,
+)
 
 
 class NotesParams(BaseGetMultipleParams):
@@ -44,7 +48,7 @@ class NoteParams(BaseGetSingleParams):
     )
 
 
-class NoteSaveParams(BaseDataModel):
+class NoteSaveParams(BaseMediaRefModel):
     """Parameters for creating or updating a note."""
 
     text: str | None = Field(

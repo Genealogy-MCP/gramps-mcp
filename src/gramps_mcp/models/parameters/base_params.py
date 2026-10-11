@@ -172,17 +172,14 @@ class BaseDataModel(BaseModel):
     note_list: Optional[List[str]] = Field(
         None, description="List of handles for notes"
     )
-    media_list: Optional[List[Dict[str, Any]]] = Field(
-        None, description="List of references to media"
-    )
     attribute_list: Optional[List[Dict[str, Any]]] = Field(
         None, description="List of attributes"
     )
     tag_list: Optional[List[str]] = Field(None, description="List of handles to tags")
     private: Optional[bool] = Field(None, description="Whether the object is private")
-    change: Optional[int] = Field(
-        None, description="Time in epoch format the record was last modified"
-    )
+    # Reason: no `change` field (#102). Gramps sets the modification time
+    # itself and ignores a sent value; the drift test rejects read-only
+    # fields on every write model.
     list_mode: Optional[Literal["merge", "replace"]] = Field(
         default="merge",
         description=(
@@ -201,3 +198,16 @@ class BaseDataModel(BaseModel):
     def to_api_payload(self) -> Dict[str, Any]:
         """Return API-ready dict. Subclasses override for custom serialization."""
         return self.model_dump(exclude_none=True)
+
+
+class BaseMediaRefModel(BaseDataModel):
+    """Write model for records that can reference media objects.
+
+    Reason: every write entity except media itself stores a media_list.
+    Gramps silently drops a media_list sent on a media record (#102), so
+    the field lives here rather than on BaseDataModel.
+    """
+
+    media_list: Optional[List[Dict[str, Any]]] = Field(
+        None, description="List of references to media"
+    )

@@ -16,7 +16,11 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import Field, field_validator, model_validator
 
-from .base_params import BaseDataModel, BaseGetMultipleParams, BaseGetSingleParams
+from .base_params import (
+    BaseGetMultipleParams,
+    BaseGetSingleParams,
+    BaseMediaRefModel,
+)
 
 # Source-specific constants
 SOURCE_EXTEND_CHOICES = [
@@ -96,7 +100,7 @@ class SourceDetailsParams(BaseGetSingleParams):
         return v
 
 
-class SourceSaveParams(BaseDataModel):
+class SourceSaveParams(BaseMediaRefModel):
     """
     Parameters for creating or updating a source.
 

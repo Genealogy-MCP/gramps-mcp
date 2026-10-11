@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from .base_params import BaseDataModel
+from .base_params import BaseMediaRefModel
 
 
 class EventReference(BaseModel):
@@ -50,7 +50,7 @@ class PersonReference(BaseModel):
     )
 
 
-class PersonData(BaseDataModel):
+class PersonData(BaseMediaRefModel):
     """Model for creating or updating a person in Gramps API."""
 
     primary_name: Optional[Dict[str, Any]] = Field(
