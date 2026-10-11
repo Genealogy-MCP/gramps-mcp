@@ -17,6 +17,7 @@ make ci            # lint + typecheck + check-headers + test + audit
 make docker-up     # start Gramps Web test containers
 make docker-down   # stop and remove test containers
 make docker-seed   # seed test instance with fixture data
+make schema-fetch  # refresh schema/openapi.json from the test instance, regenerate resource table
 make coverage      # generate HTML coverage report
 make pre-commit    # run all pre-commit hooks
 make clean         # remove build artifacts and caches
