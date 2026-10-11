@@ -129,19 +129,22 @@ class TestWriteModelDrift:
         assert errors == []
 
     def test_known_gaps_are_warnings(self):
-        """Table fields the models lack today are reported, not failed."""
+        """Table fields the models lack today are reported, not failed.
+
+        Reason: the gaps are a subset check, not an exact pin, so a field the
+        next snapshot adds only warns instead of failing CI (#99 US4).
+        """
         found = {
-            entity: drift(entity, model)[1]
+            message
             for entity, model in WRITE_MODELS.items()
-            if drift(entity, model)[1]
+            for message in drift(entity, model)[1]
         }
-        assert found == {
-            "family": [
-                "FamilySaveParams does not expose family.lds_ord_list",
-                "FamilySaveParams does not expose family.type",
-            ],
-            "place": ["PlaceSaveParams does not expose place.title"],
+        known = {
+            "FamilySaveParams does not expose family.lds_ord_list",
+            "FamilySaveParams does not expose family.type",
+            "PlaceSaveParams does not expose place.title",
         }
+        assert known - found == set()
 
     def test_detects_unknown_field(self):
         """A model field the table does not list is an error."""
