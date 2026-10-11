@@ -254,7 +254,10 @@ make docker-down   # Stop and remove containers
 ```
 src/gramps_mcp/
 |-- server.py           # MCP server (2 meta-tools: search + execute)
-|-- operations.py       # Operation registry (19 operations, single source of truth)
+|-- operations.py       # Operation registry (single source of truth)
+|-- operation_overlays.py # Overlays for table-driven ops (search, list_tags, get, delete)
+|-- registry_build.py   # Builds and merges registry entries from the resource table
+|-- resource_table.py   # Generated entity resource table (OpenAPI snapshot)
 |-- client.py           # Gramps Web API client
 |-- auth.py             # JWT authentication
 |-- config.py           # Configuration management
@@ -263,6 +266,7 @@ src/gramps_mcp/
 |   |-- meta_execute.py    # 'execute' meta-tool (operation dispatch)
 |   |-- search_basic.py    # GQL search + text search handlers
 |   |-- search_details.py  # Entity detail handlers
+|   |-- table_routes.py    # Per-entity read overlays and table endpoint lookup
 |   |-- data_management.py # CRUD operation handlers
 |   `-- analysis.py        # Tree analysis handlers
 |-- handlers/           # Data formatting handlers

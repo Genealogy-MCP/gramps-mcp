@@ -12,30 +12,18 @@ from typing import Dict
 
 from ..client import GrampsWebAPIClient
 from ..config import get_settings
-from ..models.api_calls import ApiCalls
-from ..models.parameters.base_params import BaseGetMultipleParams
-from ..models.parameters.citation_params import GetCitationsParams
-from ..models.parameters.event_params import EventSearchParams
-from ..models.parameters.media_params import MediaSearchParams
-from ..models.parameters.note_params import NotesParams
-from ..models.parameters.place_params import PlaceSearchParams
-from ..models.parameters.repository_params import RepositoriesParams
-from ..models.parameters.source_params import SourceSearchParams
+
+# Reason: re-exported for tests that compare the resolved endpoint against
+# _resolve.ApiCalls; the endpoint itself now comes from the resource table.
+from ..models.api_calls import ApiCalls as ApiCalls
 from ._errors import McpToolError, parse_params
+from .table_routes import READ_OVERLAYS, read_route
 
 # Entity type -> (params class, list endpoint) for raw gramps_id resolution.
-# Update this map together with _SEARCH_TOOL_DISPATCH in search_basic.py
-# when adding an entity type.
+# Built from READ_OVERLAYS and the resource table, so it always matches the
+# search dispatch (#101).
 _RESOLVE_DISPATCH: Dict[str, tuple] = {
-    "person": (BaseGetMultipleParams, ApiCalls.GET_PEOPLE),
-    "family": (BaseGetMultipleParams, ApiCalls.GET_FAMILIES),
-    "event": (EventSearchParams, ApiCalls.GET_EVENTS),
-    "place": (PlaceSearchParams, ApiCalls.GET_PLACES),
-    "source": (SourceSearchParams, ApiCalls.GET_SOURCES),
-    "citation": (GetCitationsParams, ApiCalls.GET_CITATIONS),
-    "media": (MediaSearchParams, ApiCalls.GET_MEDIA),
-    "note": (NotesParams, ApiCalls.GET_NOTES),
-    "repository": (RepositoriesParams, ApiCalls.GET_REPOSITORIES),
+    entity: read_route(entity) for entity in READ_OVERLAYS
 }
 
 

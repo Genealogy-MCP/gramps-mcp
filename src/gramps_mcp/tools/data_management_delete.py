@@ -17,28 +17,25 @@ from ..client import GrampsWebAPIClient
 from ..config import get_settings
 from ..models.api_calls import ApiCalls
 from ..models.parameters.simple_params import DeleteParams
+from ..resource_table import ENTITY_RESOURCES
 from ._compat import extract_arguments
 from ._data_helpers import _extract_entity_data
 from ._errors import McpToolError, parse_params, raise_tool_error
+from .table_routes import item_call
 
 logger = logging.getLogger(__name__)
 
+# Entity type -> DELETE endpoint, one per table row whose item path lists
+# DELETE (#101).
+# Reason: tags used to go through POST /objects/delete-by-handle/ on the
+# belief that API 3.x had no DELETE /tags/{handle}. Verified against
+# grampsweb 26.6.1 (webapi 3.16.0): the direct endpoint answers 200 and
+# the handle is 404 afterwards, so tags take the same path as every other
+# type (#90).
 DELETE_API_CALLS = {
-    "person": ApiCalls.DELETE_PERSON,
-    "family": ApiCalls.DELETE_FAMILY,
-    "event": ApiCalls.DELETE_EVENT,
-    "place": ApiCalls.DELETE_PLACE,
-    "source": ApiCalls.DELETE_SOURCE,
-    "citation": ApiCalls.DELETE_CITATION,
-    "note": ApiCalls.DELETE_NOTE,
-    "media": ApiCalls.DELETE_MEDIA_ITEM,
-    "repository": ApiCalls.DELETE_REPOSITORY,
-    # Reason: tags used to go through POST /objects/delete-by-handle/ on the
-    # belief that API 3.x had no DELETE /tags/{handle}. Verified against
-    # grampsweb 26.6.1 (webapi 3.16.0): the direct endpoint answers 200 and
-    # the handle is 404 afterwards, so tags take the same path as every other
-    # type (#90).
-    "tag": ApiCalls.DELETE_TAG,
+    entity: item_call(entity, "DELETE")
+    for entity, row in ENTITY_RESOURCES.items()
+    if "DELETE" in row.item_verbs
 }
 
 
