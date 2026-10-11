@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.10.2] - 2026-10-10
+
+### Added
+
+- Pinned OpenAPI snapshot of the Gramps Web API under `schema/`: `openapi.json` as grampsweb 26.6.1 (gramps-webapi 3.16.0) serves it at `/api/openapi.json`, plus `openapi.meta.json` recording the source URL, Docker image digest, versions, SHA-256, licence and attribution. `make schema-fetch` refreshes both from the Docker test instance and refuses a server whose gramps-webapi version differs from the pin in `schema_pin.py` unless `--allow-version-mismatch` is passed. The snapshot is AGPL-3.0 content from gramps-web-api; `schema/README.md` says so (#100)
+- Codegen (`python -m src.gramps_mcp.codegen`) emitting `resource_table.py`, the generated per-entity table of collection and item paths, verbs, list filter parameters and writable field names and types for the ten Gramps record types. Handwritten policy the spec cannot express (entity to component map, server-computed read-only fields, the upstream `PersonSchema` field list) lives in `resource_policy.py`; codegen fails when the served Person component disagrees with it. `codegen --check` runs as a unit test, so a stale or hand-edited table fails CI without Docker, and a second unit test pins `SCHEMA_VERSION` to the sidecar version (#100)
+- Startup logs one warning on stderr when the live Gramps Web API version differs from the snapshot pin; the pre-3.x guard stays fatal. The 20 operations and their behaviour are unchanged: nothing reads the table yet (#100)
+
+### Removed
+
+- `grampsweb-docs/` (the vendored `api.md` and `apispec.yaml` from the docs site) and its `YAMLLINT_EXCLUDE` entry; the snapshot under `schema/` replaces it (#100)
+
+### Changed
+
+- `CONTEXT.md` gains the registry-as-data glossary: resource table, schema snapshot, overlay, drift (#100)
+
 ## [3.10.1] - 2026-10-09
 
 ### Fixed
