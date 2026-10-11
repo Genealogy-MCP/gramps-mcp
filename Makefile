@@ -2,7 +2,7 @@
 
 PYTEST_ARGS ?=
 
-.PHONY: help install lint format typecheck check-headers test test-unit test-server coverage audit clean pre-commit build run run-stdio ci docker-up docker-down docker-seed
+.PHONY: help install lint format typecheck check-headers test test-unit test-server coverage audit clean pre-commit build run run-stdio ci docker-up docker-down docker-seed schema-fetch
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -44,6 +44,9 @@ docker-down: ## Stop and remove test containers and volumes
 
 docker-seed: ## Seed the running test instance with fixture data
 	uv run python scripts/seed_test_db.py --skip-if-seeded
+
+schema-fetch: docker-up docker-seed ## Refresh schema/openapi.json from the test instance and regenerate the resource table
+	uv run python scripts/schema_fetch.py
 
 coverage: ## Generate HTML coverage report
 	uv run pytest --cov-report=html $(PYTEST_ARGS)

@@ -10,7 +10,7 @@ variables:
   UV_SYNC_ARGS: ""
   LINT_PATHS: "src"
   HEADER_PATHS: "src/ scripts/"
-  YAMLLINT_EXCLUDE: ".github grampsweb-docs"
+  YAMLLINT_EXCLUDE: ".github"
 
 # GitLab's dependency_scanning template placeholder fails when no
 # language-specific analyzer child job overrides it. Python repos

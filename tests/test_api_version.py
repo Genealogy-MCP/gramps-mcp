@@ -6,6 +6,7 @@ version, rejects unsupported versions, and handles edge cases gracefully.
 No network required -- all API calls are mocked.
 """
 
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -251,3 +252,55 @@ class TestServerLifespan:
             pass
 
         mock_verify.assert_called_once()
+
+
+class TestSchemaDriftWarning:
+    """Startup warns once when the live version differs from the snapshot pin."""
+
+    def _startup_with(self, version: str):
+        """Build a client mock whose verify_api_version returns version."""
+        client_inst = AsyncMock()
+        client_inst.verify_api_version = AsyncMock(return_value=version)
+        client_inst.close = AsyncMock()
+        return client_inst
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.startup.GrampsWebAPIClient")
+    async def test_drift_logs_one_warning_to_stderr(
+        self, mock_client_cls, caplog, capsys
+    ):
+        """A differing version logs exactly one warning and nothing to stdout."""
+        from src.gramps_mcp.schema_pin import SCHEMA_VERSION
+
+        mock_client_cls.return_value = self._startup_with("3.99.0")
+        with caplog.at_level(logging.WARNING, logger="src.gramps_mcp.startup"):
+            await verify_api_on_startup()
+
+        drift = [r for r in caplog.records if "snapshot" in r.getMessage()]
+        assert len(drift) == 1
+        assert drift[0].levelno == logging.WARNING
+        assert "3.99.0" in drift[0].getMessage()
+        assert SCHEMA_VERSION in drift[0].getMessage()
+        assert capsys.readouterr().out == ""
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.startup.GrampsWebAPIClient")
+    async def test_pinned_version_is_silent(self, mock_client_cls, caplog):
+        """A matching version (with v prefix) logs no drift warning."""
+        from src.gramps_mcp.schema_pin import SCHEMA_VERSION
+
+        mock_client_cls.return_value = self._startup_with(f"v{SCHEMA_VERSION}")
+        with caplog.at_level(logging.WARNING, logger="src.gramps_mcp.startup"):
+            await verify_api_on_startup()
+
+        assert not [r for r in caplog.records if "snapshot" in r.getMessage()]
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.startup.GrampsWebAPIClient")
+    async def test_unknown_version_is_silent(self, mock_client_cls, caplog):
+        """An empty version string logs no drift warning."""
+        mock_client_cls.return_value = self._startup_with("")
+        with caplog.at_level(logging.WARNING, logger="src.gramps_mcp.startup"):
+            await verify_api_on_startup()
+
+        assert not [r for r in caplog.records if "snapshot" in r.getMessage()]

@@ -1,0 +1,12 @@
+{
+  "attribution": "The snapshot is the OpenAPI document served by gramps-web-api (https://github.com/gramps-project/gramps-web-api), copyright the Gramps Web API contributors, licensed AGPL-3.0.",
+  "docker_image": "ghcr.io/gramps-project/grampsweb:26.6.1@sha256:563d05ebb788fd42695ab4f5ec05efbfb86aa73d25901e6428fa9b0aab763551",
+  "fetched_on": "2026-10-10",
+  "gramps_version": "6.0.8",
+  "gramps_webapi_version": "3.16.0",
+  "license": "AGPL-3.0-only",
+  "openapi_version": "3.0.3",
+  "person_schema_source": "https://github.com/gramps-project/gramps-web-api/blob/v3.16.0/gramps_webapi/api/resources/schemas.py",
+  "sha256": "50bccc32f31cbb0cd29aab31f68775cb5e90708a69ea5a79eb984c89576590db",
+  "source_url": "http://localhost:5055/api/openapi.json"
+}
