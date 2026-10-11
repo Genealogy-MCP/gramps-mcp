@@ -108,7 +108,7 @@ When debugging search or execute behavior, look in mcp-codemode, not in this rep
 ### Known Architectural Limitations
 - **List fields support merge or replace on PUT**: Pass `list_mode: "replace"` on any upsert tool to overwrite `*_list` fields instead of merging. Default is `"merge"` (append with dedup). To remove a single item, use `list_mode: "replace"` with the desired final list.
 - **No `detach_reference` tool**: To remove a single item from a list field, use `list_mode: "replace"` with the filtered list (GET→filter→PUT with replace).
-- **`to_api_payload()` standard serialization hook**: All POST/PUT param models inherit from `BaseDataModel`, which provides a default `to_api_payload()` returning `model_dump(exclude_none=True)`. Subclasses override for custom serialization: `NoteSaveParams` wraps `text` into Gramps `StyledText`, `FamilySaveParams` translates `child_handles` into `child_ref_list`. `client.py` dispatches via `isinstance(BaseDataModel)` check.
+- **`to_api_payload()` standard serialization hook**: All POST/PUT param models inherit from `BaseDataModel`, which provides a default `to_api_payload()` returning `model_dump(exclude_none=True)`. Subclasses override for custom serialization: `NoteSaveParams` wraps `text` into Gramps `StyledText`, `FamilySaveParams` translates `child_handles` into `child_ref_list`. `MediaSaveParams` drops `file_location` (the local upload source) from the body. `client.py` dispatches via `isinstance(BaseDataModel)` check.
 
 ### MCP Server Design
 
