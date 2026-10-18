@@ -717,4 +717,4 @@ Default vocabulary, label strings equal to role names. See `docs/agents/triage-l
 
 ### Domain docs
 
-Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
