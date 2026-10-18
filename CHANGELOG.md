@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed `CONTEXT.md` to `GLOSSARY.md`; upstream agent skills now read `GLOSSARY.md` for domain vocabulary
+
 ## [3.10.3] - 2026-10-10
 
 ### Changed
@@ -27,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `CONTEXT.md` gains the registry-as-data glossary: resource table, schema snapshot, overlay, drift (#100)
+- `GLOSSARY.md` gains the registry-as-data glossary: resource table, schema snapshot, overlay, drift (#100)
 
 ## [3.10.1] - 2026-10-09
 
