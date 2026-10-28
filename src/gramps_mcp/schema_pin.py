@@ -11,4 +11,4 @@ when the live server differs. A unit test asserts this pin equals the
 version the sidecar records.
 """
 
-SCHEMA_VERSION = "3.16.0"
+SCHEMA_VERSION = "3.24.0"

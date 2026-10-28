@@ -4,7 +4,7 @@
 
 """
 Resource table: Gramps entities as the pinned gramps-webapi OpenAPI
-snapshot describes them (gramps-webapi 3.16.0).
+snapshot describes them (gramps-webapi 3.24.0).
 
 Edit `schema/openapi.json` via `make schema-fetch` or the maps in
 `resource_policy.py`, then rerun codegen. Never edit this file.
@@ -22,7 +22,6 @@ _LIST_PARAMS_0 = (
     ListParam("formats", "array[string]"),
     ListParam("format_options", "string"),
     ListParam("gql", "string"),
-    ListParam("oql", "string"),
     ListParam("gramps_id", "string"),
     ListParam("handles", "array[string]"),
     ListParam("keys", "array[string]"),

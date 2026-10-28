@@ -15,6 +15,11 @@ DEFAULT_API_URL = "http://localhost:5055"
 DEFAULT_USERNAME = "owner"
 DEFAULT_PASSWORD = "owner"
 
+# Editor-role account the seed script provisions next to the owner. Editors
+# lack the ManageBackups permission, so permission-error tests log in as it.
+EDITOR_USERNAME = "editor"
+EDITOR_PASSWORD = "editor"
+
 _CREDENTIAL_VARS = ("GRAMPS_USERNAME", "GRAMPS_PASSWORD")
 
 

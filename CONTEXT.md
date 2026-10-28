@@ -21,7 +21,7 @@
 - **schema snapshot**: the pinned copy of the Gramps Web OpenAPI document
   (`schema/openapi.json`, fetched from `/api/openapi.json` on the Docker test
   instance by `make schema-fetch`) checked into the repo with a sidecar naming
-  the gramps-webapi version it describes (3.16.0, what the Docker test image
+  the gramps-webapi version it describes (3.24.0, what the Docker test image
   runs). Codegen reads it; CI never fetches the spec live.
 - **overlay**: a handwritten, per-entity hook bound to a resource-table row
   that carries behaviour the spec cannot express: payload rewrites
