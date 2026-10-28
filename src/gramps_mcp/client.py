@@ -39,9 +39,24 @@ RAW_BODY_API_CALLS = frozenset(
 
 
 class GrampsAPIError(Exception):
-    """Custom exception for Gramps Web API errors."""
+    """Custom exception for Gramps Web API errors.
 
-    pass
+    Attributes:
+        status_code (int | None): HTTP status of the failed response, or None
+            when the failure happened before a response (connection, timeout,
+            parse). Handlers map on this instead of the message text.
+    """
+
+    def __init__(self, message: str, status_code: int | None = None) -> None:
+        """
+        Store the message and the optional HTTP status code.
+
+        Args:
+            message (str): Human-readable error description.
+            status_code (int | None): HTTP status of the failed response.
+        """
+        super().__init__(message)
+        self.status_code = status_code
 
 
 def _normalise_url_keys(json_data: dict) -> None:
@@ -219,7 +234,7 @@ class GrampsWebAPIClient:
 
         except httpx.HTTPStatusError as e:
             error_msg = self._format_http_error(e)
-            raise GrampsAPIError(error_msg) from e
+            raise GrampsAPIError(error_msg, status_code=e.response.status_code) from e
         except httpx.ConnectError as e:
             raise GrampsAPIError(f"Cannot connect to Gramps API: {e}") from e
         except httpx.TimeoutException as e:
