@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.1] - 2026-11-01
+
+### Added
+
+- Agent-skill configuration under `docs/agents/`: issue tracker (GitLab via `glab`), triage label vocabulary and domain-doc layout, linked from a new `## Agent skills` section in `CLAUDE.md`. The spec and ticket skills read these files to publish to this tracker
+
 ## [3.11.0] - 2026-11-01
 
 ### Security
