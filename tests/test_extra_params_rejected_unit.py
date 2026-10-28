@@ -210,3 +210,16 @@ def test_every_registered_schema_forbids_extra(operation, schema):
     assert schema.model_config.get("extra") == "forbid", (
         f"{operation} uses {schema.__name__} without extra='forbid'"
     )
+
+
+def test_family_urls_is_rejected():
+    """upsert_family no longer offers `urls` (#109).
+
+    Gramps families have no URL list: gramps-webapi 3.16 dropped the key
+    silently and 3.24 answers HTTP 400, so the model refuses it up front.
+    """
+    with pytest.raises(ValidationError, match="urls"):
+        FamilySaveParams(
+            father_handle="f",
+            urls=[{"type": "Web Home", "path": "https://example.org"}],
+        )

@@ -682,13 +682,6 @@ class TestCreateFamilyTool:
                 "mother_handle": mother_handle,
                 "media_list": [{"ref": test_media_handle}] if test_media_handle else [],
                 "note_list": [test_note_handle] if test_note_handle else [],
-                "urls": [
-                    {
-                        "type": "Web Home",
-                        "path": "https://familysearch.org/family/789",
-                        "description": "FamilySearch family record",
-                    }
-                ],
             }
         )
 
@@ -701,13 +694,6 @@ class TestCreateFamilyTool:
         )
         assert f"{TEST_PREFIX}Mary" in text or f"{TEST_PREFIX}Johnson" in text, (
             f"Expected mother reference in output but got: {text}"
-        )
-
-        assert "https://familysearch.org/family/789" in text, (
-            f"Expected URL path in output but got: {text}"
-        )
-        assert "FamilySearch family record" in text, (
-            f"Expected URL description in output but got: {text}"
         )
 
         extract_handle(text)
