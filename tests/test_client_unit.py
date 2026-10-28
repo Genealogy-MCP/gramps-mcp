@@ -283,6 +283,38 @@ class TestMakeRequest:
             )
 
     @pytest.mark.asyncio
+    async def test_http_status_error_carries_status_code(self):
+        """A 4xx response raises GrampsAPIError with the HTTP status code."""
+        client = self._setup_client()
+
+        resp_403 = MagicMock()
+        resp_403.status_code = 403
+        resp_403.raise_for_status = MagicMock(
+            side_effect=_make_http_status_error(403, url="http://test/api/backups/")
+        )
+
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.client.request = AsyncMock(return_value=resp_403)
+
+        with pytest.raises(GrampsAPIError) as excinfo:
+            await client._make_request("POST", "http://test/api/backups/")
+        assert excinfo.value.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_transport_error_has_no_status_code(self):
+        """A connection failure raises GrampsAPIError with status_code None."""
+        client = self._setup_client()
+
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.client.request = AsyncMock(
+            side_effect=httpx.ConnectError("refused")
+        )
+
+        with pytest.raises(GrampsAPIError) as excinfo:
+            await client._make_request("GET", "http://test/api/people/")
+        assert excinfo.value.status_code is None
+
+    @pytest.mark.asyncio
     async def test_empty_response_body(self):
         """Empty response returns {}."""
         client = self._setup_client()
