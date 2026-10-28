@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Agent-skill configuration under `docs/agents/`: issue tracker (GitLab via `glab`), triage label vocabulary and domain-doc layout, linked from a new `## Agent skills` section in `CLAUDE.md`. The spec and ticket skills read these files to publish to this tracker
+- Spec `docs/specs/2026-10-28-backup-operations.md`: pin bump to gramps-webapi 3.24.0 and the `create_backup` / `list_backups` operations (#108)
 
 ## [3.10.3] - 2026-10-10
 
