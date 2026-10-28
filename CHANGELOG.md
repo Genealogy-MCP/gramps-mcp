@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - The `oql` list parameter, which gramps-webapi 3.23 dropped, is gone from the resource table (#109)
+- `urls` on `upsert_family`, and the URL lines in family output. Gramps families never stored URLs: gramps-webapi 3.16 dropped the key silently and 3.24 rejects it with HTTP 400, so the parameter now fails validation up front (#109)
 
 ## [3.10.3] - 2026-10-10
 

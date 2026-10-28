@@ -45,7 +45,6 @@ class TestFormatFamily:
                     "child_ref_list": [],
                     "media_list": [],
                     "note_list": [],
-                    "urls": [],
                     "extended": {"events": []},
                 },
             }
@@ -66,7 +65,6 @@ class TestFormatFamily:
                     "child_ref_list": [],
                     "media_list": [],
                     "note_list": [],
-                    "urls": [],
                     "private": True,
                     "extended": {"events": []},
                 },
@@ -98,7 +96,6 @@ class TestFormatFamilyExtended:
                     "child_ref_list": [],
                     "media_list": [],
                     "note_list": [],
-                    "urls": [],
                     "extended": {
                         "father": {
                             "gramps_id": "I0001",
@@ -143,7 +140,6 @@ class TestFormatFamilyExtended:
                     "child_ref_list": [],
                     "media_list": [],
                     "note_list": [],
-                    "urls": [],
                     "extended": {
                         "events": [
                             {
@@ -175,7 +171,6 @@ class TestFormatFamilyExtended:
                     "child_ref_list": [{"ref": "c1"}, {"ref": "c2"}],
                     "media_list": [],
                     "note_list": [],
-                    "urls": [],
                     "extended": {
                         "events": [],
                         "children": [
@@ -206,7 +201,7 @@ class TestFormatFamilyExtended:
         assert "Alice Smith (F) - I0011" in result
 
     @pytest.mark.asyncio
-    async def test_family_with_events_media_notes_urls(self):
+    async def test_family_with_events_media_notes(self):
         client = _mock_client(
             {
                 "GET_FAMILY": {
@@ -215,7 +210,6 @@ class TestFormatFamilyExtended:
                     "child_ref_list": [],
                     "media_list": [{"ref": "m1"}],
                     "note_list": ["n1"],
-                    "urls": [{"path": "https://family.org", "desc": "Family site"}],
                     "extended": {
                         "events": [{"type": "Census", "gramps_id": "E0020"}],
                         "media": [{"gramps_id": "O0010"}],
@@ -229,7 +223,6 @@ class TestFormatFamilyExtended:
         assert "Census, Family (E0020)" in result
         assert "Attached media: O0010" in result
         assert "Attached notes: N0010" in result
-        assert "https://family.org - Family site" in result
 
     @pytest.mark.asyncio
     async def test_family_no_parents(self):
@@ -242,7 +235,6 @@ class TestFormatFamilyExtended:
                     "child_ref_list": [],
                     "media_list": [],
                     "note_list": [],
-                    "urls": [],
                     "extended": {"events": []},
                 },
             }
@@ -261,7 +253,6 @@ class TestFormatFamilyExtended:
                     "child_ref_list": [],
                     "media_list": [],
                     "note_list": [],
-                    "urls": [],
                     "extended": {
                         "events": [
                             {
