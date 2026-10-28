@@ -704,3 +704,16 @@ Full GQL documentation is served as MCP resource `gql://documentation`.
 - `media/archive/` -- media archive export/import
 - `chat/` -- AI chat
 - `transactions/history/{id}/undo` -- undo transactions
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live in GitLab Issues on `gitlab.com/genealogy-mcp/gramps-mcp`, driven with `glab`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary, label strings equal to role names. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
