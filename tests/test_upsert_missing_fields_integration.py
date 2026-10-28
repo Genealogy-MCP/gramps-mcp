@@ -288,4 +288,6 @@ class TestPersonLdsOrdList:
                     lds_ord_list=[{"type": "Baptism", "status": "Completed"}],
                 )
             )
-        assert "500" in str(excinfo.value)
+        # Reason: gramps-webapi 3.16 answered HTTP 500 here; 3.24 validates
+        # the object and answers 400. Either way the write is refused.
+        assert excinfo.value.__cause__.status_code == 400

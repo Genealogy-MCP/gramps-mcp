@@ -27,7 +27,7 @@ services:
 
   grampsweb_celery:
     # Keep in sync with your deployed Gramps Web instance version when bumping.
-    image: ghcr.io/gramps-project/grampsweb:26.6.1@sha256:563d05ebb788fd42695ab4f5ec05efbfb86aa73d25901e6428fa9b0aab763551
+    image: ghcr.io/gramps-project/grampsweb:26.10.2@sha256:81291e399390041e9dcb2ffc9f1b67d44c5151b3c3604a9d49a3d8bbe60ee578
     depends_on:
       grampsweb_redis:
         condition: service_healthy
@@ -40,6 +40,14 @@ services:
       GRAMPSWEB_CELERY_CONFIG__result_backend: "redis://grampsweb_redis:6379/0"
       GRAMPSWEB_RATELIMIT_STORAGE_URI: "redis://grampsweb_redis:6379/1"
       GRAMPSWEB_SEARCH_INDEX_DB_URI: "postgresql://grampsweb:test-only-search-index-password@grampsweb_searchindex_db:5432/search_index"
+      # Backups (gramps-webapi 3.24+). Web writes archives, worker runs the
+      # backup task, so both mount the same volume. The defaults (10 per day,
+      # keep 5) would make repeated local runs hit the per-tree rate limit,
+      # whose Redis lives as long as the container, and let pruning race a
+      # create-then-list test.
+      GRAMPSWEB_BACKUP_DIR: "/app/backups"
+      GRAMPSWEB_RATE_LIMIT_BACKUP: "1000 per hour"
+      GRAMPSWEB_BACKUP_KEEP: "1000"
     command: celery -A gramps_webapi.celery worker --loglevel=INFO --pool=solo
     volumes: &grampsweb_volumes
       - gramps_users:/app/users
@@ -48,6 +56,7 @@ services:
       - gramps_media:/app/media
       - gramps_export:/app/export_cache
       - gramps_data:/root/.gramps
+      - gramps_backups:/app/backups
     healthcheck:
       test: ["CMD-SHELL", "celery -A gramps_webapi.celery inspect ping --timeout 5 2>/dev/null"]
       interval: 5s
@@ -57,7 +66,7 @@ services:
 
   grampsweb:
     # Keep in sync with your deployed Gramps Web instance version when bumping.
-    image: ghcr.io/gramps-project/grampsweb:26.6.1@sha256:563d05ebb788fd42695ab4f5ec05efbfb86aa73d25901e6428fa9b0aab763551
+    image: ghcr.io/gramps-project/grampsweb:26.10.2@sha256:81291e399390041e9dcb2ffc9f1b67d44c5151b3c3604a9d49a3d8bbe60ee578
     depends_on:
       grampsweb_celery:
         condition: service_healthy
@@ -85,3 +94,4 @@ volumes:
   gramps_media:
   gramps_export:
   gramps_data:
+  gramps_backups:

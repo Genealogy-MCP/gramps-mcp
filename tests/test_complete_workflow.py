@@ -558,7 +558,10 @@ class TestCompleteWorkflow:
         else:
             create_result = await upsert_person_tool(
                 {
-                    "primary_name": {"given_name": given_name, "surname": surname},
+                    "primary_name": {
+                        "first_name": given_name,
+                        "surname_list": [{"surname": surname}],
+                    },
                     "gender": gender,
                     "note_list": [person_note_handle],
                     "media_list": [{"ref": person_media_handle}],
