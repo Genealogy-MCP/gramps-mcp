@@ -290,7 +290,7 @@ class TestParameterAlignment:
     def test_family_parameters_alignment(self):
         """Test FamilySaveParams parameters match usage guide requirements."""
         # From usage guide: Family requires father_handle, mother_handle,
-        # children_handles (all optional); notes, media, URLs, family events
+        # children_handles (all optional); notes, media, family events
         # Must support linking family events (marriage, divorce)
         model = FamilySaveParams
         fields = model.model_fields
@@ -323,7 +323,7 @@ class TestParameterAlignment:
             )
 
         # Check no extra fields beyond what guide allows (plus system + linking fields)
-        guide_fields = {"notes", "media", "urls"}
+        guide_fields = {"notes", "media"}
         system_fields = {
             "handle",
             "gramps_id",

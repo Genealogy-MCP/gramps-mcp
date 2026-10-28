@@ -10,7 +10,7 @@ silent drop. These tests assert the value survives a real create and a real
 update against the API.
 
 The LDS ordinance shapes here use integer type and status on purpose. The
-server answers HTTP 500 for the name strings that every other typed enum in
+server answers HTTP 400 for the name strings that every other typed enum in
 this codebase accepts.
 """
 
@@ -289,5 +289,5 @@ class TestPersonLdsOrdList:
                 )
             )
         # Reason: gramps-webapi 3.16 answered HTTP 500 here; 3.24 validates
-        # the object and answers 400. Either way the write is refused.
+        # the object and answers 400, which this test pins.
         assert excinfo.value.__cause__.status_code == 400

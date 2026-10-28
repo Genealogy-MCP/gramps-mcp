@@ -136,7 +136,6 @@ Now create the life event that was documented in that citation:
 - **Family type** (optional): The couple's relationship type (`Married`, `Unmarried`, `Civil Union`, `Unknown`)
 - **Notes** (optional): If present, use `upsert_note` tool first, then link to family
 - **Media** (optional): If present, use `upsert_media` tool first, then link to family
-- **URLs** (optional): Web links with type, path, and description
 - **Family events**: Marriage, divorce events are added to the family unit
 - **All relationships must be supported by sourced events**
 
@@ -204,7 +203,7 @@ Now create the life event that was documented in that citation:
    → If creating family relationships: search_family first to check for existing family
    → If family exists and complete: use existing family
    → If family exists but missing info: upsert_family with handle (update family) AND add family events
-   → If family doesn't exist: upsert_family without handle (create with father/mother/children handles, optional notes/media/URLs) AND add family events
+   → If family doesn't exist: upsert_family without handle (create with father/mother/children handles, optional notes/media) AND add family events
    
    → Family events (marriage, divorce) are added to the family, not individual people
    → Individual events (birth, death) are added to people
