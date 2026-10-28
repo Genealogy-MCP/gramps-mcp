@@ -44,7 +44,7 @@ class GrampsAPIError(Exception):
     Attributes:
         status_code (int | None): HTTP status of the failed response, or None
             when the failure happened before a response (connection, timeout,
-            parse). Handlers map on this instead of the message text.
+            parse). Lets handlers map on status instead of message text.
     """
 
     def __init__(self, message: str, status_code: int | None = None) -> None:

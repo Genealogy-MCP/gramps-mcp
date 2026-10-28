@@ -149,7 +149,7 @@ class PersonData(BaseDataModel):
             "date, temple, place, status, famc, citation_list, note_list, "
             "private. Unlike every other typed enum in this API, type and "
             "status must be integers here; passing the name string (e.g. "
-            '"Baptism") makes the server answer HTTP 500. On update the '
+            '"Baptism") makes the server reject it with HTTP 400. On update the '
             'list_mode applies: "merge" (default) appends with dedup, '
             '"replace" overwrites the whole list.'
         ),
