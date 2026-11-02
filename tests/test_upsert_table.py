@@ -4,16 +4,15 @@
 """
 Integration tests for the generic table-driven upsert (#102).
 
-Run against the Docker test instance only. Cover the fields the table
-gained through ``resource_policy.FIELD_ADDITIONS`` (note note_list and
-attribute_list), the PUT merge path and the citation nudge on create.
+Run against the Docker test instance only. Cover a list field round trip
+through the PUT merge path and the citation nudge on create.
 """
 
 import pytest
 
 from src.gramps_mcp.client import GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
-from src.gramps_mcp.tools import upsert_event_tool, upsert_note_tool
+from src.gramps_mcp.tools import upsert_event_tool, upsert_note_tool, upsert_tag_tool
 
 from .conftest import TEST_PREFIX, extract_handle
 
@@ -43,34 +42,28 @@ async def _get(path, handle):
 class TestGenericUpsertRoundTrip:
     """Fields written by the generic upsert come back from the server."""
 
-    async def test_note_lists_round_trip_and_merge(self):
-        """note_list and attribute_list persist; a PUT merges by default."""
-        first = await upsert_note_tool(
-            {"text": f"{TEST_PREFIX}linked note A", "type": "General"}
-        )
-        linked_a = extract_handle(first[0].text)
-        second = await upsert_note_tool(
-            {"text": f"{TEST_PREFIX}linked note B", "type": "General"}
-        )
-        linked_b = extract_handle(second[0].text)
+    async def test_note_tag_list_round_trip_and_merge(self):
+        """A note's tag_list persists and a PUT merges it by default."""
+        tag_a = await upsert_tag_tool({"name": f"{TEST_PREFIX}NoteTagA"})
+        tag_b = await upsert_tag_tool({"name": f"{TEST_PREFIX}NoteTagB"})
+        handle_a = extract_handle(tag_a[0].text)
+        handle_b = extract_handle(tag_b[0].text)
 
         created = await upsert_note_tool(
             {
-                "text": f"{TEST_PREFIX}note with lists",
+                "text": f"{TEST_PREFIX}note with tags",
                 "type": "General",
-                "note_list": [linked_a],
-                "attribute_list": [{"type": "Nickname", "value": "probe"}],
+                "tag_list": [handle_a],
             }
         )
         handle = extract_handle(created[0].text)
-        await upsert_note_tool({"handle": handle, "note_list": [linked_b]})
+        await upsert_note_tool({"handle": handle, "tag_list": [handle_b]})
 
         stored = await _get("notes/{handle}", handle)
-        assert (
-            stored["note_list"],
-            [a["value"] for a in stored["attribute_list"]],
-            stored["text"]["string"],
-        ) == ([linked_a, linked_b], ["probe"], f"{TEST_PREFIX}note with lists")
+        assert (stored["tag_list"], stored["text"]["string"]) == (
+            [handle_a, handle_b],
+            f"{TEST_PREFIX}note with tags",
+        )
 
     async def test_event_create_without_citation_nudges(self):
         """An uncited event create carries the unchanged citation nudge."""

@@ -91,7 +91,6 @@ ENTITY_RESOURCES: Dict[str, EntityResource] = {
             FieldSpec("private", "boolean"),
             FieldSpec("tag_list", "array[string]"),
             FieldSpec("type", "string"),
-            FieldSpec("urls", "array[URL]"),
         ),
     ),
     "event": EntityResource(
@@ -127,7 +126,6 @@ ENTITY_RESOURCES: Dict[str, EntityResource] = {
         fields=(
             FieldSpec("alt_loc", "array[Location]"),
             FieldSpec("alt_names", "array[PlaceName]"),
-            FieldSpec("attribute_list", "array[Attribute]"),
             FieldSpec("citation_list", "array[string]"),
             FieldSpec("code", "string"),
             FieldSpec("gramps_id", "string"),
@@ -197,9 +195,7 @@ ENTITY_RESOURCES: Dict[str, EntityResource] = {
         list_params=_LIST_PARAMS_0,
         fields=(
             FieldSpec("address_list", "array[Address]"),
-            FieldSpec("attribute_list", "array[Attribute]"),
             FieldSpec("gramps_id", "string"),
-            FieldSpec("media_list", "array[MediaReference]"),
             FieldSpec("name", "string"),
             FieldSpec("note_list", "array[string]"),
             FieldSpec("private", "boolean"),
@@ -238,11 +234,8 @@ ENTITY_RESOURCES: Dict[str, EntityResource] = {
         item_verbs=("GET", "PUT", "DELETE"),
         list_params=_LIST_PARAMS_0,
         fields=(
-            FieldSpec("attribute_list", "array[Attribute]"),
             FieldSpec("format", "integer"),
             FieldSpec("gramps_id", "string"),
-            FieldSpec("media_list", "array[MediaReference]"),
-            FieldSpec("note_list", "array[string]"),
             FieldSpec("private", "boolean"),
             FieldSpec("tag_list", "array[string]"),
             FieldSpec("text", "StyledText"),

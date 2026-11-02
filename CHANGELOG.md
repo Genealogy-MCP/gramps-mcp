@@ -7,14 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.13.1] - 2026-11-02
+## [3.14.0] - 2026-11-02
 
 ### Added
 
 - Generic table-driven upsert (`tools/upsert_table.py`). `upsert_event`, `upsert_place`, `upsert_source` and `upsert_note` now run one handler in a fixed order: parse through the entity's hand model, reference checks, POST on the row's collection path or PUT on its item path (the PUT keeps the merge and `list_mode` behaviour), then media upload. No write happens before every reference check passes. The four entities bind no reference checks and no upload; the slots exist for later entities. Operation names, the count of 22 and response text are unchanged; the only parameter changes are the removals listed below (#102)
 - `GrampsWebAPIClient.call_resource(method, path, params)` sends a request from a resource-table path template, sharing the body, `list_mode` and PUT merge path with `make_api_call`; the `ApiCalls` enum stays (#102)
 - Write-model drift unit test over all ten write models: a hand-model field the table does not list fails unless allowlisted per (model, field) in `overlays.PAYLOAD_ONLY_FIELDS`, and each allowlisted field must be consumed before the request is sent; a read-only field in a hand model fails; table fields a model lacks only warn (#102)
-- `resource_policy.FIELD_ADDITIONS` adds writable fields the server stores but the pinned OpenAPI components omit (note `attribute_list`, `media_list`, `note_list`; place `attribute_list`; repository `attribute_list`, `media_list`). Codegen fails once the snapshot declares one itself (#102)
 
 ### Changed
 
@@ -25,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `_handle_crud_operation`, `operation_overlays.py` and `tools/table_routes.py` (folded into the generic upsert and `overlays.py`) (#102)
 - `change` from every write model and `media_list` from `upsert_media`: `change` is a server-set timestamp and the media component has no `media_list`, so neither is a field a caller can write (#102)
+- `attribute_list`, `media_list` and `note_list` from `upsert_note`, `attribute_list` from `upsert_place`, and `attribute_list` and `media_list` from `upsert_repository`. gramps-webapi 3.24 rejects each with HTTP 400 (`unknown Note keys`), so since the 3.12.0 pin bump these parameters failed every call. The write models now mix in only the list fields their resource-table row declares, and the drift test fails when the two disagree (#102)
 
 ## [3.13.0] - 2026-11-02
 

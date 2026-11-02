@@ -12,8 +12,6 @@ server computes, and the Person field list taken from upstream
 but the server stores. Per-entity operation overlays live in `overlays.py`.
 """
 
-from .resource_rows import FieldSpec
-
 # Entity name (as the `type` parameter of get/search/delete spells it) to the
 # `components.schemas` entry that describes its record.
 ENTITY_COMPONENTS = {
@@ -92,21 +90,3 @@ PERSON_SCHEMA_FIELDS = (
     "tag_list",
     "urls",
 )
-
-# Writable fields the server stores but the pinned snapshot's components do
-# not declare. Each was verified by a POST then GET round trip on the Docker
-# test instance (Gramps 6.0.8, gramps-webapi 3.16.0) for #102. Codegen adds
-# them to the row and fails once the snapshot declares one itself, so an
-# entry is dropped here as soon as upstream fixes the component.
-FIELD_ADDITIONS = {
-    "note": (
-        FieldSpec("attribute_list", "array[Attribute]"),
-        FieldSpec("media_list", "array[MediaReference]"),
-        FieldSpec("note_list", "array[string]"),
-    ),
-    "place": (FieldSpec("attribute_list", "array[Attribute]"),),
-    "repository": (
-        FieldSpec("attribute_list", "array[Attribute]"),
-        FieldSpec("media_list", "array[MediaReference]"),
-    ),
-}

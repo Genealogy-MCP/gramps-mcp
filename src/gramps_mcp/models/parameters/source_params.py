@@ -17,9 +17,12 @@ from typing import Any, Dict, List, Optional
 from pydantic import Field, field_validator, model_validator
 
 from .base_params import (
+    AttributeListField,
+    BaseDataModel,
     BaseGetMultipleParams,
     BaseGetSingleParams,
-    BaseMediaRefModel,
+    MediaListField,
+    NoteListField,
 )
 
 # Source-specific constants
@@ -100,7 +103,9 @@ class SourceDetailsParams(BaseGetSingleParams):
         return v
 
 
-class SourceSaveParams(BaseMediaRefModel):
+class SourceSaveParams(
+    BaseDataModel, NoteListField, AttributeListField, MediaListField
+):
     """
     Parameters for creating or updating a source.
 

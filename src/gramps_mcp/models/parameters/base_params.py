@@ -169,12 +169,6 @@ class BaseDataModel(BaseModel):
     gramps_id: Optional[str] = Field(
         None, description="An alternate user managed identifier"
     )
-    note_list: Optional[List[str]] = Field(
-        None, description="List of handles for notes"
-    )
-    attribute_list: Optional[List[Dict[str, Any]]] = Field(
-        None, description="List of attributes"
-    )
     tag_list: Optional[List[str]] = Field(None, description="List of handles to tags")
     private: Optional[bool] = Field(None, description="Whether the object is private")
     # Reason: no `change` field (#102). Gramps sets the modification time
@@ -200,13 +194,31 @@ class BaseDataModel(BaseModel):
         return self.model_dump(exclude_none=True)
 
 
-class BaseMediaRefModel(BaseDataModel):
-    """Write model for records that can reference media objects.
+# Reason: per-field mixins instead of one shared base (#102). Gramps Web
+# 3.24 rejects a key its object schema lacks with HTTP 400 ("unknown Note
+# keys"), and the entities differ in which of these lists they store. Each
+# write model mixes in exactly the lists its resource-table row declares;
+# the drift test fails when a model and its row disagree.
 
-    Reason: every write entity except media itself stores a media_list.
-    Gramps silently drops a media_list sent on a media record (#102), so
-    the field lives here rather than on BaseDataModel.
-    """
+
+class NoteListField(BaseModel):
+    """Mixin for write models whose record stores a note_list."""
+
+    note_list: Optional[List[str]] = Field(
+        None, description="List of handles for notes"
+    )
+
+
+class AttributeListField(BaseModel):
+    """Mixin for write models whose record stores an attribute_list."""
+
+    attribute_list: Optional[List[Dict[str, Any]]] = Field(
+        None, description="List of attributes"
+    )
+
+
+class MediaListField(BaseModel):
+    """Mixin for write models whose record stores a media_list."""
 
     media_list: Optional[List[Dict[str, Any]]] = Field(
         None, description="List of references to media"

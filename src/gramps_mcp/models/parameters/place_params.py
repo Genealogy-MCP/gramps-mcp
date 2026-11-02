@@ -18,9 +18,11 @@ from typing import Any, Dict, List, Optional
 from pydantic import Field, model_validator
 
 from .base_params import (
+    BaseDataModel,
     BaseGetMultipleParams,
     BaseGetSingleParams,
-    BaseMediaRefModel,
+    MediaListField,
+    NoteListField,
 )
 
 
@@ -36,7 +38,7 @@ class PlaceDetailsParams(BaseGetSingleParams):
     pass
 
 
-class PlaceSaveParams(BaseMediaRefModel):
+class PlaceSaveParams(BaseDataModel, NoteListField, MediaListField):
     """Parameters for creating or updating a place."""
 
     name: Optional[dict] = Field(

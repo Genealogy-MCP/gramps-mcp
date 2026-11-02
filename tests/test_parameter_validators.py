@@ -12,7 +12,6 @@ from src.gramps_mcp.models.parameters.base_params import (
     BaseDataModel,
     BaseGetMultipleParams,
     BaseGetSingleParams,
-    BaseMediaRefModel,
 )
 from src.gramps_mcp.models.parameters.citation_params import CitationData
 from src.gramps_mcp.models.parameters.media_params import MediaSaveParams
@@ -115,18 +114,26 @@ class TestBaseDataModel:
         model = BaseDataModel()
         assert model.handle is None
         assert model.gramps_id is None
-        assert model.note_list is None
-        assert model.attribute_list is None
         assert model.tag_list is None
         assert model.private is None
 
-    def test_media_list_on_media_ref_models_only(self):
-        """#102: media_list moved to BaseMediaRefModel; `change` is gone."""
+    def test_list_fields_come_from_mixins_only(self):
+        """#102: no shared list fields or `change`; notes store no lists."""
         assert (
-            BaseMediaRefModel().media_list,
-            "media_list" in BaseDataModel.model_fields,
-            "change" in BaseDataModel.model_fields,
-        ) == (None, False, False)
+            sorted(
+                set(BaseDataModel.model_fields)
+                & {"note_list", "attribute_list", "media_list", "change"}
+            ),
+            sorted(
+                set(NoteSaveParams.model_fields)
+                & {"note_list", "attribute_list", "media_list"}
+            ),
+        ) == ([], [])
+
+    def test_note_rejects_list_fields(self):
+        """3.24 rejects Note list keys with 400, so the model fails first."""
+        with pytest.raises(ValidationError, match="note_list"):
+            NoteSaveParams(text="x", note_list=["h"])
 
 
 class TestSourceSearchParamsValidators:

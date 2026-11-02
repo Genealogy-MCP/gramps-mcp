@@ -17,9 +17,10 @@ from typing import Any, Dict, List, Optional
 from pydantic import Field, field_validator, model_validator
 
 from .base_params import (
+    BaseDataModel,
     BaseGetMultipleParams,
     BaseGetSingleParams,
-    BaseMediaRefModel,
+    NoteListField,
 )
 
 # Repository-specific constants
@@ -78,7 +79,7 @@ class RepositoryParams(BaseGetSingleParams):
         return v
 
 
-class RepositoryData(BaseMediaRefModel):
+class RepositoryData(BaseDataModel, NoteListField):
     """Model for creating or updating a repository in Gramps API."""
 
     name: Optional[str] = Field(

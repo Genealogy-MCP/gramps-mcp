@@ -19,7 +19,12 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from .base_params import BaseDataModel, BaseGetMultipleParams
+from .base_params import (
+    AttributeListField,
+    BaseDataModel,
+    BaseGetMultipleParams,
+    NoteListField,
+)
 
 
 class MediaDownloadParams(BaseModel):
@@ -69,7 +74,7 @@ class MediaFileParams(BaseModel):
     )
 
 
-class MediaSaveParams(BaseDataModel):
+class MediaSaveParams(BaseDataModel, NoteListField, AttributeListField):
     """Parameters for creating or updating a media item."""
 
     desc: Optional[str] = Field(
