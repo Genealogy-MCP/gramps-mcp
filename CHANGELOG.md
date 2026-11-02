@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.1] - 2026-11-02
+
+### Fixed
+
+- The Docker image starts again. The builder ran Python 3.11 and the runtime Python 3.14, so the copied venv's packages were invisible and the server failed with `ModuleNotFoundError: No module named 'mcp'` (every published image since the March 2026 base-image bump that moved only the runtime to 3.14). Both stages now use one `PYTHON_IMAGE` (Python 3.13, the newest version the test matrix covers), and `make docker-smoke` plus an MR CI job import the server inside the built image (#115)
+
 ## [3.15.0] - 2026-11-02
 
 ### Changed
