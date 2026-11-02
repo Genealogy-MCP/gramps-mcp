@@ -18,6 +18,7 @@ from mcp.types import TextContent
 from src.gramps_mcp.client import GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.models.api_calls import ApiCalls
+from src.gramps_mcp.models.parameters.event_params import EventSearchParams
 from src.gramps_mcp.tools.search_basic import search_tool
 
 pytestmark = pytest.mark.integration
@@ -88,7 +89,9 @@ class TestTypeNameFilters:
             birth_value = next(int(v) for v, name in raw.items() if name == "Birth")
             ground_truth = await client.make_api_call(
                 api_call=ApiCalls.GET_EVENTS,
-                params={"gql": f"type.value = {birth_value}"},
+                params=EventSearchParams.model_validate(
+                    {"gql": f"type.value = {birth_value}"}
+                ),
                 tree_id=tree_id,
             )
             expected = (
@@ -118,7 +121,9 @@ class TestUpstreamRegressionProbe:
         try:
             response = await client.make_api_call(
                 api_call=ApiCalls.GET_EVENTS,
-                params={"gql": 'type.string = "Birth"'},
+                params=EventSearchParams.model_validate(
+                    {"gql": 'type.string = "Birth"'}
+                ),
                 tree_id=get_settings().gramps_tree_id,
             )
         finally:

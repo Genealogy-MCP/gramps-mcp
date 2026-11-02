@@ -12,7 +12,6 @@ API calls supported in this category:
 - PUT_PERSON: Update the person
 - DELETE_PERSON: Delete the person
 - GET_PERSON_TIMELINE: Get the timeline for a specific person
-- GET_PERSON_DNA_MATCHES: Get DNA matches for a specific person
 """
 
 from typing import Any, Dict, List, Optional
@@ -214,9 +213,3 @@ class PersonTimelineParams(BaseModel):
         None, ge=1, description="Page number for pagination (1-based)"
     )
     pagesize: Optional[int] = Field(None, ge=1, description="Number of items per page")
-
-
-class PersonDnaMatchesParams(BaseModel):
-    """Parameters for getting DNA matches for a person from Gramps API."""
-
-    raw: Optional[bool] = Field(None, description="Include raw data for the matches")

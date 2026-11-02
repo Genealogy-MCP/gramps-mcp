@@ -1,21 +1,15 @@
 """
 Tests for the unified API call system.
 
-This module tests the API call parameter mapping and the unified
-make_api_call method with real API calls to ensure integration works.
+This module tests pagination constraints on the params models, URL
+building, and the unified make_api_call method against the real API.
 """
 
 import pytest
 from pydantic import ValidationError
 
 from src.gramps_mcp.client import GrampsWebAPIClient
-from src.gramps_mcp.models import PersonData
 from src.gramps_mcp.models.api_calls import ApiCalls
-from src.gramps_mcp.models.api_mapping import (
-    API_CALL_PARAMS,
-    get_param_model,
-    validate_api_call_params,
-)
 from src.gramps_mcp.models.parameters.base_params import (
     BaseGetMultipleParams,
     BaseGetSingleParams,
@@ -24,80 +18,6 @@ from src.gramps_mcp.models.parameters.search_params import SearchParams
 from src.gramps_mcp.models.parameters.transactions_params import (
     TransactionHistoryParams,
 )
-
-
-class TestApiMapping:
-    """Test API call parameter mapping functionality."""
-
-    def test_api_call_params_mapping_exists(self):
-        """Test that the API_CALL_PARAMS mapping exists and has expected entries."""
-        # Test that mapping exists
-        assert API_CALL_PARAMS is not None
-        assert isinstance(API_CALL_PARAMS, dict)
-
-        # Test that it has entries for people operations
-        assert ApiCalls.GET_PEOPLE in API_CALL_PARAMS
-        assert ApiCalls.GET_PERSON in API_CALL_PARAMS
-        assert ApiCalls.POST_PEOPLE in API_CALL_PARAMS
-
-        # Test correct parameter model mappings
-        assert API_CALL_PARAMS[ApiCalls.GET_PEOPLE] == BaseGetMultipleParams
-        assert API_CALL_PARAMS[ApiCalls.GET_PERSON] == BaseGetSingleParams
-        assert API_CALL_PARAMS[ApiCalls.POST_PEOPLE] == PersonData
-
-    def test_get_param_model(self):
-        """Test getting parameter model for API calls."""
-        # Test existing mapping
-        assert get_param_model(ApiCalls.GET_PEOPLE) == BaseGetMultipleParams
-        assert get_param_model(ApiCalls.GET_PERSON) == BaseGetSingleParams
-
-        # Test None for operations without parameters
-        assert get_param_model(ApiCalls.DELETE_PERSON) is None
-
-    def test_validate_api_call_params_success(self):
-        """Test successful parameter validation."""
-        # Test with valid parameters
-        params = {"page": 1, "pagesize": 10}
-        result = validate_api_call_params(ApiCalls.GET_PEOPLE, params)
-
-        assert isinstance(result, BaseGetMultipleParams)
-        assert result.page == 1
-        assert result.pagesize == 10
-
-    def test_validate_api_call_params_page_zero_rejected(self):
-        """API 3.x uses 1-based pagination; page=0 must be rejected."""
-        with pytest.raises(ValidationError, match="greater than or equal to 1"):
-            validate_api_call_params(ApiCalls.GET_PEOPLE, {"page": 0})
-
-    def test_validate_api_call_params_page_negative_rejected(self):
-        """Negative page numbers must be rejected."""
-        with pytest.raises(ValidationError, match="greater than or equal to 1"):
-            validate_api_call_params(ApiCalls.GET_PEOPLE, {"page": -1})
-
-    def test_validate_api_call_params_page_one_accepted(self):
-        """page=1 is the minimum valid page for API 3.x."""
-        result = validate_api_call_params(ApiCalls.GET_PEOPLE, {"page": 1})
-        assert result.page == 1
-
-    def test_validate_api_call_params_invalid(self):
-        """Test parameter validation with invalid parameters."""
-        # Test with invalid parameters - invalid extend choice
-        params = {"extend": "invalid_choice"}
-
-        with pytest.raises(ValidationError):
-            validate_api_call_params(ApiCalls.GET_PEOPLE, params)
-
-    def test_validate_api_call_params_no_model(self):
-        """Test parameter validation for API calls without parameter models."""
-        # Test with no parameters (should return None)
-        result = validate_api_call_params(
-            ApiCalls.DELETE_PERSON, {}
-        )  # No model defined
-        assert result is None
-
-        # Test with parameters but no model defined (should raise error)
-        with pytest.raises(ValueError, match="does not accept parameters"):
-            validate_api_call_params(ApiCalls.DELETE_PERSON, {"page": 1})
 
 
 class TestPaginationConstraints:
@@ -122,6 +42,13 @@ class TestPaginationConstraints:
     def test_base_get_multiple_page_zero_rejected(self):
         with pytest.raises(ValidationError, match="greater than or equal to 1"):
             BaseGetMultipleParams(page=0)
+
+    def test_base_get_multiple_page_negative_rejected(self):
+        with pytest.raises(ValidationError, match="greater than or equal to 1"):
+            BaseGetMultipleParams(page=-1)
+
+    def test_base_get_multiple_page_one_accepted(self):
+        assert BaseGetMultipleParams(page=1).page == 1
 
 
 class TestUrlBuilding:
@@ -190,7 +117,9 @@ class TestUnifiedApiCall:
         # (it may fail during actual HTTP call if no server is available)
         try:
             await client.make_api_call(
-                ApiCalls.GET_PEOPLE, params=params, tree_id="default"
+                ApiCalls.GET_PEOPLE,
+                params=BaseGetMultipleParams.model_validate(params),
+                tree_id="default",
             )
         except Exception as e:
             # We expect network errors, but not parameter validation errors
@@ -204,24 +133,10 @@ class TestUnifiedApiCall:
         with pytest.raises(ValueError, match="Missing required URL parameters"):
             await client.make_api_call(
                 ApiCalls.GET_PERSON,  # Requires {handle}
-                params={"strip": True},
+                params=BaseGetSingleParams(strip=True),
                 tree_id="default",
                 # Missing handle parameter
             )
-
-    @pytest.mark.asyncio
-    async def test_make_api_call_with_dict_params(self, client):
-        """Test make_api_call with dictionary parameters."""
-        params = {"page": 1, "pagesize": 5}
-
-        try:
-            await client.make_api_call(
-                ApiCalls.GET_PEOPLE, params=params, tree_id="default"
-            )
-        except Exception as e:
-            # We expect network errors, but parameter validation should work
-            assert "ValidationError" not in str(e)
-            assert "Missing required URL parameters" not in str(e)
 
     @pytest.mark.asyncio
     async def test_make_api_call_with_pydantic_params(self, client):
@@ -230,7 +145,9 @@ class TestUnifiedApiCall:
 
         try:
             await client.make_api_call(
-                ApiCalls.GET_PEOPLE, params=params, tree_id="default"
+                ApiCalls.GET_PEOPLE,
+                params=BaseGetMultipleParams.model_validate(params),
+                tree_id="default",
             )
         except Exception as e:
             # We expect network errors, but parameter validation should work

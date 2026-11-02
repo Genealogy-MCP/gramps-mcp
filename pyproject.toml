@@ -1,6 +1,6 @@
 [project]
 name = "gramps-mcp"
-version = "3.14.2"
+version = "3.15.0"
 description = "AI-Powered Genealogy Research & Management - MCP server for Gramps Web API"
 requires-python = ">=3.11"
 dependencies = [
@@ -65,15 +65,4 @@ asyncio_mode = "auto"
 filterwarnings = [
     "ignore::pydantic.json_schema.PydanticJsonSchemaWarning",
     "ignore::jwt.warnings.InsecureKeyLengthWarning",
-]
-
-[tool.coverage.run]
-omit = [
-    "src/gramps_mcp/models/parameters/facts_params.py",
-    "src/gramps_mcp/models/parameters/holidays_params.py",
-    "src/gramps_mcp/models/parameters/living_params.py",
-    "src/gramps_mcp/models/parameters/relations_params.py",
-    "src/gramps_mcp/models/parameters/timeline_params.py",
-    "src/gramps_mcp/models/parameters/types_params.py",
-    "src/gramps_mcp/models/parameters/parser_params.py",
 ]

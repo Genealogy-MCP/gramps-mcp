@@ -14,7 +14,7 @@ import pytest
 from src.gramps_mcp.client import GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.models.api_calls import ApiCalls
-from src.gramps_mcp.tools import upsert_place_tool
+from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
 
 from .conftest import TEST_PREFIX, extract_handle
 
@@ -32,7 +32,7 @@ class TestPlaceAltNamesRoundTrip:
     @pytest.mark.asyncio
     async def test_create_place_with_alt_names(self):
         """alt_names strings on create are stored as PlaceName objects."""
-        result = await upsert_place_tool(
+        result = await UPSERT_HANDLERS["place"](
             {
                 "name": {"value": f"{TEST_PREFIX}Piedimonte Matese"},
                 "place_type": "City",
@@ -60,7 +60,7 @@ class TestPlaceAltNamesRoundTrip:
     @pytest.mark.asyncio
     async def test_update_place_alt_names_merges_by_default(self):
         """The default list_mode='merge' appends to stored alt_names (#82)."""
-        create_result = await upsert_place_tool(
+        create_result = await UPSERT_HANDLERS["place"](
             {
                 "name": {"value": f"{TEST_PREFIX}Napoli"},
                 "place_type": "City",
@@ -69,7 +69,7 @@ class TestPlaceAltNamesRoundTrip:
         )
         place_handle = extract_handle(create_result[0].text)
 
-        update_result = await upsert_place_tool(
+        update_result = await UPSERT_HANDLERS["place"](
             {
                 "handle": place_handle,
                 "alt_names": [f"{TEST_PREFIX}Parthenope"],
@@ -95,7 +95,7 @@ class TestPlaceAltNamesRoundTrip:
     @pytest.mark.asyncio
     async def test_update_place_alt_names_merge_is_idempotent(self):
         """Re-PUTting the same alt_name leaves a single stored entry (#82)."""
-        create_result = await upsert_place_tool(
+        create_result = await UPSERT_HANDLERS["place"](
             {
                 "name": {"value": f"{TEST_PREFIX}Napoli"},
                 "place_type": "City",
@@ -104,7 +104,7 @@ class TestPlaceAltNamesRoundTrip:
         )
         place_handle = extract_handle(create_result[0].text)
 
-        update_result = await upsert_place_tool(
+        update_result = await UPSERT_HANDLERS["place"](
             {
                 "handle": place_handle,
                 "alt_names": [f"{TEST_PREFIX}Neapolis"],
@@ -129,7 +129,7 @@ class TestPlaceAltNamesRoundTrip:
     @pytest.mark.asyncio
     async def test_update_place_alt_names_replace_mode_overwrites(self):
         """list_mode='replace' overwrites the stored alt_names (#82)."""
-        create_result = await upsert_place_tool(
+        create_result = await UPSERT_HANDLERS["place"](
             {
                 "name": {"value": f"{TEST_PREFIX}Napoli"},
                 "place_type": "City",
@@ -138,7 +138,7 @@ class TestPlaceAltNamesRoundTrip:
         )
         place_handle = extract_handle(create_result[0].text)
 
-        update_result = await upsert_place_tool(
+        update_result = await UPSERT_HANDLERS["place"](
             {
                 "handle": place_handle,
                 "alt_names": [f"{TEST_PREFIX}Parthenope"],

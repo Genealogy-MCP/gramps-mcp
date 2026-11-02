@@ -20,26 +20,8 @@ from typing import Any, Dict
 
 import pytest
 
-from src.gramps_mcp.tools import (
-    upsert_citation_tool,
-    upsert_event_tool,
-    upsert_family_tool,
-    upsert_media_tool,
-    upsert_note_tool,
-    upsert_person_tool,
-    upsert_place_tool,
-    upsert_repository_tool,
-    upsert_source_tool,
-)
-from src.gramps_mcp.tools.search_basic import (
-    search_citation_tool,
-    search_event_tool,
-    search_family_tool,
-    search_person_tool,
-    search_place_tool,
-    search_repository_tool,
-    search_source_tool,
-)
+from src.gramps_mcp.tools.search_basic import SEARCH_HANDLERS
+from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
 
 from .conftest import TEST_PREFIX
 
@@ -166,7 +148,7 @@ class TestCompleteWorkflow:
         print(f"Media created: {media_handle}")
 
         # Test Repository with all attributes
-        repository_result = await upsert_source_tool(
+        repository_result = await UPSERT_HANDLERS["source"](
             {
                 "title": f"{TEST_PREFIX}Repository for Comprehensive Testing",
                 "note_list": [note_handle],
@@ -184,7 +166,7 @@ class TestCompleteWorkflow:
         )
 
         # Test Source with all attributes
-        source_result = await upsert_source_tool(
+        source_result = await UPSERT_HANDLERS["source"](
             {
                 "title": f"{TEST_PREFIX}Source Document with All Attributes",
                 "reporef_list": [{"ref": workflow_data["test_repository_handle"]}],
@@ -237,7 +219,7 @@ class TestCompleteWorkflow:
         """Step 1: Repository Creation following usage guide."""
 
         # First: search for existing repository
-        find_result = await search_repository_tool(
+        find_result = await SEARCH_HANDLERS["repository"](
             {"gql": f'name ~ "{TEST_PREFIX}St Marys Church Boston"', "pagesize": 5}
         )
 
@@ -256,7 +238,7 @@ class TestCompleteWorkflow:
         if existing_handle:
             workflow_data["repository_handle"] = existing_handle
         else:
-            create_result = await upsert_repository_tool(
+            create_result = await UPSERT_HANDLERS["repository"](
                 {
                     "name": f"{TEST_PREFIX}St Marys Church Boston",
                     "type": "Church",
@@ -279,7 +261,7 @@ class TestCompleteWorkflow:
     async def _step_2_source_creation(self, workflow_data: Dict[str, Any]):
         """Step 2: Source Document Creation following usage guide."""
 
-        find_result = await search_source_tool(
+        find_result = await SEARCH_HANDLERS["source"](
             {
                 "gql": f'title ~ "{TEST_PREFIX}Marriage Register 1875-1880"',
                 "pagesize": 5,
@@ -301,7 +283,7 @@ class TestCompleteWorkflow:
         if existing_handle:
             workflow_data["source_handle"] = existing_handle
         else:
-            create_result = await upsert_source_tool(
+            create_result = await UPSERT_HANDLERS["source"](
                 {
                     "title": f"{TEST_PREFIX}Marriage Register 1875-1880",
                     "reporef_list": [{"ref": workflow_data["repository_handle"]}],
@@ -340,7 +322,7 @@ class TestCompleteWorkflow:
         )
         workflow_data["citation_media_handle"] = media_handle
 
-        find_result = await search_citation_tool(
+        find_result = await SEARCH_HANDLERS["citation"](
             {"gql": f'page ~ "Marriage of {TEST_PREFIX}John"', "pagesize": 5}
         )
 
@@ -356,7 +338,7 @@ class TestCompleteWorkflow:
         if existing_handle:
             workflow_data["citation_handle"] = existing_handle
         else:
-            create_result = await upsert_citation_tool(
+            create_result = await UPSERT_HANDLERS["citation"](
                 {
                     "source_handle": workflow_data["source_handle"],
                     "page": (
@@ -385,7 +367,7 @@ class TestCompleteWorkflow:
 
         await self._create_place_hierarchy(workflow_data)
 
-        find_result = await search_event_tool(
+        find_result = await SEARCH_HANDLERS["event"](
             {
                 "gql": (
                     f'description ~ "{TEST_PREFIX}Marriage ceremony"'
@@ -407,7 +389,7 @@ class TestCompleteWorkflow:
         if existing_handle:
             workflow_data["event_handle"] = existing_handle
         else:
-            create_result = await upsert_event_tool(
+            create_result = await UPSERT_HANDLERS["event"](
                 {
                     "type": "Marriage",
                     "date": {
@@ -462,7 +444,7 @@ class TestCompleteWorkflow:
     async def _step_6_family_creation(self, workflow_data: Dict[str, Any]):
         """Step 6: Family Unit Creation following usage guide."""
 
-        find_result = await search_family_tool(
+        find_result = await SEARCH_HANDLERS["family"](
             {
                 "gql": (
                     "father_handle.get_person.primary_name.first_name"
@@ -484,7 +466,7 @@ class TestCompleteWorkflow:
         if existing_handle:
             workflow_data["family_handle"] = existing_handle
         else:
-            create_result = await upsert_family_tool(
+            create_result = await UPSERT_HANDLERS["family"](
                 {
                     "father_handle": workflow_data["john_handle"],
                     "mother_handle": workflow_data["mary_handle"],
@@ -524,7 +506,7 @@ class TestCompleteWorkflow:
             {"year": int(birth_year) + 25, "type": "about", "quality": "estimated"},
         )
 
-        find_result = await search_person_tool(
+        find_result = await SEARCH_HANDLERS["person"](
             {
                 "gql": (
                     f'primary_name.first_name ~ "{given_name}"'
@@ -548,7 +530,7 @@ class TestCompleteWorkflow:
                     existing_handle = handle_match.group(1)
 
         if existing_handle:
-            await upsert_person_tool(
+            await UPSERT_HANDLERS["person"](
                 {
                     "handle": existing_handle,
                     "event_ref_list": [{"ref": event_handle, "role": event_role}],
@@ -556,7 +538,7 @@ class TestCompleteWorkflow:
             )
             return existing_handle
         else:
-            create_result = await upsert_person_tool(
+            create_result = await UPSERT_HANDLERS["person"](
                 {
                     "primary_name": {
                         "first_name": given_name,
@@ -622,7 +604,7 @@ class TestCompleteWorkflow:
     ) -> str:
         """Create or find a place following the workflow guidelines."""
 
-        find_result = await search_place_tool(
+        find_result = await SEARCH_HANDLERS["place"](
             {"gql": f'name.value ~ "{name}"', "pagesize": 5}
         )
 
@@ -656,7 +638,7 @@ class TestCompleteWorkflow:
             if enclosed_by_handle:
                 place_data["placeref_list"] = [{"ref": enclosed_by_handle}]
 
-            create_result = await upsert_place_tool(place_data)
+            create_result = await UPSERT_HANDLERS["place"](place_data)
 
             assert isinstance(create_result, list) and len(create_result) == 1
             create_text = create_result[0].text
@@ -670,7 +652,7 @@ class TestCompleteWorkflow:
     ) -> str:
         """Create a test note."""
 
-        create_result = await upsert_note_tool({"text": text, "type": note_type})
+        create_result = await UPSERT_HANDLERS["note"]({"text": text, "type": note_type})
 
         assert isinstance(create_result, list) and len(create_result) == 1
         create_text = create_result[0].text
@@ -688,7 +670,7 @@ class TestCompleteWorkflow:
     ) -> str:
         """Create a test media item."""
 
-        create_result = await upsert_media_tool(
+        create_result = await UPSERT_HANDLERS["media"](
             {
                 "file_location": file_path,
                 "desc": title,

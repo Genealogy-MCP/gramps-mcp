@@ -11,6 +11,7 @@ Provides clean, direct formatting of person data from handles.
 import logging
 
 from ..models.api_calls import ApiCalls
+from ..models.parameters.base_params import BaseGetSingleParams
 from .date_handler import format_date
 from .name_utils import join_surnames
 from .place_handler import format_place
@@ -36,7 +37,7 @@ async def format_person(client, tree_id: str, handle: str) -> str:
             ApiCalls.GET_PERSON,
             tree_id=tree_id,
             handle=handle,
-            params={"extend": "all"},
+            params=BaseGetSingleParams.model_validate({"extend": "all"}),
         )
         if not person_data:
             return f"• **Unknown Person** (Handle: {handle})\n  No data available\n\n"

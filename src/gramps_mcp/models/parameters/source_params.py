@@ -20,7 +20,6 @@ from .base_params import (
     AttributeListField,
     BaseDataModel,
     BaseGetMultipleParams,
-    BaseGetSingleParams,
     MediaListField,
     NoteListField,
 )
@@ -65,28 +64,6 @@ class SourceSearchParams(BaseGetMultipleParams):
                         f"Invalid sort key: {key}. Must be one of {SOURCE_SORT_KEYS}"
                     )
         return v
-
-    @field_validator("extend")
-    @classmethod
-    def validate_extend(cls, v):
-        if v is not None:
-            # Convert comma-separated string to list for validation
-            extend_list = [choice.strip() for choice in v.split(",")]
-            for choice in extend_list:
-                if choice not in SOURCE_EXTEND_CHOICES:
-                    raise ValueError(
-                        f"Invalid extend choice: {choice}. "
-                        f"Must be one of {SOURCE_EXTEND_CHOICES}"
-                    )
-        return v
-
-
-class SourceDetailsParams(BaseGetSingleParams):
-    """
-    Parameters for getting details of a specific source.
-
-    Used for GET /sources/{handle} endpoint.
-    """
 
     @field_validator("extend")
     @classmethod

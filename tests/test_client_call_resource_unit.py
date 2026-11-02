@@ -114,7 +114,9 @@ class TestCallResource:
                     )
                 else:
                     await client.make_api_call(
-                        ApiCalls.PUT_EVENT, params=params, handle="e1"
+                        ApiCalls.PUT_EVENT,
+                        params=EventSaveParams.model_validate(params),
+                        handle="e1",
                     )
             sent.append([(c.args, c.kwargs) for c in req.await_args_list])
         assert sent[0] == sent[1]

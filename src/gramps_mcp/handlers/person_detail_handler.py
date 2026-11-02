@@ -9,6 +9,8 @@ Person detail handler for Gramps MCP operations.
 import logging
 
 from ..models.api_calls import ApiCalls
+from ..models.parameters.base_params import BaseGetSingleParams
+from ..models.parameters.people_params import PersonTimelineParams
 from ..utils import gather_bounded
 from .date_handler import format_date
 from .name_utils import join_surnames
@@ -27,7 +29,10 @@ async def format_person_detail(client, tree_id: str, handle: str) -> str:
     """Format comprehensive person data with timeline and citations."""
     # Get person data
     person_data = await client.make_api_call(
-        ApiCalls.GET_PERSON, tree_id=tree_id, handle=handle, params={"extend": "all"}
+        ApiCalls.GET_PERSON,
+        tree_id=tree_id,
+        handle=handle,
+        params=BaseGetSingleParams.model_validate({"extend": "all"}),
     )
 
     # Get person timeline
@@ -35,7 +40,9 @@ async def format_person_detail(client, tree_id: str, handle: str) -> str:
         ApiCalls.GET_PERSON_TIMELINE,
         tree_id=tree_id,
         handle=handle,
-        params={"ratings": True},  # Include citation confidence
+        params=PersonTimelineParams.model_validate(
+            {"ratings": True}
+        ),  # Include citation confidence
     )
 
     result = "=== PERSON DETAILS ===\n"
@@ -124,7 +131,7 @@ async def format_person_detail(client, tree_id: str, handle: str) -> str:
                 ApiCalls.GET_FAMILY,
                 tree_id=tree_id,
                 handle=family_handle,
-                params={"extend": "all"},
+                params=BaseGetSingleParams.model_validate({"extend": "all"}),
             )
             extended = family_data.get("extended", {})
 
@@ -186,7 +193,7 @@ async def format_person_detail(client, tree_id: str, handle: str) -> str:
                 ApiCalls.GET_FAMILY,
                 tree_id=tree_id,
                 handle=family_handle,
-                params={"extend": "all"},
+                params=BaseGetSingleParams.model_validate({"extend": "all"}),
             )
             extended = family_data.get("extended", {})
 
@@ -374,7 +381,7 @@ async def _get_birth_death_dates(client, tree_id: str, person_data: dict) -> tup
             ApiCalls.GET_PERSON,
             tree_id=tree_id,
             handle=person_handle,
-            params={"extend": "all"},
+            params=BaseGetSingleParams.model_validate({"extend": "all"}),
         )
 
         extended = full_person_data.get("extended", {})

@@ -379,7 +379,7 @@ class TestFindTypeTool:
     @patch(_CLIENT_PATCH)
     @patch(_SETTINGS_PATCH, return_value=_mock_settings())
     async def test_person_dispatch(self, _settings, mock_client_cls):
-        """type=person dispatches to search_person_tool."""
+        """type=person dispatches to SEARCH_HANDLERS["person"]."""
         from src.gramps_mcp.tools.search_basic import search_tool
 
         client_inst = _mock_client_instance()
@@ -635,35 +635,35 @@ class TestGetTypeTool:
 
     @pytest.mark.asyncio
     async def test_event_dispatch(self):
-        """type=event dispatches via _GET_TOOL_DISPATCH."""
+        """type=event dispatches via GET_HANDLERS."""
         from src.gramps_mcp.tools import search_details
 
         mock_tool = AsyncMock(
             return_value=[TextContent(type="text", text="event details")]
         )
-        original = search_details._GET_TOOL_DISPATCH["event"]
-        search_details._GET_TOOL_DISPATCH["event"] = mock_tool
+        original = search_details.GET_HANDLERS["event"]
+        search_details.GET_HANDLERS["event"] = mock_tool
         try:
             await search_details.get_tool({"type": "event", "handle": "h1"})
             mock_tool.assert_awaited_once_with({"handle": "h1"})
         finally:
-            search_details._GET_TOOL_DISPATCH["event"] = original
+            search_details.GET_HANDLERS["event"] = original
 
     @pytest.mark.asyncio
     async def test_note_dispatch(self):
-        """type=note dispatches via _GET_TOOL_DISPATCH."""
+        """type=note dispatches via GET_HANDLERS."""
         from src.gramps_mcp.tools import search_details
 
         mock_tool = AsyncMock(
             return_value=[TextContent(type="text", text="note details")]
         )
-        original = search_details._GET_TOOL_DISPATCH["note"]
-        search_details._GET_TOOL_DISPATCH["note"] = mock_tool
+        original = search_details.GET_HANDLERS["note"]
+        search_details.GET_HANDLERS["note"] = mock_tool
         try:
             await search_details.get_tool({"type": "note", "handle": "h1"})
             mock_tool.assert_awaited_once_with({"handle": "h1"})
         finally:
-            search_details._GET_TOOL_DISPATCH["note"] = original
+            search_details.GET_HANDLERS["note"] = original
 
     @pytest.mark.asyncio
     @patch(
@@ -678,14 +678,14 @@ class TestGetTypeTool:
         mock_get = AsyncMock(
             return_value=[TextContent(type="text", text="event details")]
         )
-        original_get = search_details._GET_TOOL_DISPATCH["event"]
-        search_details._GET_TOOL_DISPATCH["event"] = mock_get
+        original_get = search_details.GET_HANDLERS["event"]
+        search_details.GET_HANDLERS["event"] = mock_get
         try:
             await search_details.get_tool({"type": "event", "gramps_id": "E0001"})
             mock_resolve.assert_awaited_once_with("event", "E0001")
             mock_get.assert_awaited_once_with({"handle": "resolved_handle"})
         finally:
-            search_details._GET_TOOL_DISPATCH["event"] = original_get
+            search_details.GET_HANDLERS["event"] = original_get
 
     @pytest.mark.asyncio
     @patch(
@@ -702,7 +702,7 @@ class TestGetTypeTool:
 
 
 # ============================================================================
-# Individual get_*_tool missing-handle branches (parametrized)
+# Per-entity get handler missing-handle branches (parametrized)
 # ============================================================================
 
 # ============================================================================
@@ -1028,35 +1028,35 @@ class TestSearchToolDescription:
 
 
 # ============================================================================
-# Individual get_*_tool missing-handle branches (parametrized)
+# Per-entity get handler missing-handle branches (parametrized)
 # ============================================================================
 
 _GET_TOOL_MISSING_HANDLE_CASES = [
-    ("get_event_tool", "event details"),
-    ("get_place_tool", "place details"),
-    ("get_source_tool", "source details"),
-    ("get_citation_tool", "citation details"),
-    ("get_note_tool", "note details"),
-    ("get_media_tool", "media details"),
-    ("get_repository_tool", "repository details"),
-    ("get_person_tool", "person details"),
-    ("get_family_tool", "family details"),
+    (lambda mod: mod.GET_HANDLERS["event"], "event details"),
+    (lambda mod: mod.GET_HANDLERS["place"], "place details"),
+    (lambda mod: mod.GET_HANDLERS["source"], "source details"),
+    (lambda mod: mod.GET_HANDLERS["citation"], "citation details"),
+    (lambda mod: mod.GET_HANDLERS["note"], "note details"),
+    (lambda mod: mod.GET_HANDLERS["media"], "media details"),
+    (lambda mod: mod.GET_HANDLERS["repository"], "repository details"),
+    (lambda mod: mod.get_person_tool, "person details"),
+    (lambda mod: mod.get_family_tool, "family details"),
 ]
 
 
 class TestGetToolsMissingHandle:
-    """Test that get_*_tool functions raise on missing handle."""
+    """Test that every per-entity get handler raises on missing handle."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("tool_name, match_text", _GET_TOOL_MISSING_HANDLE_CASES)
+    @pytest.mark.parametrize("pick_tool, match_text", _GET_TOOL_MISSING_HANDLE_CASES)
     @patch(
         "src.gramps_mcp.tools.search_basic.GrampsWebAPIClient",
         side_effect=lambda: AsyncMock(close=AsyncMock()),
     )
-    async def test_missing_handle_raises(self, _, tool_name, match_text):
+    async def test_missing_handle_raises(self, _, pick_tool, match_text):
         import src.gramps_mcp.tools.search_details as mod
 
-        tool_func = getattr(mod, tool_name)
+        tool_func = pick_tool(mod)
         with pytest.raises(McpToolError, match=match_text):
             await tool_func({})
 
@@ -1097,8 +1097,8 @@ class TestGetToolNativeGrampsIdFilter:
         mock_get = AsyncMock(
             return_value=[TextContent(type="text", text="note details")]
         )
-        original_get = search_details._GET_TOOL_DISPATCH["note"]
-        search_details._GET_TOOL_DISPATCH["note"] = mock_get
+        original_get = search_details.GET_HANDLERS["note"]
+        search_details.GET_HANDLERS["note"] = mock_get
         try:
             with patch(
                 "src.gramps_mcp.tools._resolve.GrampsWebAPIClient"
@@ -1113,7 +1113,7 @@ class TestGetToolNativeGrampsIdFilter:
                     {"type": "note", "gramps_id": "N0001"}
                 )
         finally:
-            search_details._GET_TOOL_DISPATCH["note"] = original_get
+            search_details.GET_HANDLERS["note"] = original_get
 
         params = client.make_api_call.await_args.kwargs["params"]
         assert params.gramps_id == "N0001"
@@ -1191,8 +1191,8 @@ class TestResolveGrampsId:
         mock_get = AsyncMock(
             return_value=[TextContent(type="text", text="note details")]
         )
-        original_get = search_details._GET_TOOL_DISPATCH["note"]
-        search_details._GET_TOOL_DISPATCH["note"] = mock_get
+        original_get = search_details.GET_HANDLERS["note"]
+        search_details.GET_HANDLERS["note"] = mock_get
         try:
             with patch(
                 "src.gramps_mcp.tools._resolve.GrampsWebAPIClient"
@@ -1213,7 +1213,7 @@ class TestResolveGrampsId:
                     {"type": "note", "gramps_id": "N0042"}
                 )
         finally:
-            search_details._GET_TOOL_DISPATCH["note"] = original_get
+            search_details.GET_HANDLERS["note"] = original_get
 
         mock_get.assert_awaited_once_with({"handle": "h_empty_note"})
         assert result[0].text == "note details"
@@ -1237,14 +1237,14 @@ class TestGetToolEmptyResponseStub:
         from src.gramps_mcp.tools import search_details
 
         mock_get = AsyncMock(return_value=[TextContent(type="text", text=empty_text)])
-        original_get = search_details._GET_TOOL_DISPATCH["note"]
-        search_details._GET_TOOL_DISPATCH["note"] = mock_get
+        original_get = search_details.GET_HANDLERS["note"]
+        search_details.GET_HANDLERS["note"] = mock_get
         try:
             result = await search_details.get_tool(
                 {"type": "note", "handle": "h_blank"}
             )
         finally:
-            search_details._GET_TOOL_DISPATCH["note"] = original_get
+            search_details.GET_HANDLERS["note"] = original_get
 
         assert "note" in result[0].text
         assert "h_blank" in result[0].text
@@ -1255,14 +1255,14 @@ class TestGetToolEmptyResponseStub:
         from src.gramps_mcp.tools import search_details
 
         mock_get = AsyncMock(return_value=[])
-        original_get = search_details._GET_TOOL_DISPATCH["place"]
-        search_details._GET_TOOL_DISPATCH["place"] = mock_get
+        original_get = search_details.GET_HANDLERS["place"]
+        search_details.GET_HANDLERS["place"] = mock_get
         try:
             result = await search_details.get_tool(
                 {"type": "place", "handle": "h_blank"}
             )
         finally:
-            search_details._GET_TOOL_DISPATCH["place"] = original_get
+            search_details.GET_HANDLERS["place"] = original_get
 
         assert "h_blank" in result[0].text
 
@@ -1288,14 +1288,14 @@ class TestGetToolEmptyResponseStub:
         from src.gramps_mcp.tools import search_details
 
         mock_get = AsyncMock(return_value=[TextContent(type="text", text="")])
-        original_get = search_details._GET_TOOL_DISPATCH["note"]
-        search_details._GET_TOOL_DISPATCH["note"] = mock_get
+        original_get = search_details.GET_HANDLERS["note"]
+        search_details.GET_HANDLERS["note"] = mock_get
         try:
             result = await search_details.get_tool(
                 {"type": "note", "handle": "h_bogus"}
             )
         finally:
-            search_details._GET_TOOL_DISPATCH["note"] = original_get
+            search_details.GET_HANDLERS["note"] = original_get
 
         assert "exists but" not in result[0].text
         assert "does not exist" in result[0].text
@@ -1307,11 +1307,11 @@ class TestGetToolEmptyResponseStub:
         mock_get = AsyncMock(
             return_value=[TextContent(type="text", text="real content")]
         )
-        original_get = search_details._GET_TOOL_DISPATCH["note"]
-        search_details._GET_TOOL_DISPATCH["note"] = mock_get
+        original_get = search_details.GET_HANDLERS["note"]
+        search_details.GET_HANDLERS["note"] = mock_get
         try:
             result = await search_details.get_tool({"type": "note", "handle": "h1"})
         finally:
-            search_details._GET_TOOL_DISPATCH["note"] = original_get
+            search_details.GET_HANDLERS["note"] = original_get
 
         assert result[0].text == "real content"

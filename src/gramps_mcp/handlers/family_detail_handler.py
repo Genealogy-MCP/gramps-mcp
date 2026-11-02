@@ -9,6 +9,7 @@ Family detail handler for Gramps MCP operations.
 import logging
 
 from ..models.api_calls import ApiCalls
+from ..models.parameters.base_params import BaseGetSingleParams
 from ..utils import gather_bounded
 from .date_handler import format_date
 from .name_utils import join_surnames
@@ -26,7 +27,10 @@ async def format_family_detail(client, tree_id: str, handle: str) -> str:
     """Format comprehensive family data with timeline and citations."""
     # Get family data
     family_data = await client.make_api_call(
-        ApiCalls.GET_FAMILY, tree_id=tree_id, handle=handle, params={"extend": "all"}
+        ApiCalls.GET_FAMILY,
+        tree_id=tree_id,
+        handle=handle,
+        params=BaseGetSingleParams.model_validate({"extend": "all"}),
     )
 
     # Get family timeline
@@ -250,7 +254,7 @@ async def _get_birth_death_dates(client, tree_id: str, person_data: dict) -> tup
             ApiCalls.GET_PERSON,
             tree_id=tree_id,
             handle=person_handle,
-            params={"extend": "all"},
+            params=BaseGetSingleParams.model_validate({"extend": "all"}),
         )
 
         extended = full_person_data.get("extended", {})

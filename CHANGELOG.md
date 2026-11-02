@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.0] - 2026-11-02
+
+### Changed
+
+- `make_api_call` takes an already parsed params model or `None`; the dict path that looked up a model per endpoint is gone. Every caller now passes a model, so the query and body sent to the API are unchanged (#104)
+- Per-entity handlers are reached through `SEARCH_HANDLERS` (`tools/search_basic.py`), `GET_HANDLERS` (`tools/search_details.py`) and `UPSERT_HANDLERS` (`tools/upsert_table.py`). Operation names, the count of 22 and parameters are unchanged (#104)
+
+### Removed
+
+- `models/api_mapping.py`, the endpoint-to-params map, and the parameter modules for endpoints no operation calls: facts, holidays, living, DNA-match parser, relations, timelines and types (#104)
+- Unused params classes (event span, family timeline, media file, single note/place/source/repository, DNA matches, report info, transaction by id) and the `ApiCalls` members for endpoints no operation calls. The typed-enum map and custom-type lookups behind the GQL rewrite stay (#104)
+- The S2-S4 compatibility aliases: the `search_*_tool`, `get_*_tool` (except person and family) and `upsert_*_tool` names, and the re-exports from `gramps_mcp.tools` and `gramps_mcp.models` (#104)
+
 ## [3.14.2] - 2026-11-02
 
 ### Changed

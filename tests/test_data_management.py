@@ -16,22 +16,11 @@ import pytest
 
 from src.gramps_mcp.client import GrampsWebAPIClient
 from src.gramps_mcp.models.api_calls import ApiCalls
-from src.gramps_mcp.tools import (
-    delete_tool,
-    download_media_tool,
-    upsert_citation_tool,
-    upsert_event_tool,
-    upsert_family_tool,
-    upsert_media_tool,
-    upsert_note_tool,
-    upsert_person_tool,
-    upsert_place_tool,
-    upsert_repository_tool,
-    upsert_source_tool,
-    upsert_tag_tool,
-)
 from src.gramps_mcp.tools._errors import McpToolError
+from src.gramps_mcp.tools.data_management_delete import delete_tool
+from src.gramps_mcp.tools.data_management_media import download_media_tool
 from src.gramps_mcp.tools.search_basic import list_tags_tool
+from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
 
 from .conftest import TEST_PREFIX, extract_handle
 
@@ -52,14 +41,14 @@ test_person_handles = []
 
 
 class TestCreateNoteTool:
-    """Test upsert_note_tool functionality - First in workflow."""
+    """Test UPSERT_HANDLERS["note"] functionality - First in workflow."""
 
     @pytest.mark.asyncio
     async def test_create_note_success(self):
         """Test successful note creation with proper text structure and type."""
         global test_note_handle
 
-        result = await upsert_note_tool(
+        result = await UPSERT_HANDLERS["note"](
             {
                 "text": f"{TEST_PREFIX}research note about family history.",
                 "type": "Research",
@@ -81,7 +70,7 @@ class TestCreateNoteTool:
 
 
 class TestCreateMediaToolValidation:
-    """Integration tests for upsert_media_tool that require API access.
+    """Integration tests for UPSERT_HANDLERS["media"] that require API access.
 
     Validation-only tests (no file_location, nonexistent file) live in
     test_data_management_unit.py::TestUpsertMediaTool.
@@ -93,7 +82,7 @@ class TestCreateMediaToolValidation:
         global test_media_handle
 
         # First create a media record to get a handle
-        create_result = await upsert_media_tool(
+        create_result = await UPSERT_HANDLERS["media"](
             {
                 "file_location": "tests/sample/33SQ-GP8N-NLK.jpg",
                 "desc": f"{TEST_PREFIX}Validation update test",
@@ -104,7 +93,7 @@ class TestCreateMediaToolValidation:
         handle = extract_handle(create_text)
 
         # Now update with only desc — no file_location
-        update_result = await upsert_media_tool(
+        update_result = await UPSERT_HANDLERS["media"](
             {"handle": handle, "desc": f"{TEST_PREFIX}Validation update test (updated)"}
         )
         update_text = update_result[0].text
@@ -113,14 +102,14 @@ class TestCreateMediaToolValidation:
 
 
 class TestCreateMediaTool:
-    """Test upsert_media_tool functionality - Second in workflow."""
+    """Test UPSERT_HANDLERS["media"] functionality - Second in workflow."""
 
     @pytest.mark.asyncio
     async def test_create_media_success(self):
         """Test successful media creation with actual file upload."""
         global test_media_handle
 
-        result = await upsert_media_tool(
+        result = await UPSERT_HANDLERS["media"](
             {
                 "file_location": "tests/sample/33SQ-GP8N-NLK.jpg",
                 "desc": f"{TEST_PREFIX}Birth register page",
@@ -180,7 +169,7 @@ class TestDownloadMediaTool:
 
 
 class TestCreateRepositoryTool:
-    """Test upsert_repository_tool functionality - Third in workflow."""
+    """Test UPSERT_HANDLERS["repository"] functionality - Third in workflow."""
 
     @pytest.mark.asyncio
     async def test_create_repository_success(self):
@@ -192,7 +181,7 @@ class TestCreateRepositoryTool:
                 "No note handle available from previous test - run tests in order"
             )
 
-        result = await upsert_repository_tool(
+        result = await UPSERT_HANDLERS["repository"](
             {
                 "name": f"{TEST_PREFIX}National Archives Boston",
                 "type": "Archive",
@@ -237,7 +226,7 @@ class TestCreateRepositoryTool:
 
 
 class TestCreateSourceTool:
-    """Test upsert_source_tool functionality - Fourth in workflow."""
+    """Test UPSERT_HANDLERS["source"] functionality - Fourth in workflow."""
 
     @pytest.mark.asyncio
     async def test_create_source_success(self):
@@ -253,7 +242,7 @@ class TestCreateSourceTool:
                 "No repository handle available from previous test - run tests in order"
             )
 
-        result = await upsert_source_tool(
+        result = await UPSERT_HANDLERS["source"](
             {
                 "title": f"{TEST_PREFIX}Birth Register 1850-1860",
                 "reporef_list": [{"ref": test_repository_handle}],
@@ -286,7 +275,7 @@ class TestCreateSourceTool:
 
 
 class TestCreateCitationTool:
-    """Test upsert_citation_tool functionality - Fifth in workflow."""
+    """Test UPSERT_HANDLERS["citation"] functionality - Fifth in workflow."""
 
     @pytest.mark.asyncio
     async def test_create_citation_success(self):
@@ -302,7 +291,7 @@ class TestCreateCitationTool:
                 "No source handle available from previous test - run tests in order"
             )
 
-        result = await upsert_citation_tool(
+        result = await UPSERT_HANDLERS["citation"](
             {
                 "source_handle": test_source_handle,
                 "page": f"{TEST_PREFIX}Page 45, Entry 23",
@@ -336,7 +325,7 @@ class TestCreateCitationTool:
 
 
 class TestCreatePlaceTool:
-    """Test upsert_place_tool functionality - Sixth in workflow."""
+    """Test UPSERT_HANDLERS["place"] functionality - Sixth in workflow."""
 
     @pytest.mark.asyncio
     async def test_create_place_success(self):
@@ -344,14 +333,14 @@ class TestCreatePlaceTool:
         global test_place_handle
 
         # First create country (top level)
-        country_result = await upsert_place_tool(
+        country_result = await UPSERT_HANDLERS["place"](
             {"name": {"value": f"{TEST_PREFIX}United States"}, "place_type": "Country"}
         )
 
         country_handle = extract_handle(country_result[0].text)
 
         # Create state enclosed by country
-        state_result = await upsert_place_tool(
+        state_result = await UPSERT_HANDLERS["place"](
             {
                 "name": {"value": f"{TEST_PREFIX}Massachusetts"},
                 "place_type": "State",
@@ -362,7 +351,7 @@ class TestCreatePlaceTool:
         state_handle = extract_handle(state_result[0].text)
 
         # Create city enclosed by state
-        result = await upsert_place_tool(
+        result = await UPSERT_HANDLERS["place"](
             {
                 "name": {"value": f"{TEST_PREFIX}Boston"},
                 "place_type": "City",
@@ -404,7 +393,7 @@ class TestCreatePlaceTool:
 
 
 class TestCreateEventTool:
-    """Test upsert_event_tool functionality - Seventh in workflow."""
+    """Test UPSERT_HANDLERS["event"] functionality - Seventh in workflow."""
 
     @pytest.mark.asyncio
     async def test_create_event_success(self):
@@ -416,7 +405,7 @@ class TestCreateEventTool:
                 "No citation handle available from previous test - run tests in order"
             )
 
-        result = await upsert_event_tool(
+        result = await UPSERT_HANDLERS["event"](
             {
                 "type": "Birth",
                 "description": f"{TEST_PREFIX}Birth event",
@@ -446,7 +435,7 @@ class TestCreateEventTool:
 
 
 class TestCreatePersonTool:
-    """Test upsert_person_tool functionality - Eighth in workflow."""
+    """Test UPSERT_HANDLERS["person"] functionality - Eighth in workflow."""
 
     @pytest.mark.asyncio
     async def test_create_person_success(self):
@@ -457,7 +446,7 @@ class TestCreatePersonTool:
             test_media_handle, \
             test_note_handle
 
-        result = await upsert_person_tool(
+        result = await UPSERT_HANDLERS["person"](
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}John",
@@ -511,7 +500,7 @@ class TestCreatePersonTool:
     async def test_update_person_with_event_reference(self):
         """Test updating an existing person with a new event reference - Issue #9."""
         # Step 1: Create a standalone test person
-        person_result = await upsert_person_tool(
+        person_result = await UPSERT_HANDLERS["person"](
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}Update",
@@ -526,25 +515,25 @@ class TestCreatePersonTool:
         person_handle = extract_handle(person_result[0].text)
 
         # Step 2: Create a simple note for our citation
-        note_result = await upsert_note_tool(
+        note_result = await UPSERT_HANDLERS["note"](
             {"text": f"{TEST_PREFIX}note for Issue #9 update test", "type": "General"}
         )
         extract_handle(note_result[0].text)
 
         # Step 3: Create a simple source
-        source_result = await upsert_source_tool(
+        source_result = await UPSERT_HANDLERS["source"](
             {"title": f"{TEST_PREFIX}Source for Issue 9"}
         )
         source_handle = extract_handle(source_result[0].text)
 
         # Step 4: Create a citation
-        citation_result = await upsert_citation_tool(
+        citation_result = await UPSERT_HANDLERS["citation"](
             {"source_handle": source_handle, "page": f"{TEST_PREFIX}Test Page"}
         )
         citation_handle = extract_handle(citation_result[0].text)
 
         # Step 5: Create first event (Birth)
-        birth_event_result = await upsert_event_tool(
+        birth_event_result = await UPSERT_HANDLERS["event"](
             {
                 "type": "Birth",
                 "description": f"{TEST_PREFIX}Birth event",
@@ -556,7 +545,7 @@ class TestCreatePersonTool:
         birth_event_handle = extract_handle(birth_event_result[0].text)
 
         # Step 6: Update person with first event
-        await upsert_person_tool(
+        await UPSERT_HANDLERS["person"](
             {
                 "handle": person_handle,
                 "primary_name": {
@@ -571,7 +560,7 @@ class TestCreatePersonTool:
         )
 
         # Step 7: Create second event (Death)
-        death_event_result = await upsert_event_tool(
+        death_event_result = await UPSERT_HANDLERS["event"](
             {
                 "type": "Death",
                 "description": f"{TEST_PREFIX}Death event",
@@ -583,7 +572,7 @@ class TestCreatePersonTool:
         death_event_handle = extract_handle(death_event_result[0].text)
 
         # Step 8: Update person with BOTH events (issue #9 scenario)
-        update_result = await upsert_person_tool(
+        update_result = await UPSERT_HANDLERS["person"](
             {
                 "handle": person_handle,
                 "primary_name": {
@@ -615,7 +604,7 @@ class TestCreatePersonTool:
         """Test creation of second person for family test."""
         global test_person_handles, test_media_handle, test_note_handle
 
-        result = await upsert_person_tool(
+        result = await UPSERT_HANDLERS["person"](
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}Mary",
@@ -660,7 +649,7 @@ class TestCreatePersonTool:
 
 
 class TestCreateFamilyTool:
-    """Test upsert_family_tool functionality - Last in workflow."""
+    """Test UPSERT_HANDLERS["family"] functionality - Last in workflow."""
 
     @pytest.mark.asyncio
     async def test_create_family_success(self):
@@ -676,7 +665,7 @@ class TestCreateFamilyTool:
         father_handle = test_person_handles[0]
         mother_handle = test_person_handles[1]
 
-        result = await upsert_family_tool(
+        result = await UPSERT_HANDLERS["family"](
             {
                 "father_handle": father_handle,
                 "mother_handle": mother_handle,
@@ -706,27 +695,29 @@ class TestListModeReplace:
     async def test_replace_note_list_on_event(self):
         """Test that list_mode='replace' overwrites note_list instead of merging."""
         # Create two notes
-        note1_result = await upsert_note_tool(
+        note1_result = await UPSERT_HANDLERS["note"](
             {"text": f"{TEST_PREFIX}First note for list_mode test", "type": "General"}
         )
         note1_handle = extract_handle(note1_result[0].text)
 
-        note2_result = await upsert_note_tool(
+        note2_result = await UPSERT_HANDLERS["note"](
             {"text": f"{TEST_PREFIX}Second note for list_mode test", "type": "General"}
         )
         note2_handle = extract_handle(note2_result[0].text)
 
         # Create a source and citation for the event (required)
-        source_result = await upsert_source_tool(
+        source_result = await UPSERT_HANDLERS["source"](
             {"title": f"{TEST_PREFIX}Source for list_mode test"}
         )
         source_handle = extract_handle(source_result[0].text)
 
-        citation_result = await upsert_citation_tool({"source_handle": source_handle})
+        citation_result = await UPSERT_HANDLERS["citation"](
+            {"source_handle": source_handle}
+        )
         citation_handle = extract_handle(citation_result[0].text)
 
         # Create event with first note
-        event_result = await upsert_event_tool(
+        event_result = await UPSERT_HANDLERS["event"](
             {
                 "type": "Birth",
                 "description": f"{TEST_PREFIX}Birth event for list_mode test",
@@ -739,7 +730,7 @@ class TestListModeReplace:
         event_handle = extract_handle(event_text)
 
         # Update event with second note only, using list_mode='replace'
-        replace_result = await upsert_event_tool(
+        replace_result = await UPSERT_HANDLERS["event"](
             {
                 "handle": event_handle,
                 "type": "Birth",
@@ -782,7 +773,7 @@ class TestPersonAssociations:
     """Integration tests for person_ref_list associations (issue #40)."""
 
     async def _create_person(self, first: str, surname: str) -> str:
-        result = await upsert_person_tool(
+        result = await UPSERT_HANDLERS["person"](
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}{first}",
@@ -815,7 +806,7 @@ class TestPersonAssociations:
     async def test_create_person_with_association(self):
         cousin = await self._create_person("Cousin", "Assoc")
 
-        result = await upsert_person_tool(
+        result = await UPSERT_HANDLERS["person"](
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}Main",
@@ -838,7 +829,7 @@ class TestPersonAssociations:
         cousin = await self._create_person("MergeCousin", "Assoc")
         godparent = await self._create_person("MergeGod", "Assoc")
 
-        create = await upsert_person_tool(
+        create = await UPSERT_HANDLERS["person"](
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}MergeMain",
@@ -850,7 +841,7 @@ class TestPersonAssociations:
         )
         main = extract_handle(create[0].text)
 
-        await upsert_person_tool(
+        await UPSERT_HANDLERS["person"](
             {
                 "handle": main,
                 "person_ref_list": [{"ref": godparent, "rel": "Godparent"}],
@@ -865,7 +856,7 @@ class TestPersonAssociations:
         cousin = await self._create_person("ReplCousin", "Assoc")
         godparent = await self._create_person("ReplGod", "Assoc")
 
-        create = await upsert_person_tool(
+        create = await UPSERT_HANDLERS["person"](
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}ReplMain",
@@ -877,7 +868,7 @@ class TestPersonAssociations:
         )
         main = extract_handle(create[0].text)
 
-        await upsert_person_tool(
+        await UPSERT_HANDLERS["person"](
             {
                 "handle": main,
                 "person_ref_list": [{"ref": godparent, "rel": "Godparent"}],
@@ -896,7 +887,7 @@ class TestDeleteTypeTool:
     async def test_delete_note_success(self):
         """Test creating and then deleting a note."""
         # Create a disposable note
-        create_result = await upsert_note_tool(
+        create_result = await UPSERT_HANDLERS["note"](
             {"text": f"{TEST_PREFIX}Temporary note for delete test", "type": "General"}
         )
         text = create_result[0].text
@@ -962,7 +953,7 @@ class TestDeleteTagKeepsTree:
         people_before = await self._count_people()
         assert people_before > 0, "Tree must be seeded before this test"
 
-        result = await upsert_tag_tool(
+        result = await UPSERT_HANDLERS["tag"](
             {"name": f"{TEST_PREFIX}DeleteRegression", "color": "#123456"}
         )
         tag_handle = extract_handle(result[0].text)
@@ -988,12 +979,12 @@ class TestDeleteTagKeepsTree:
 
 
 class TestCreateTagTool:
-    """Test upsert_tag_tool and list_tags_tool functionality."""
+    """Test UPSERT_HANDLERS["tag"] and list_tags_tool functionality."""
 
     @pytest.mark.asyncio
     async def test_create_tag_success(self):
         """Test successful tag creation with name and color."""
-        result = await upsert_tag_tool(
+        result = await UPSERT_HANDLERS["tag"](
             {"name": f"{TEST_PREFIX}Tag", "color": "#FF5733", "priority": 5}
         )
 
@@ -1008,7 +999,7 @@ class TestCreateTagTool:
 
         # Reason: PUT /tags/{handle} works on grampsweb 26.6.1 (#97), so a
         # handle must update the tag in place and the rename must persist.
-        update_result = await upsert_tag_tool(
+        update_result = await UPSERT_HANDLERS["tag"](
             {
                 "handle": tag_handle,
                 "name": f"{TEST_PREFIX}Tag Updated",
@@ -1030,7 +1021,9 @@ class TestCreateTagTool:
         assert stored["priority"] == 5
 
         # Reason: a color-only update must keep the stored name (#97).
-        recolor = await upsert_tag_tool({"handle": tag_handle, "color": "#123456"})
+        recolor = await UPSERT_HANDLERS["tag"](
+            {"handle": tag_handle, "color": "#123456"}
+        )
         assert "Successfully updated tag" in recolor[0].text
         client = GrampsWebAPIClient()
         try:

@@ -17,6 +17,7 @@ from src.gramps_mcp.client import GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.handlers.person_detail_handler import format_person_detail
 from src.gramps_mcp.models.api_calls import ApiCalls
+from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
 
 load_dotenv()
 
@@ -49,11 +50,13 @@ async def test_timeline_render_is_order_stable_across_calls():
         candidates = await client.make_api_call(
             ApiCalls.GET_PEOPLE,
             tree_id=tree_id,
-            params={
-                "gql": "event_ref_list.length >= 4",
-                "pagesize": 1,
-                "keys": "handle",
-            },
+            params=BaseGetMultipleParams.model_validate(
+                {
+                    "gql": "event_ref_list.length >= 4",
+                    "pagesize": 1,
+                    "keys": "handle",
+                }
+            ),
         )
         if not candidates:
             pytest.skip("Seed tree has no person with >= 4 events")

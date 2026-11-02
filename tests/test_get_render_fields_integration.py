@@ -12,13 +12,8 @@ get, so these tests also cover the write path end to end.
 
 import pytest
 
-from src.gramps_mcp.tools import (
-    upsert_citation_tool,
-    upsert_note_tool,
-    upsert_source_tool,
-    upsert_tag_tool,
-)
 from src.gramps_mcp.tools.search_details import get_tool
+from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
 
 from .conftest import TEST_PREFIX, extract_handle
 
@@ -30,19 +25,19 @@ class TestGetRendersCitationFields:
 
     @pytest.mark.asyncio
     async def test_citation_confidence_and_tags_rendered(self):
-        source_result = await upsert_source_tool(
+        source_result = await UPSERT_HANDLERS["source"](
             {"title": f"{TEST_PREFIX}Confidence Source"}
         )
         source_handle = extract_handle(source_result[0].text)
 
-        tag_a = await upsert_tag_tool({"name": f"{TEST_PREFIX}TagA"})
-        tag_b = await upsert_tag_tool({"name": f"{TEST_PREFIX}TagB"})
+        tag_a = await UPSERT_HANDLERS["tag"]({"name": f"{TEST_PREFIX}TagA"})
+        tag_b = await UPSERT_HANDLERS["tag"]({"name": f"{TEST_PREFIX}TagB"})
         tag_handles = [
             extract_handle(tag_a[0].text),
             extract_handle(tag_b[0].text),
         ]
 
-        citation_result = await upsert_citation_tool(
+        citation_result = await UPSERT_HANDLERS["citation"](
             {
                 "source_handle": source_handle,
                 "page": f"{TEST_PREFIX}Page 1",
@@ -64,7 +59,7 @@ class TestGetRendersNoteFormat:
 
     @pytest.mark.asyncio
     async def test_note_preformatted_format_rendered(self):
-        note_result = await upsert_note_tool(
+        note_result = await UPSERT_HANDLERS["note"](
             {
                 "text": f"{TEST_PREFIX}formatted note body",
                 "type": "Research",
@@ -83,12 +78,12 @@ class TestUpsertWritesConfidenceAndFormat:
 
     @pytest.mark.asyncio
     async def test_citation_confidence_updated(self):
-        source_result = await upsert_source_tool(
+        source_result = await UPSERT_HANDLERS["source"](
             {"title": f"{TEST_PREFIX}Confidence Update Source"}
         )
         source_handle = extract_handle(source_result[0].text)
 
-        citation_result = await upsert_citation_tool(
+        citation_result = await UPSERT_HANDLERS["citation"](
             {
                 "source_handle": source_handle,
                 "page": f"{TEST_PREFIX}Page 2",
@@ -97,7 +92,7 @@ class TestUpsertWritesConfidenceAndFormat:
         )
         citation_handle = extract_handle(citation_result[0].text)
 
-        await upsert_citation_tool({"handle": citation_handle, "confidence": 4})
+        await UPSERT_HANDLERS["citation"]({"handle": citation_handle, "confidence": 4})
 
         result = await get_tool({"type": "citation", "handle": citation_handle})
         text = result[0].text
@@ -105,7 +100,7 @@ class TestUpsertWritesConfidenceAndFormat:
 
     @pytest.mark.asyncio
     async def test_note_format_updated(self):
-        note_result = await upsert_note_tool(
+        note_result = await UPSERT_HANDLERS["note"](
             {
                 "text": f"{TEST_PREFIX}format update body",
                 "type": "Research",
@@ -114,7 +109,7 @@ class TestUpsertWritesConfidenceAndFormat:
         )
         note_handle = extract_handle(note_result[0].text)
 
-        await upsert_note_tool({"handle": note_handle, "format": 1})
+        await UPSERT_HANDLERS["note"]({"handle": note_handle, "format": 1})
 
         result = await get_tool({"type": "note", "handle": note_handle})
         text = result[0].text

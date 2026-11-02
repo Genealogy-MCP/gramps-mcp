@@ -273,14 +273,13 @@ src/gramps_mcp/
 |-- client.py           # Gramps Web API client
 |-- auth.py             # JWT authentication
 |-- config.py           # Configuration management
-|-- tools/              # Tool implementations
-|   |-- meta_search.py     # 'search' meta-tool (operation discovery)
-|   |-- meta_execute.py    # 'execute' meta-tool (operation dispatch)
+|-- tools/              # Operation handlers ('search'/'execute' meta-tools come from mcp-codemode)
 |   |-- search_basic.py    # GQL search + text search handlers
 |   |-- search_details.py  # Entity detail handlers
 |   |-- upsert_table.py    # Generic upsert (all ten entities)
 |   |-- data_management_delete.py # Delete handler
 |   |-- data_management_media.py  # Media download handler
+|   |-- backups.py         # Backup handlers
 |   `-- analysis.py        # Tree analysis handlers
 |-- handlers/           # Data formatting handlers
 `-- models/             # Pydantic data models

@@ -2,7 +2,7 @@
 
 ## How to Use This Server
 
-This server exposes 2 MCP tools that provide access to 19 genealogy operations:
+This server exposes 2 MCP tools that provide access to 22 genealogy operations:
 
 1. **`search`** - Discover available operations: `search(query="find people")`
 2. **`execute`** - Run an operation: `execute(operation="search", params={...})`
@@ -37,7 +37,7 @@ When you have a source document, start with the repository (archive, library, co
 - **Note** (optional): If present, use `upsert_note` tool first, then link to repository
 
 **Process:**
-- **First**: Use `search_repository` to search for existing repository
+- **First**: Use `search` (type `repository`) to search for existing repository
 - **If found and complete**: Use existing repository as-is
 - **If found but missing info**: Use `upsert_repository` with existing handle to update repository
 - **If not found**: Use `upsert_repository` without handle to create new repository
@@ -54,7 +54,7 @@ Create the actual source document within the repository:
 - **Note** (optional): If present, use `upsert_note` tool first, then link to source
 
 **Process:**
-- **First**: Use `search_source` to search for existing source document
+- **First**: Use `search` (type `source`) to search for existing source document
 - **If found and complete**: Use existing source as-is
 - **If found but missing info**: Use `upsert_source` with existing handle to update source
 - **If not found**: Use `upsert_source` without handle to create new source
@@ -70,7 +70,7 @@ Create a citation that references the specific page/entry in the source:
 - **Notes** (optional): If present, use `upsert_note` tool first, then link to citation
 
 **Process:**
-- **First**: Use `search_citation` to search for existing citation
+- **First**: Use `search` (type `citation`) to search for existing citation
 - **If found and complete**: Use existing citation as-is
 - **If found but missing info**: Use `upsert_citation` with existing handle to update citation
 - **If not found**: Use `upsert_citation` without handle to create new citation
@@ -83,10 +83,10 @@ Now create the life event that was documented in that citation:
 - **Citation** (required): Handle of the citation created in step 3
 - **Date** (optional): Date when the event occurred
 - **Description** (optional): Additional details about the event
-- **Place** (optional): If present, use `search_place` first, then `upsert_place` if not found
+- **Place** (optional): If present, use `search` (type `place`) first, then `upsert_place` if not found
 
 **Process:**
-- **First**: Use `search_event` to search for existing event
+- **First**: Use `search` (type `event`) to search for existing event
 - **If found and complete**: Use existing event as-is
 - **If found but missing info**: Use `upsert_event` with existing handle to update event
 - **If not found**: Use `upsert_event` without handle to create new event
@@ -105,7 +105,7 @@ Now create the life event that was documented in that citation:
 - **Birth/Death info**: Should be added as separate birth/death events, NOT directly to person
 
 #### For Each Person Involved:
-- **First**: Use `search_person` to search for existing records
+- **First**: Use `search` (type `person`) to search for existing records
 - Search by name, approximate dates, and locations
 - **Always notify the user** if potential matches are found
 - Ask the user to confirm if it's the same person or should be a new record
@@ -144,7 +144,7 @@ Now create the life event that was documented in that citation:
 - **Family events** (marriage, divorce, engagement): Added to family records
 
 #### Process:
-- **First**: Use `search_family` to search for existing family unit
+- **First**: Use `search` (type `family`) to search for existing family unit
 - **If found and complete**: Use existing family as-is
 - **If found but missing info**: Use `upsert_family` with existing handle to update family
 - **If not found**: Use `upsert_family` without handle to create new family
@@ -154,7 +154,7 @@ Now create the life event that was documented in that citation:
 ```
 1. Repository: "St. Mary's Catholic Church, Boston"
    → If repository has note: upsert_note first, get note handle
-   → search_repository (search for repository)
+   → search (type repository) (search for repository)
    → If found and complete: use existing repository
    → If found but missing info: upsert_repository with handle (update repository)
    → If not found: upsert_repository without handle (create repository with name, type, optional URL, optional postal address, optional note handle)
@@ -162,7 +162,7 @@ Now create the life event that was documented in that citation:
 2. Source: "Marriage Register 1875-1880"  
    → If source has media: upsert_media first, get media handle
    → If source has note: upsert_note first, get note handle
-   → search_source (search for document)
+   → search (type source) (search for document)
    → If found and complete: use existing source
    → If found but missing info: upsert_source with handle (update source)
    → If not found: upsert_source without handle (create source with title, repo link, optional author/pubinfo/abbrev/media/note handles)
@@ -170,14 +170,14 @@ Now create the life event that was documented in that citation:
 3. Citation: "Page 67, Entry 15, Marriage of John Smith and Mary Jones, June 15, 1878"
    → If citation has media: upsert_media first, get media handle
    → If citation has notes: upsert_note first, get note handle
-   → search_citation (search for existing citation)
+   → search (type citation) (search for existing citation)
    → If found and complete: use existing citation
    → If found but missing info: upsert_citation with handle (update citation)
    → If not found: upsert_citation without handle (create citation with source link, optional page/date/media/notes)
 
 4. Event: Marriage event on June 15, 1878
-   → If event has place: search_place first, upsert_place if not found, get place handle
-   → search_event (search for existing event)
+   → If event has place: search (type place) first, upsert_place if not found, get place handle
+   → search (type event) (search for existing event)
    → If found and complete: use existing event
    → If found but missing info: upsert_event with handle (update event)
    → If not found: upsert_event without handle (create event with type, citation handle, optional date/description/place handle)
@@ -185,14 +185,14 @@ Now create the life event that was documented in that citation:
 5. Link People to Event:
    → If person has notes: upsert_note first, get note handle
    → If person has media: upsert_media first, get media handle
-   → search_person "John Smith" (born ~1850, Boston area)
+   → search (type person) "John Smith" (born ~1850, Boston area)
    → If matches found: Ask user to confirm identity
    → If same person: upsert_person with handle (update existing person) AND add event with role "groom"
    → If new person: upsert_person without handle (create new person with given name, surname, gender, optional notes/media/URLs) AND add event with role "groom"
    
    → If person has notes: upsert_note first, get note handle  
    → If person has media: upsert_media first, get media handle
-   → search_person "Mary Jones" (born ~1855, Boston area)
+   → search (type person) "Mary Jones" (born ~1855, Boston area)
    → If matches found: Ask user to confirm identity
    → If same person: upsert_person with handle (update existing person) AND add event with role "bride"
    → If new person: upsert_person without handle (create new person with given name, surname, gender, optional notes/media/URLs) AND add event with role "bride"
@@ -200,7 +200,7 @@ Now create the life event that was documented in that citation:
 6. Create Family Units (when applicable):
    → If family has notes: upsert_note first, get note handle
    → If family has media: upsert_media first, get media handle
-   → If creating family relationships: search_family first to check for existing family
+   → If creating family relationships: search (type family) first to check for existing family
    → If family exists and complete: use existing family
    → If family exists but missing info: upsert_family with handle (update family) AND add family events
    → If family doesn't exist: upsert_family without handle (create with father/mother/children handles, optional notes/media) AND add family events
@@ -221,7 +221,7 @@ Now create the life event that was documented in that citation:
 
 ### Check Before Creating
 - **Always search before creating new people**
-- Use `search_person`, `search_place`, `search_source` extensively
+- Use `search` (type `person`), `search` (type `place`), `search` (type `source`) extensively
 - Present potential matches to the user for verification
 - Prevent duplicate entries through careful checking
 
@@ -240,13 +240,13 @@ When potential duplicates are found:
 
 ## Tool Usage Order Summary
 
-1. `search_repository` → `upsert_repository` (repository: with handle to update, without handle to create)
-2. `search_source` → `upsert_source` (source document: with handle to update, without handle to create) 
-3. `search_citation` → `upsert_citation` (with handle to update, without handle to create)
-4. `search_event` → `upsert_event` (with handle to update, without handle to create)
-5. `search_person` → `upsert_person` (with handle to update, without handle to create) + link individual events
-6. `search_place` → `upsert_place` (with handle to update, without handle to create)
-7. `search_family` → `upsert_family` (with handle to update, without handle to create) + link family events
+1. `search` (type `repository`) → `upsert_repository` (repository: with handle to update, without handle to create)
+2. `search` (type `source`) → `upsert_source` (source document: with handle to update, without handle to create) 
+3. `search` (type `citation`) → `upsert_citation` (with handle to update, without handle to create)
+4. `search` (type `event`) → `upsert_event` (with handle to update, without handle to create)
+5. `search` (type `person`) → `upsert_person` (with handle to update, without handle to create) + link individual events
+6. `search` (type `place`) → `upsert_place` (with handle to update, without handle to create)
+7. `search` (type `family`) → `upsert_family` (with handle to update, without handle to create) + link family events
 
 **Remember: ALWAYS find first, then create with handle to UPDATE or without handle to CREATE.**
 
@@ -271,7 +271,7 @@ When potential duplicates are found:
 - **URLs** (optional): Web links with type, path, and description
 
 **Place Process:**
-- **First**: Use `search_place` to search for existing place
+- **First**: Use `search` (type `place`) to search for existing place
 - **If found and complete**: Use existing place as-is
 - **If found but missing info**: Use `upsert_place` with existing handle to update place
 - **If not found**: Use `upsert_place` without handle to create new place
@@ -290,7 +290,7 @@ Church: "St. Mary's Catholic Church" (type: Church, enclosed by: Boston handle)
 - **Type** (required): General, Research, Transcript, etc.
 
 **Note Process:**
-- **First**: Use `search_note` to search for existing note (if applicable)
+- **First**: Use `search` (type `note`) to search for existing note (if applicable)
 - **If found and complete**: Use existing note as-is
 - **If found but missing info**: Use `upsert_note` with existing handle to update note
 - **If not found**: Use `upsert_note` without handle to create new note
@@ -302,7 +302,7 @@ Church: "St. Mary's Catholic Church" (type: Church, enclosed by: Boston handle)
 - **Date** (optional): Date when the media was created or taken
 
 **Media Process:**
-- **First**: Use `search_media` to search for existing media
+- **First**: Use `search` (type `media`) to search for existing media
 - **If found and complete**: Use existing media as-is
 - **If found but missing info**: Use `upsert_media` with existing handle to update media
 - **If not found**: Use `upsert_media` without handle to create new media

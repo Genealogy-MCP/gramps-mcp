@@ -16,6 +16,11 @@ from src.gramps_mcp.auth import GrampsAuthError
 from src.gramps_mcp.client import GrampsAPIError, GrampsWebAPIClient
 from src.gramps_mcp.media_client import MediaClient
 from src.gramps_mcp.models.api_calls import ApiCalls
+from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
+from src.gramps_mcp.models.parameters.event_params import EventSaveParams
+from src.gramps_mcp.models.parameters.people_params import PersonData
+from src.gramps_mcp.models.parameters.reports_params import ReportFileParams
+from src.gramps_mcp.models.parameters.search_params import SearchParams
 
 # ---------------------------------------------------------------------------
 # _normalise_url_keys  (pure function)
@@ -543,7 +548,9 @@ class TestMakeApiCall:
 
             await client.make_api_call(
                 api_call=ApiCalls.GET_PEOPLE,
-                params={"pagesize": 10, "page": 1},
+                params=BaseGetMultipleParams.model_validate(
+                    {"pagesize": 10, "page": 1}
+                ),
             )
 
             call_kwargs = mock_req.call_args.kwargs
@@ -560,7 +567,9 @@ class TestMakeApiCall:
 
             await client.make_api_call(
                 api_call=ApiCalls.POST_EVENTS,
-                params={"type": "Birth", "citation_list": []},
+                params=EventSaveParams.model_validate(
+                    {"type": "Birth", "citation_list": []}
+                ),
             )
 
             call_kwargs = mock_req.call_args.kwargs
@@ -577,7 +586,7 @@ class TestMakeApiCall:
 
             await client.make_api_call(
                 api_call=ApiCalls.POST_REPORT_FILE,
-                params={"options": '{"pid": "I0001"}'},
+                params=ReportFileParams.model_validate({"options": '{"pid": "I0001"}'}),
                 report_id="descend_report",
             )
 
@@ -642,13 +651,15 @@ class TestMakeApiCall:
 
             await client.make_api_call(
                 api_call=ApiCalls.PUT_PERSON,
-                params={
-                    "handle": "p1",
-                    "primary_name": name_data,
-                    "gender": 1,
-                    "event_ref_list": [{"ref": "new_event", "role": "Primary"}],
-                    "list_mode": "replace",
-                },
+                params=PersonData.model_validate(
+                    {
+                        "handle": "p1",
+                        "primary_name": name_data,
+                        "gender": 1,
+                        "event_ref_list": [{"ref": "new_event", "role": "Primary"}],
+                        "list_mode": "replace",
+                    }
+                ),
                 handle="p1",
             )
 
@@ -668,7 +679,7 @@ class TestMakeApiCall:
 
             await client.make_api_call(
                 api_call=ApiCalls.GET_SEARCH,
-                params={"query": "test"},
+                params=SearchParams.model_validate({"query": "test"}),
                 with_headers=True,
             )
 

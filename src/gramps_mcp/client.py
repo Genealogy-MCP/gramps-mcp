@@ -22,7 +22,6 @@ from ._request_body import api_body
 from .auth import AuthManager, GrampsAuthError
 from .config import get_settings
 from .models.api_calls import ApiCalls
-from .models.api_mapping import validate_api_call_params
 
 # JSON body type: single object or array of objects (e.g. objects/ bulk create)
 JsonBody = Union[Dict, list]
@@ -305,7 +304,7 @@ class GrampsWebAPIClient:
     async def make_api_call(
         self,
         api_call: ApiCalls,
-        params: Optional[Union[Dict, BaseModel]] = None,
+        params: Optional[BaseModel] = None,
         tree_id: str = "default",
         with_headers: bool = False,
         **url_params,
@@ -315,7 +314,7 @@ class GrampsWebAPIClient:
 
         Args:
             api_call: The API call to make from the ApiCalls enum
-            params: Parameters for the API call (dict or Pydantic model)
+            params: Already parsed Pydantic params model, or None
             tree_id: Family tree identifier (default: "default")
             **url_params: URL parameters for endpoint substitution
                 (e.g., handle, handle1, handle2)
@@ -325,16 +324,7 @@ class GrampsWebAPIClient:
 
         Raises:
             GrampsAPIError: If the API call fails
-            ValueError: If parameters are invalid for the given API call
         """
-        # Validate parameters using the mapped parameter model
-        validated_params = None
-        if params is not None:
-            if isinstance(params, BaseModel):
-                validated_params = params
-            else:
-                validated_params = validate_api_call_params(api_call, params)
-
         # Report-file POSTs carry their options as query params, not a body.
         as_body = (
             api_call.method in ("POST", "PUT") and api_call != ApiCalls.POST_REPORT_FILE
@@ -342,7 +332,7 @@ class GrampsWebAPIClient:
         return await self._send(
             api_call.method,
             api_call.endpoint,
-            validated_params,
+            params,
             tree_id,
             url_params,
             as_body=as_body,

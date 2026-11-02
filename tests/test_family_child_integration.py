@@ -14,13 +14,7 @@ import pytest
 from src.gramps_mcp.client import GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.models.api_calls import ApiCalls
-from src.gramps_mcp.tools import (
-    upsert_citation_tool,
-    upsert_family_tool,
-    upsert_media_tool,
-    upsert_person_tool,
-    upsert_source_tool,
-)
+from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
 
 from .conftest import TEST_PREFIX, extract_handle
 
@@ -33,7 +27,7 @@ class TestFamilyChildRoundTrip:
     @pytest.mark.asyncio
     async def test_create_family_with_child_round_trip(self):
         """child_handles on create produces correct child_ref_list on GET."""
-        person_result = await upsert_person_tool(
+        person_result = await UPSERT_HANDLERS["person"](
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}ChildRoundTrip",
@@ -46,7 +40,9 @@ class TestFamilyChildRoundTrip:
         )
         person_handle = extract_handle(person_result[0].text)
 
-        family_result = await upsert_family_tool({"child_handles": [person_handle]})
+        family_result = await UPSERT_HANDLERS["family"](
+            {"child_handles": [person_handle]}
+        )
         family_text = family_result[0].text
         assert "Error:" not in family_text, f"Expected success: {family_text}"
         family_handle = extract_handle(family_text)
@@ -73,7 +69,7 @@ class TestFamilyChildRoundTrip:
     @pytest.mark.asyncio
     async def test_clear_children_via_replace_mode(self):
         """Empty child_handles with replace mode clears child_ref_list."""
-        person_result = await upsert_person_tool(
+        person_result = await UPSERT_HANDLERS["person"](
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}ChildClear",
@@ -86,10 +82,12 @@ class TestFamilyChildRoundTrip:
         )
         person_handle = extract_handle(person_result[0].text)
 
-        family_result = await upsert_family_tool({"child_handles": [person_handle]})
+        family_result = await UPSERT_HANDLERS["family"](
+            {"child_handles": [person_handle]}
+        )
         family_handle = extract_handle(family_result[0].text)
 
-        update_result = await upsert_family_tool(
+        update_result = await UPSERT_HANDLERS["family"](
             {
                 "handle": family_handle,
                 "child_handles": [],
@@ -126,7 +124,7 @@ class TestMergeCompositeIdentityRoundTrip:
         ref is enriched (typed ChildRefType enums) while a re-PUT sends a fresh
         child_handles list. Normalization must collapse them to one entry.
         """
-        person_result = await upsert_person_tool(
+        person_result = await UPSERT_HANDLERS["person"](
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}Idempotentchild",
@@ -139,11 +137,13 @@ class TestMergeCompositeIdentityRoundTrip:
         )
         person_handle = extract_handle(person_result[0].text)
 
-        family_result = await upsert_family_tool({"child_handles": [person_handle]})
+        family_result = await UPSERT_HANDLERS["family"](
+            {"child_handles": [person_handle]}
+        )
         family_handle = extract_handle(family_result[0].text)
 
         # Re-PUT the same child; merge must not append a duplicate.
-        re_put = await upsert_family_tool(
+        re_put = await UPSERT_HANDLERS["family"](
             {"handle": family_handle, "child_handles": [person_handle]}
         )
         assert "Error:" not in re_put[0].text, f"Re-PUT failed: {re_put[0].text}"
@@ -168,7 +168,7 @@ class TestMergeCompositeIdentityRoundTrip:
     @pytest.mark.asyncio
     async def test_media_ref_distinct_rects_both_survive(self):
         """Merge-PUT same media ref with a different rect: both crops survive."""
-        media_result = await upsert_media_tool(
+        media_result = await UPSERT_HANDLERS["media"](
             {
                 "file_location": "tests/sample/33SQ-GP8N-NLK.jpg",
                 "desc": f"{TEST_PREFIX}Composite merge media",
@@ -176,7 +176,7 @@ class TestMergeCompositeIdentityRoundTrip:
         )
         media_handle = extract_handle(media_result[0].text)
 
-        person_result = await upsert_person_tool(
+        person_result = await UPSERT_HANDLERS["person"](
             {
                 "primary_name": {
                     "first_name": f"{TEST_PREFIX}Mediacrop",
@@ -190,7 +190,7 @@ class TestMergeCompositeIdentityRoundTrip:
         )
         person_handle = extract_handle(person_result[0].text)
 
-        update = await upsert_person_tool(
+        update = await UPSERT_HANDLERS["person"](
             {
                 "handle": person_handle,
                 "media_list": [{"ref": media_handle, "rect": [50, 50, 100, 100]}],
@@ -226,7 +226,7 @@ async def _make_person(label: str) -> str:
     Returns:
         str: The new person's handle.
     """
-    result = await upsert_person_tool(
+    result = await UPSERT_HANDLERS["person"](
         {
             "primary_name": {
                 "first_name": f"{TEST_PREFIX}{label}",
@@ -247,9 +247,9 @@ async def _make_citation(label: str) -> str:
     Returns:
         str: The new citation's handle.
     """
-    source_result = await upsert_source_tool({"title": f"{TEST_PREFIX}{label}"})
+    source_result = await UPSERT_HANDLERS["source"]({"title": f"{TEST_PREFIX}{label}"})
     source_handle = extract_handle(source_result[0].text)
-    citation_result = await upsert_citation_tool(
+    citation_result = await UPSERT_HANDLERS["citation"](
         {"source_handle": source_handle, "page": f"{label} p. 1"}
     )
     return extract_handle(citation_result[0].text)
@@ -289,10 +289,12 @@ class TestFamilyEvidenceRoundTrip:
         person_handle = await _make_person("EdgeEvidence")
         citation_handle = await _make_citation("EdgeEvidenceSource")
 
-        family_result = await upsert_family_tool({"child_handles": [person_handle]})
+        family_result = await UPSERT_HANDLERS["family"](
+            {"child_handles": [person_handle]}
+        )
         family_handle = extract_handle(family_result[0].text)
 
-        update = await upsert_family_tool(
+        update = await UPSERT_HANDLERS["family"](
             {
                 "handle": family_handle,
                 "child_ref_list": [
@@ -315,10 +317,12 @@ class TestFamilyEvidenceRoundTrip:
         first_citation = await _make_citation("FamilyEvidenceOne")
         second_citation = await _make_citation("FamilyEvidenceTwo")
 
-        family_result = await upsert_family_tool({"citation_list": [first_citation]})
+        family_result = await UPSERT_HANDLERS["family"](
+            {"citation_list": [first_citation]}
+        )
         family_handle = extract_handle(family_result[0].text)
 
-        update = await upsert_family_tool(
+        update = await UPSERT_HANDLERS["family"](
             {"handle": family_handle, "citation_list": [second_citation]}
         )
         assert "Error:" not in update[0].text, f"Update failed: {update[0].text}"
@@ -329,10 +333,10 @@ class TestFamilyEvidenceRoundTrip:
     @pytest.mark.asyncio
     async def test_family_type_persists(self):
         """family_type reaches the stored record as the relationship type."""
-        family_result = await upsert_family_tool({})
+        family_result = await UPSERT_HANDLERS["family"]({})
         family_handle = extract_handle(family_result[0].text)
 
-        update = await upsert_family_tool(
+        update = await UPSERT_HANDLERS["family"](
             {"handle": family_handle, "family_type": "Married"}
         )
         assert "Error:" not in update[0].text, f"Update failed: {update[0].text}"
@@ -345,12 +349,12 @@ class TestFamilyEvidenceRoundTrip:
         person_handle = await _make_person("AdoptedEdge")
         citation_handle = await _make_citation("AdoptedEdgeSource")
 
-        family_result = await upsert_family_tool(
+        family_result = await UPSERT_HANDLERS["family"](
             {"child_ref_list": [{"ref": person_handle, "frel": "Adopted"}]}
         )
         family_handle = extract_handle(family_result[0].text)
 
-        await upsert_family_tool(
+        await UPSERT_HANDLERS["family"](
             {
                 "handle": family_handle,
                 "child_ref_list": [

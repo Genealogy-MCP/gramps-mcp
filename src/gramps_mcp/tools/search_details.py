@@ -117,20 +117,11 @@ def _make_get_tool(entity: str) -> Callable:
 _DETAIL_ENTITIES = ("person", "family")
 
 # Dispatch map for entity types beyond person/family
-_GET_TOOL_DISPATCH: Dict[str, Callable] = {
+GET_HANDLERS: Dict[str, Callable] = {
     entity: _make_get_tool(entity)
     for entity in READ_OVERLAYS
     if entity not in _DETAIL_ENTITIES
 }
-
-# Reason: kept as module names for callers and tests that import them.
-get_event_tool = _GET_TOOL_DISPATCH["event"]
-get_place_tool = _GET_TOOL_DISPATCH["place"]
-get_source_tool = _GET_TOOL_DISPATCH["source"]
-get_citation_tool = _GET_TOOL_DISPATCH["citation"]
-get_note_tool = _GET_TOOL_DISPATCH["note"]
-get_media_tool = _GET_TOOL_DISPATCH["media"]
-get_repository_tool = _GET_TOOL_DISPATCH["repository"]
 
 
 def _stub_if_empty(
@@ -168,7 +159,7 @@ async def get_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
     gramps_id = arguments.get("gramps_id")
 
     if not entity_type:
-        valid_types = sorted(list(_GET_TOOL_DISPATCH.keys()) + list(_DETAIL_ENTITIES))
+        valid_types = sorted(list(GET_HANDLERS.keys()) + list(_DETAIL_ENTITIES))
         raise McpToolError(
             f"Missing required parameter 'type'. Valid types: {', '.join(valid_types)}"
         )
@@ -203,12 +194,12 @@ async def get_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
         return _stub_if_empty(result, entity_type, handle)
 
     # All other entity types use their basic format handlers
-    tool_func = _GET_TOOL_DISPATCH.get(entity_type)
+    tool_func = GET_HANDLERS.get(entity_type)
     if tool_func:
         result = await tool_func({"handle": handle})
         return _stub_if_empty(result, entity_type, handle)
 
-    valid_types = sorted(list(_GET_TOOL_DISPATCH.keys()) + list(_DETAIL_ENTITIES))
+    valid_types = sorted(list(GET_HANDLERS.keys()) + list(_DETAIL_ENTITIES))
     raise McpToolError(
         f"Entity type '{entity_type}' not supported for get. "
         f"Valid types: {', '.join(valid_types)}"

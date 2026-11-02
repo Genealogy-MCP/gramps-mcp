@@ -277,21 +277,9 @@ async def list_tags_tool(client, arguments: Dict) -> List[TextContent]:
 
 
 # Explicit dispatch for search_tool, built from the table (MCP-18, #101).
-_SEARCH_TOOL_DISPATCH: Dict[str, Callable] = {
+SEARCH_HANDLERS: Dict[str, Callable] = {
     entity: _make_search_tool(entity) for entity in READ_OVERLAYS
 }
-
-# Reason: kept as module names for callers and tests that import the
-# per-entity handlers directly.
-search_person_tool = _SEARCH_TOOL_DISPATCH["person"]
-search_family_tool = _SEARCH_TOOL_DISPATCH["family"]
-search_event_tool = _SEARCH_TOOL_DISPATCH["event"]
-search_place_tool = _SEARCH_TOOL_DISPATCH["place"]
-search_source_tool = _SEARCH_TOOL_DISPATCH["source"]
-search_citation_tool = _SEARCH_TOOL_DISPATCH["citation"]
-search_media_tool = _SEARCH_TOOL_DISPATCH["media"]
-search_note_tool = _SEARCH_TOOL_DISPATCH["note"]
-search_repository_tool = _SEARCH_TOOL_DISPATCH["repository"]
 
 
 async def search_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
@@ -312,9 +300,9 @@ async def search_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
 
     entity_type_str = validated.type.value
     inner_params = {"gql": validated.gql, "pagesize": validated.max_results}
-    tool_func = _SEARCH_TOOL_DISPATCH.get(entity_type_str)
+    tool_func = SEARCH_HANDLERS.get(entity_type_str)
     if not tool_func:
-        valid_types = ", ".join(sorted(_SEARCH_TOOL_DISPATCH.keys()))
+        valid_types = ", ".join(sorted(SEARCH_HANDLERS.keys()))
         raise McpToolError(
             f"Entity type '{entity_type_str}' not supported. Valid types: {valid_types}"
         )

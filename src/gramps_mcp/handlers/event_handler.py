@@ -11,6 +11,7 @@ Provides clean, direct formatting of event data from handles.
 import logging
 
 from ..models.api_calls import ApiCalls
+from ..models.parameters.base_params import BaseGetSingleParams
 from ..utils import gather_bounded
 from .date_handler import format_date
 from .name_utils import join_surnames
@@ -49,7 +50,9 @@ async def format_event(
             api_call=ApiCalls.GET_EVENT,
             tree_id=tree_id,
             handle=handle,
-            params={"extend": "all", "backlinks": True},
+            params=BaseGetSingleParams.model_validate(
+                {"extend": "all", "backlinks": True}
+            ),
         )
         if not event_data:
             if event_label:

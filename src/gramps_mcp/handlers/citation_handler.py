@@ -12,6 +12,7 @@ URLs, and repository information.
 import logging
 
 from ..models.api_calls import ApiCalls
+from ..models.parameters.base_params import BaseGetSingleParams
 from .date_handler import format_date
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,9 @@ async def format_citation(client, tree_id: str, handle: str) -> str:
             api_call=ApiCalls.GET_CITATION,
             tree_id=tree_id,
             handle=handle,
-            params={"extend": "all", "backlinks": True},
+            params=BaseGetSingleParams.model_validate(
+                {"extend": "all", "backlinks": True}
+            ),
         )
         if not citation_data:
             return f"• **Citation {handle}**\n  Citation not found\n\n"

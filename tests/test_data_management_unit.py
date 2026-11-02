@@ -20,19 +20,13 @@ from src.gramps_mcp.models.parameters.people_params import PersonData
 from src.gramps_mcp.models.parameters.place_params import PlaceSaveParams
 from src.gramps_mcp.models.parameters.repository_params import RepositoryData
 from src.gramps_mcp.models.parameters.source_params import SourceSaveParams
-from src.gramps_mcp.tools import (
-    upsert_family_tool,
-    upsert_media_tool,
-    upsert_repository_tool,
-    upsert_tag_tool,
-)
 from src.gramps_mcp.tools._data_helpers import (
     _extract_entity_data,
     _format_save_response,
 )
 from src.gramps_mcp.tools._errors import McpToolError
 from src.gramps_mcp.tools.data_management_delete import delete_tool
-from src.gramps_mcp.tools.upsert_table import upsert_entity
+from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS, upsert_entity
 from tests._resource_shim import route_call_resource
 
 
@@ -485,12 +479,12 @@ class TestDeleteTool:
 
 
 # ---------------------------------------------------------------------------
-# upsert_family_tool
+# UPSERT_HANDLERS["family"]
 # ---------------------------------------------------------------------------
 
 
 class TestUpsertFamilyTool:
-    """Test upsert_family_tool create and update paths."""
+    """Test UPSERT_HANDLERS["family"] create and update paths."""
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
@@ -510,7 +504,7 @@ class TestUpsertFamilyTool:
         mock_client_cls.return_value = client_inst
         route_call_resource(client_inst)
 
-        result = await upsert_family_tool({"father_handle": "p1"})
+        result = await UPSERT_HANDLERS["family"]({"father_handle": "p1"})
         assert isinstance(result[0], TextContent)
         assert "created" in result[0].text
 
@@ -530,17 +524,19 @@ class TestUpsertFamilyTool:
         mock_client_cls.return_value = client_inst
         route_call_resource(client_inst)
 
-        result = await upsert_family_tool({"handle": "f1", "father_handle": "p1"})
+        result = await UPSERT_HANDLERS["family"](
+            {"handle": "f1", "father_handle": "p1"}
+        )
         assert "updated" in result[0].text
 
 
 # ---------------------------------------------------------------------------
-# upsert_repository_tool
+# UPSERT_HANDLERS["repository"]
 # ---------------------------------------------------------------------------
 
 
 class TestUpsertRepositoryTool:
-    """Test upsert_repository_tool create and update paths."""
+    """Test UPSERT_HANDLERS["repository"] create and update paths."""
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
@@ -558,7 +554,9 @@ class TestUpsertRepositoryTool:
         mock_client_cls.return_value = client_inst
         route_call_resource(client_inst)
 
-        result = await upsert_repository_tool({"name": "Test Repo", "type": "Library"})
+        result = await UPSERT_HANDLERS["repository"](
+            {"name": "Test Repo", "type": "Library"}
+        )
         assert "created" in result[0].text
 
     @pytest.mark.asyncio
@@ -577,19 +575,19 @@ class TestUpsertRepositoryTool:
         mock_client_cls.return_value = client_inst
         route_call_resource(client_inst)
 
-        result = await upsert_repository_tool(
+        result = await UPSERT_HANDLERS["repository"](
             {"handle": "r1", "name": "Updated Repo", "type": "Archive"}
         )
         assert "updated" in result[0].text
 
 
 # ---------------------------------------------------------------------------
-# upsert_tag_tool
+# UPSERT_HANDLERS["tag"]
 # ---------------------------------------------------------------------------
 
 
 class TestUpsertTagTool:
-    """Test upsert_tag_tool create and update paths."""
+    """Test UPSERT_HANDLERS["tag"] create and update paths."""
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
@@ -615,7 +613,7 @@ class TestUpsertTagTool:
         mock_client_cls.return_value = client_inst
         route_call_resource(client_inst)
 
-        result = await upsert_tag_tool({"name": "Research", "color": "#FF0000"})
+        result = await UPSERT_HANDLERS["tag"]({"name": "Research", "color": "#FF0000"})
         assert "created" in result[0].text
         assert "Research" in result[0].text
 
@@ -645,7 +643,7 @@ class TestUpsertTagTool:
         mock_client_cls.return_value = client_inst
         route_call_resource(client_inst)
 
-        result = await upsert_tag_tool(
+        result = await UPSERT_HANDLERS["tag"](
             {"handle": "t1", "name": "Updated", "color": "#00FF00", "priority": 2}
         )
 
@@ -672,7 +670,7 @@ class TestUpsertTagTool:
         mock_client_cls.return_value = client_inst
         route_call_resource(client_inst)
 
-        result = await upsert_tag_tool({"handle": "t1", "color": "#0F0"})
+        result = await UPSERT_HANDLERS["tag"]({"handle": "t1", "color": "#0F0"})
 
         assert client_inst.make_api_call.call_args.kwargs["api_call"] == (
             ApiCalls.PUT_TAG
@@ -684,16 +682,16 @@ class TestUpsertTagTool:
     async def test_create_tag_requires_name(self):
         """No handle and no name is rejected before any API call."""
         with pytest.raises(McpToolError, match="Required when creating: name"):
-            await upsert_tag_tool({"color": "#0F0"})
+            await UPSERT_HANDLERS["tag"]({"color": "#0F0"})
 
 
 # ---------------------------------------------------------------------------
-# upsert_media_tool
+# UPSERT_HANDLERS["media"]
 # ---------------------------------------------------------------------------
 
 
 class TestUpsertMediaTool:
-    """Test upsert_media_tool update path (create requires real file)."""
+    """Test UPSERT_HANDLERS["media"] update path (create requires real file)."""
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
@@ -711,7 +709,9 @@ class TestUpsertMediaTool:
         mock_client_cls.return_value = client_inst
         route_call_resource(client_inst)
 
-        result = await upsert_media_tool({"handle": "m1", "desc": "Updated photo"})
+        result = await UPSERT_HANDLERS["media"](
+            {"handle": "m1", "desc": "Updated photo"}
+        )
         assert "updated" in result[0].text
 
     @pytest.mark.asyncio
@@ -743,7 +743,7 @@ class TestUpsertMediaTool:
         mock_client_cls.return_value = client_inst
         route_call_resource(client_inst)
 
-        result = await upsert_media_tool(
+        result = await UPSERT_HANDLERS["media"](
             {"file_location": str(test_file), "desc": "Uncited photo"}
         )
 
@@ -778,7 +778,7 @@ class TestUpsertMediaTool:
         mock_client_cls.return_value = client_inst
         route_call_resource(client_inst)
 
-        result = await upsert_media_tool(
+        result = await UPSERT_HANDLERS["media"](
             {
                 "file_location": str(test_file),
                 "desc": "Cited photo",
@@ -807,7 +807,9 @@ class TestUpsertMediaTool:
         mock_client_cls.return_value = client_inst
         route_call_resource(client_inst)
 
-        result = await upsert_media_tool({"handle": "m1", "desc": "Updated photo"})
+        result = await UPSERT_HANDLERS["media"](
+            {"handle": "m1", "desc": "Updated photo"}
+        )
 
         assert "created without a citation" not in result[0].text
 
@@ -815,7 +817,7 @@ class TestUpsertMediaTool:
     async def test_create_media_no_file_raises(self):
         """Creating media without file_location raises error."""
         with pytest.raises(McpToolError):
-            await upsert_media_tool({"desc": "No file"})
+            await UPSERT_HANDLERS["media"]({"desc": "No file"})
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
@@ -832,7 +834,7 @@ class TestUpsertMediaTool:
         route_call_resource(client_inst)
 
         with pytest.raises(McpToolError):
-            await upsert_media_tool(
+            await UPSERT_HANDLERS["media"](
                 {"file_location": "/nonexistent/file.jpg", "desc": "test"}
             )
 
@@ -870,7 +872,7 @@ class TestUpsertMediaTool:
             "src.gramps_mcp.write_hooks.MediaClient",
             return_value=mock_media_client,
         ):
-            result = await upsert_media_tool(
+            result = await UPSERT_HANDLERS["media"](
                 {
                     "handle": "h1",
                     "desc": "Updated photo",
@@ -915,7 +917,7 @@ class TestUpsertMediaTool:
             ),
             pytest.raises(McpToolError),
         ):
-            await upsert_media_tool(
+            await UPSERT_HANDLERS["media"](
                 {
                     "handle": "h1",
                     "desc": "Updated photo",
@@ -1078,7 +1080,7 @@ class TestClientToApiPayloadDispatch:
         ):
             await client.make_api_call(
                 api_call=ApiCalls.POST_NOTES,
-                params=params,
+                params=NoteSaveParams.model_validate(params),
                 tree_id="tree1",
             )
 

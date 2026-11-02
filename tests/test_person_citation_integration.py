@@ -16,12 +16,8 @@ import pytest
 from src.gramps_mcp.client import GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.models.api_calls import ApiCalls
-from src.gramps_mcp.tools import (
-    upsert_citation_tool,
-    upsert_person_tool,
-    upsert_source_tool,
-)
 from src.gramps_mcp.tools._errors import McpToolError
+from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
 
 from .conftest import TEST_PREFIX, extract_handle
 
@@ -38,12 +34,14 @@ async def _make_citations(count: int, label: str) -> List[str]:
     Returns:
         List[str]: The handles of the created citations.
     """
-    source_result = await upsert_source_tool({"title": f"{TEST_PREFIX}{label} Source"})
+    source_result = await UPSERT_HANDLERS["source"](
+        {"title": f"{TEST_PREFIX}{label} Source"}
+    )
     source_handle = extract_handle(source_result[0].text)
 
     handles = []
     for index in range(count):
-        citation_result = await upsert_citation_tool(
+        citation_result = await UPSERT_HANDLERS["citation"](
             {
                 "source_handle": source_handle,
                 "page": f"{TEST_PREFIX}{label} page {index}",
@@ -71,7 +69,7 @@ async def _make_person(label: str, **extra) -> str:
         "gender": 2,
     }
     payload.update(extra)
-    result = await upsert_person_tool(payload)
+    result = await UPSERT_HANDLERS["person"](payload)
     text = result[0].text
     assert "Error:" not in text, f"Expected success: {text}"
     return extract_handle(text)
@@ -119,7 +117,9 @@ class TestPersonCitationRoundTrip:
             "PersonCiteMerge", citation_list=[citations[0]]
         )
 
-        await upsert_person_tool({"handle": person_handle, "citation_list": citations})
+        await UPSERT_HANDLERS["person"](
+            {"handle": person_handle, "citation_list": citations}
+        )
 
         stored = await _read_citation_list(person_handle)
         assert sorted(stored) == sorted(citations), (
@@ -134,7 +134,7 @@ class TestPersonCitationRoundTrip:
             "PersonCiteReplace", citation_list=[citations[0]]
         )
 
-        await upsert_person_tool(
+        await UPSERT_HANDLERS["person"](
             {
                 "handle": person_handle,
                 "citation_list": [citations[1]],
@@ -151,7 +151,7 @@ class TestPersonCitationRoundTrip:
         citations = await _make_citations(1, "PersonCiteInvalid")
 
         with pytest.raises(McpToolError):
-            await upsert_person_tool(
+            await UPSERT_HANDLERS["person"](
                 {
                     "handle": "nonexistenthandle000000000",
                     "citation_list": citations,

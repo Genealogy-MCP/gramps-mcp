@@ -13,6 +13,7 @@ from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.media_client import MediaClient
 from src.gramps_mcp.models.api_calls import ApiCalls
 from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
+from src.gramps_mcp.models.parameters.media_params import MediaSaveParams
 
 # Load environment variables from .env file
 load_dotenv()
@@ -64,7 +65,7 @@ class TestGetPersonCall:
             # Also try via make_api_call
             params = BaseGetMultipleParams(pagesize=1)
             people_result = await client.make_api_call(
-                ApiCalls.GET_PEOPLE, params=params
+                ApiCalls.GET_PEOPLE, params=BaseGetMultipleParams.model_validate(params)
             )
 
             if not people_result or len(people_result) == 0:
@@ -107,7 +108,7 @@ class TestGetObjectGrampsId:
             # First get a list of people to find one with both handle and gramps_id
             params = BaseGetMultipleParams(pagesize=10)
             people_result = await client.make_api_call(
-                ApiCalls.GET_PEOPLE, params=params
+                ApiCalls.GET_PEOPLE, params=BaseGetMultipleParams.model_validate(params)
             )
 
             if not people_result or len(people_result) == 0:
@@ -216,7 +217,9 @@ class TestPutMergeRequirement:
             # 2. Do a PUT with only desc field - this should preserve existing file data
             put_result = await client.make_api_call(
                 api_call=ApiCalls.PUT_MEDIA_ITEM,
-                params={"handle": handle, "desc": "Test description"},
+                params=MediaSaveParams.model_validate(
+                    {"handle": handle, "desc": "Test description"}
+                ),
                 tree_id=settings.gramps_tree_id,
                 handle=handle,
             )

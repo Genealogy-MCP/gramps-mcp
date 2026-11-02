@@ -57,12 +57,17 @@ When debugging search or execute behavior, look in mcp-codemode, not in this rep
   For this MCP server project:
     - `server.py` - MCP server setup (2 meta-tools: search + execute)
     - `operations.py` - Operation registry (22 operations): handwritten entries merged with entries built from the generated `resource_table.py` (entity paths, verbs, writable fields) and the per-entity policy in `overlays.py` (read routes, read/delete operation overlays) and `write_overlays.py` (write bindings and upsert overlays for all ten entities, hooks in `write_hooks.py`)
-    - `tools/` directory - Tool implementations organized by feature
-    - `tools/meta_search.py` - `search` meta-tool (operation discovery)
-    - `tools/meta_execute.py` - `execute` meta-tool (operation dispatch)
-    - `client.py` - Gramps Web API client
+      The registry is the single source of truth for operation names and count; the `search`/`execute` meta-tools come from mcp-codemode
+    - `tools/` directory - Operation handlers organized by feature, no re-exports from `tools/__init__.py`
+    - `tools/search_basic.py` - `search`, `search_text`, `list_tags`; per-entity search handlers in `SEARCH_HANDLERS`
+    - `tools/search_details.py` - `get`; per-entity get handlers in `GET_HANDLERS` (person and family keep their own detail handlers)
+    - `tools/upsert_table.py` - generic upsert for all ten entities, handlers in `UPSERT_HANDLERS`
+    - `tools/data_management_delete.py`, `tools/data_management_media.py` - `delete`, `download_media`
+    - `tools/analysis.py`, `tools/backups.py` - tree stats, ancestors/descendants, recent changes, backups
+    - `tools/_gql_type_rewrite.py` - typed-enum GQL rewrite (uses the `types/default/{datatype}/map` lookup)
+    - `client.py` - Gramps Web API client; `make_api_call` takes an already parsed params model or None
     - `auth.py` - JWT authentication handling
-    - `models/` directory - Pydantic models for validation
+    - `models/` directory - Pydantic params models; `models/api_calls.py` holds only the endpoints the handwritten operations call
     - `config.py` - Configuration management
 - **Use clear, consistent imports** (prefer relative imports within packages).
 - **Use python_dotenv and load_dotenv()** for environment variables.

@@ -17,6 +17,7 @@ from src.gramps_mcp.client import GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.handlers.family_detail_handler import format_family_detail
 from src.gramps_mcp.models.api_calls import ApiCalls
+from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
 
 load_dotenv()
 
@@ -38,11 +39,13 @@ async def test_family_detail_render_is_order_stable_across_calls():
         candidates = await client.make_api_call(
             ApiCalls.GET_FAMILIES,
             tree_id=tree_id,
-            params={
-                "gql": "child_ref_list.length >= 4",
-                "pagesize": 1,
-                "keys": "handle",
-            },
+            params=BaseGetMultipleParams.model_validate(
+                {
+                    "gql": "child_ref_list.length >= 4",
+                    "pagesize": 1,
+                    "keys": "handle",
+                }
+            ),
         )
         if not candidates:
             pytest.skip("Seed tree has no family with >= 4 children")
