@@ -10,7 +10,7 @@ sparse records whose formatters return "" still resolve (issue #78).
 
 from typing import Dict
 
-from ..client import GrampsWebAPIClient
+from ..client import get_client
 from ..config import get_settings
 
 # Reason: re-exported for tests that compare the resolved endpoint against
@@ -56,14 +56,11 @@ async def resolve_gramps_id(entity_type: str, gramps_id: str) -> str | None:
     params_class, api_call = dispatch
     params = parse_params(params_class, {"gramps_id": gramps_id, "pagesize": 1})
 
-    client = GrampsWebAPIClient()
-    try:
-        settings = get_settings()
-        response = await client.make_api_call(
-            api_call=api_call, params=params, tree_id=settings.gramps_tree_id
-        )
-    finally:
-        await client.close()
+    client = get_client()
+    settings = get_settings()
+    response = await client.make_api_call(
+        api_call=api_call, params=params, tree_id=settings.gramps_tree_id
+    )
 
     results = response if isinstance(response, list) else response.get("data", [])
     for item in results:

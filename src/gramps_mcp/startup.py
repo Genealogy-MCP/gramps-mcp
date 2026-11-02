@@ -9,7 +9,7 @@ Server startup initialization and validation.
 import logging
 
 from .auth import GrampsAuthError
-from .client import GrampsWebAPIClient
+from .client import get_client
 from .schema_pin import SCHEMA_VERSION
 from .tools._errors import describe_auth_error
 
@@ -27,14 +27,11 @@ async def verify_api_on_startup() -> None:
     one warning and carries on: the snapshot may describe fields the
     server lacks, or miss ones it has.
     """
-    client = GrampsWebAPIClient()
     try:
-        version = await client.verify_api_version()
+        version = await get_client().verify_api_version()
     except GrampsAuthError as e:
         logger.error("Startup API check failed: %s", describe_auth_error(e))
         return
-    finally:
-        await client.close()
     if version and version.lstrip("v") != SCHEMA_VERSION:
         logger.warning(
             "Gramps Web API %s differs from the schema snapshot pinned to %s; "

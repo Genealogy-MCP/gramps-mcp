@@ -66,7 +66,7 @@ When debugging search or execute behavior, look in mcp-codemode, not in this rep
     - `tools/data_management_delete.py`, `tools/data_management_media.py` - `delete`, `download_media`
     - `tools/analysis.py`, `tools/backups.py` - tree stats, ancestors/descendants, recent changes, backups
     - `tools/_gql_type_rewrite.py` - typed-enum GQL rewrite (uses the `types/default/{datatype}/map` lookup)
-    - `client.py` - Gramps Web API client; `make_api_call` takes an already parsed params model or None
+    - `client.py` - Gramps Web API client; `make_api_call` takes an already parsed params model or None. Handlers take the session-wide client from `get_client()` and never close it; `run_stdio_server`/`run_http_server` close it at process exit, never the per-request FastMCP lifespan (MCP-21)
     - `auth.py` - JWT authentication handling
     - `models/` directory - Pydantic params models; `models/api_calls.py` holds only the endpoints the handwritten operations call
     - `config.py` - Configuration management

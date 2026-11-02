@@ -18,7 +18,7 @@ from src.gramps_mcp.tools._errors import McpToolError
 # ---------------------------------------------------------------------------
 
 _SETTINGS_PATCH = "src.gramps_mcp.tools.search_basic.get_settings"
-_CLIENT_PATCH = "src.gramps_mcp.tools.search_basic.GrampsWebAPIClient"
+_CLIENT_PATCH = "src.gramps_mcp.tools.search_basic.get_client"
 
 
 def _mock_settings():
@@ -1050,7 +1050,7 @@ class TestGetToolsMissingHandle:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("pick_tool, match_text", _GET_TOOL_MISSING_HANDLE_CASES)
     @patch(
-        "src.gramps_mcp.tools.search_basic.GrampsWebAPIClient",
+        "src.gramps_mcp.tools.search_basic.get_client",
         side_effect=lambda: AsyncMock(close=AsyncMock()),
     )
     async def test_missing_handle_raises(self, _, pick_tool, match_text):
@@ -1100,9 +1100,7 @@ class TestGetToolNativeGrampsIdFilter:
         original_get = search_details.GET_HANDLERS["note"]
         search_details.GET_HANDLERS["note"] = mock_get
         try:
-            with patch(
-                "src.gramps_mcp.tools._resolve.GrampsWebAPIClient"
-            ) as mock_client_cls:
+            with patch("src.gramps_mcp.tools._resolve.get_client") as mock_client_cls:
                 client = mock_client_cls.return_value
                 client.make_api_call = AsyncMock(
                     return_value=[{"handle": "h42", "gramps_id": "N0001"}]
@@ -1139,9 +1137,7 @@ class TestResolveGrampsId:
     async def test_empty_text_note_resolves(self):
         from src.gramps_mcp.tools import _resolve
 
-        with patch(
-            "src.gramps_mcp.tools._resolve.GrampsWebAPIClient"
-        ) as mock_client_cls:
+        with patch("src.gramps_mcp.tools._resolve.get_client") as mock_client_cls:
             client = mock_client_cls.return_value
             client.make_api_call = AsyncMock(
                 return_value=[
@@ -1165,9 +1161,7 @@ class TestResolveGrampsId:
     async def test_no_match_returns_none(self):
         from src.gramps_mcp.tools import _resolve
 
-        with patch(
-            "src.gramps_mcp.tools._resolve.GrampsWebAPIClient"
-        ) as mock_client_cls:
+        with patch("src.gramps_mcp.tools._resolve.get_client") as mock_client_cls:
             client = mock_client_cls.return_value
             client.make_api_call = AsyncMock(return_value=[])
             client.close = AsyncMock()
@@ -1194,9 +1188,7 @@ class TestResolveGrampsId:
         original_get = search_details.GET_HANDLERS["note"]
         search_details.GET_HANDLERS["note"] = mock_get
         try:
-            with patch(
-                "src.gramps_mcp.tools._resolve.GrampsWebAPIClient"
-            ) as mock_client_cls:
+            with patch("src.gramps_mcp.tools._resolve.get_client") as mock_client_cls:
                 client = mock_client_cls.return_value
                 client.make_api_call = AsyncMock(
                     return_value=[

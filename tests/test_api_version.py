@@ -205,9 +205,9 @@ class TestVerifyApiOnStartup:
     """Test the verify_api_on_startup server startup hook."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.startup.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.startup.get_client")
     async def test_startup_calls_verify(self, mock_client_cls):
-        """verify_api_on_startup creates a client, verifies, and closes it."""
+        """verify_api_on_startup verifies through the shared client, left open."""
         client_inst = AsyncMock()
         client_inst.verify_api_version = AsyncMock(return_value="3.7.1")
         client_inst.close = AsyncMock()
@@ -216,10 +216,10 @@ class TestVerifyApiOnStartup:
         await verify_api_on_startup()
 
         client_inst.verify_api_version.assert_called_once()
-        client_inst.close.assert_called_once()
+        client_inst.close.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.startup.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.startup.get_client")
     async def test_startup_logs_auth_error_and_continues(self, mock_client_cls, caplog):
         """A login failure is logged at error level with the real cause."""
         client_inst = AsyncMock()
@@ -236,7 +236,6 @@ class TestVerifyApiOnStartup:
         with caplog.at_level(logging.WARNING, logger="src.gramps_mcp.startup"):
             await verify_api_on_startup()
 
-        client_inst.close.assert_called_once()
         records = [(r.levelno, r.getMessage()) for r in caplog.records]
         assert any(
             level == logging.ERROR and "GRAMPS_PASSWORD" in msg
@@ -245,7 +244,7 @@ class TestVerifyApiOnStartup:
         assert not any("Could not reach metadata" in msg for _, msg in records)
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.startup.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.startup.get_client")
     async def test_startup_propagates_api_error(self, mock_client_cls):
         """Unsupported version error propagates so the server fails to start."""
         client_inst = AsyncMock()
@@ -258,13 +257,12 @@ class TestVerifyApiOnStartup:
         with pytest.raises(GrampsAPIError, match="not supported"):
             await verify_api_on_startup()
 
-        # Client must be closed even on error
-        client_inst.close.assert_called_once()
-
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.startup.GrampsWebAPIClient")
-    async def test_startup_closes_client_on_exception(self, mock_client_cls):
-        """Client is closed even if verify_api_version raises unexpectedly."""
+    @patch("src.gramps_mcp.startup.get_client")
+    async def test_startup_leaves_shared_client_open_on_exception(
+        self, mock_client_cls
+    ):
+        """An unexpected error propagates; the lifespan, not startup, closes."""
         client_inst = AsyncMock()
         client_inst.verify_api_version = AsyncMock(
             side_effect=RuntimeError("unexpected")
@@ -275,7 +273,7 @@ class TestVerifyApiOnStartup:
         with pytest.raises(RuntimeError):
             await verify_api_on_startup()
 
-        client_inst.close.assert_called_once()
+        client_inst.close.assert_not_called()
 
 
 class TestServerLifespan:
@@ -304,7 +302,7 @@ class TestSchemaDriftWarning:
         return client_inst
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.startup.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.startup.get_client")
     async def test_drift_logs_one_warning_to_stderr(
         self, mock_client_cls, caplog, capsys
     ):
@@ -323,7 +321,7 @@ class TestSchemaDriftWarning:
         assert capsys.readouterr().out == ""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.startup.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.startup.get_client")
     async def test_pinned_version_is_silent(self, mock_client_cls, caplog):
         """A matching version (with v prefix) logs no drift warning."""
         from src.gramps_mcp.schema_pin import SCHEMA_VERSION
@@ -335,7 +333,7 @@ class TestSchemaDriftWarning:
         assert not [r for r in caplog.records if "snapshot" in r.getMessage()]
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.startup.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.startup.get_client")
     async def test_unknown_version_is_silent(self, mock_client_cls, caplog):
         """An empty version string logs no drift warning."""
         mock_client_cls.return_value = self._startup_with("")

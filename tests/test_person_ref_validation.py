@@ -25,7 +25,7 @@ class TestPersonRefValidation:
     """person_ref_list ref validation in UPSERT_HANDLERS["person"]."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -67,7 +67,7 @@ class TestPersonRefValidation:
             )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
