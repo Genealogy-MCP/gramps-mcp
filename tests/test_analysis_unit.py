@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.gramps_mcp.auth import GrampsAuthError
 from src.gramps_mcp.client import GrampsAPIError
 from src.gramps_mcp.tools._errors import McpToolError
 from src.gramps_mcp.tools.analysis import (
@@ -291,6 +292,23 @@ class TestWaitForTaskCompletion:
 
         with pytest.raises(GrampsAPIError, match="Error polling"):
             await _wait_for_task_completion(client, "task7", "t1")
+
+    @pytest.mark.asyncio
+    async def test_auth_error_passes_through_unwrapped(self):
+        """A re-login failure mid-poll keeps its type for describe_auth_error."""
+        original = GrampsAuthError(
+            "Invalid username or password",
+            status_code=403,
+            error_type="invalid_credentials",
+        )
+        client = MagicMock()
+        client.base_url = "http://test/api"
+        client._make_request = AsyncMock(side_effect=original)
+
+        with pytest.raises(GrampsAuthError) as exc_info:
+            await _wait_for_task_completion(client, "task8", "t1")
+
+        assert exc_info.value is original
 
 
 # ---------------------------------------------------------------------------

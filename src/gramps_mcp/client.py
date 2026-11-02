@@ -87,10 +87,11 @@ class GrampsWebAPIClient:
 
         Calls GET /api/metadata/ to retrieve the server version. If the major
         version is below MIN_API_MAJOR_VERSION, raises GrampsAPIError with an
-        actionable upgrade message. If the metadata endpoint is unreachable or
-        returns unexpected data, logs a warning and returns empty string
-        (graceful degradation). A login failure is not degraded: it
-        propagates so the caller can report its real cause.
+        actionable upgrade message. If the metadata endpoint returns an error
+        or unexpected data, logs a warning and returns empty string
+        (graceful degradation). Login runs first and is not degraded: a
+        login failure, including an unreachable server, propagates as
+        GrampsAuthError so the caller can report its real cause.
 
         Args:
             tree_id: Tree identifier for URL building.

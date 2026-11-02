@@ -58,6 +58,12 @@ class GrampsAuthError(Exception):
         self.error_type = error_type
 
 
+class _TokenBody(BaseModel):
+    """Body of a successful token response."""
+
+    access_token: str
+
+
 class _TokenErrorDetail(BaseModel):
     """The ``error`` object of a failed token response."""
 
@@ -69,6 +75,29 @@ class _TokenErrorBody(BaseModel):
     """Body of a failed token response: ``{"error": {...}}``."""
 
     error: _TokenErrorDetail
+
+
+def _parse_access_token(response: httpx.Response) -> str:
+    """Extract the access token from a successful token response.
+
+    Args:
+        response (httpx.Response): A 2xx response from the token endpoint.
+
+    Returns:
+        str: The access token.
+
+    Raises:
+        GrampsAuthError: If the body is not JSON or has no access_token.
+    """
+    # Reason: ValueError covers both a non-JSON body and pydantic's
+    # ValidationError, which subclasses it.
+    try:
+        return _TokenBody.model_validate(response.json()).access_token
+    except ValueError as e:
+        raise GrampsAuthError(
+            "Token response carried no access_token",
+            status_code=response.status_code,
+        ) from e
 
 
 def _auth_error_from_response(response: httpx.Response) -> GrampsAuthError:
@@ -206,13 +235,12 @@ class AuthManager:
             raise self._last_failure
         try:
             response = await self._post_token()
+            token = _parse_access_token(response)
         except GrampsAuthError as e:
             self._last_failure = e
             self._last_failure_at = time.monotonic()
             raise
         self._last_failure = None
-
-        token = str(response.json()["access_token"])
         self._access_token = token
 
         # Set expiration time

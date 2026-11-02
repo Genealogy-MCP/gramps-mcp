@@ -250,6 +250,28 @@ class TestAuthenticate:
         assert (str(err), err.status_code, err.error_type) == ("HTTP 500", 500, None)
 
     @pytest.mark.asyncio
+    async def test_success_without_access_token_raises_typed_error(self):
+        mgr = AuthManager()
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(return_value=httpx.Response(200, text="<html>"))
+
+        with patch.object(
+            AuthManager, "client", new_callable=PropertyMock, return_value=mock_client
+        ):
+            with pytest.raises(GrampsAuthError) as exc_info:
+                await mgr.authenticate()
+
+        err = exc_info.value
+        assert (str(err), err.status_code, err.error_type) == (
+            "Token response carried no access_token",
+            200,
+            None,
+        )
+        # Reason: a gateway answering 200 with HTML must not re-login on every
+        # call either, or the 429 storm from #117 comes back.
+        assert mgr._last_failure is err
+
+    @pytest.mark.asyncio
     async def test_connect_error_raises(self):
         mgr = AuthManager()
         mock_client = AsyncMock()

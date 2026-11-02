@@ -19,11 +19,10 @@ logger = logging.getLogger(__name__)
 async def verify_api_on_startup() -> None:
     """Check Gramps Web API version at startup.
 
-    Raises on unsupported (pre-3.x) versions. Gracefully degrades on
-    connection errors (the check is best-effort at startup; tool calls
-    will surface them later). A login failure is logged at error level
-    with its real cause and the server keeps starting, so tool calls can
-    report the same cause to the LLM. When the server reports
+    Raises on unsupported (pre-3.x) versions. A login failure, including
+    an unreachable server, is logged at error level with its real cause
+    and the server keeps starting, so tool calls can report the same
+    cause to the LLM. When the server reports
     a version other than the one the schema snapshot is pinned to, logs
     one warning and carries on: the snapshot may describe fields the
     server lacks, or miss ones it has.
@@ -32,7 +31,7 @@ async def verify_api_on_startup() -> None:
     try:
         version = await client.verify_api_version()
     except GrampsAuthError as e:
-        logger.error("Gramps Web login failed at startup: %s", describe_auth_error(e))
+        logger.error("Startup API check failed: %s", describe_auth_error(e))
         return
     finally:
         await client.close()
