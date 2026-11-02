@@ -11,7 +11,7 @@ automatically sets isError=True when a tool handler raises an exception.
 MCP-10: This is the single source of truth for error formatting.
 
 McpToolError is re-exported from the shared library. raise_tool_error remains
-local because it handles GrampsAPIError specifically.
+local because it handles GrampsAPIError and GrampsAuthError specifically.
 """
 
 import difflib
@@ -21,10 +21,12 @@ from typing import NoReturn, TypeVar
 from mcp_codemode import McpToolError
 from pydantic import BaseModel, ValidationError
 
+from ..auth import GrampsAuthError
 from ..client import GrampsAPIError
 
 __all__ = [
     "McpToolError",
+    "describe_auth_error",
     "describe_backup_error",
     "describe_validation_error",
     "parse_params",
@@ -57,6 +59,50 @@ _BACKUP_STATUS_MESSAGES = {
         "server administrator to set one."
     ),
 }
+
+# Reason: the token endpoint answers every account problem with 403, so the
+# server's error.type, not the status, says which one the operator must fix.
+_AUTH_TYPE_MESSAGES = {
+    "invalid_credentials": (
+        "Gramps Web rejected the login: invalid username or password. Check "
+        "GRAMPS_USERNAME and GRAMPS_PASSWORD in the MCP server configuration, "
+        "then restart the server."
+    ),
+    "account_unconfirmed": (
+        "Gramps Web rejected the login: the GRAMPS_USERNAME account is not "
+        "confirmed yet. Confirm it through the registration e-mail, or ask the "
+        "tree owner to confirm it."
+    ),
+    "account_disabled": (
+        "Gramps Web rejected the login: the GRAMPS_USERNAME account is "
+        "disabled. Ask the tree owner to re-enable it."
+    ),
+}
+
+
+def describe_auth_error(error: GrampsAuthError) -> str:
+    """Map a failed login to an actionable message (MCP-9).
+
+    Maps on the server's ``error.type`` first, then on ``status_code``, never
+    on message text.
+
+    Args:
+        error: The login failure raised by AuthManager.authenticate.
+
+    Returns:
+        str: The message to return to the LLM and log at startup.
+    """
+    if error.error_type in _AUTH_TYPE_MESSAGES:
+        return _AUTH_TYPE_MESSAGES[error.error_type]
+    if error.status_code == 429:
+        return (
+            "Gramps Web login is rate limited (HTTP 429): the token endpoint "
+            "allows about one login per second and retries ran out. Retry "
+            "shortly."
+        )
+    if error.status_code is None:
+        return f"Gramps Web login failed: {error}"
+    return f"Gramps Web login failed (HTTP {error.status_code}): {error}"
 
 
 def describe_validation_error(
@@ -173,7 +219,9 @@ def raise_tool_error(
     Raises:
         McpToolError: Always raised with a formatted error message.
     """
-    if isinstance(error, GrampsAPIError):
+    if isinstance(error, GrampsAuthError):
+        error_msg = describe_auth_error(error)
+    elif isinstance(error, GrampsAPIError):
         error_msg = str(error)
     elif isinstance(error, McpToolError):
         error_msg = str(error)

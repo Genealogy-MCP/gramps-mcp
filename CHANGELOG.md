@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.14.1] - 2026-11-02
+
+### Fixed
+
+- Wrong credentials now surface as their real cause instead of `Unexpected error: Authentication failed: HTTP 429` on every call. A failed login raises `GrampsAuthError` carrying the HTTP status and the server's `error.type`, the request helper passes it through unwrapped, and tool errors map `invalid_credentials`, `account_unconfirmed`, `account_disabled` and a login 429 to messages naming the fix (#117)
+- A failed login is cached for 2 s, so calls inside that window re-raise it without posting to the token endpoint and tripping its 1/second limit; a 429 from the token endpoint is retried with jittered backoff, at most 3 attempts spaced 1 s or more apart (#117)
+- At startup a login failure is logged at error level with its real cause, not as a warning that the metadata endpoint is unreachable (#117)
+- A token response without an `access_token`, such as an HTML page from a gateway, raises `GrampsAuthError` and enters the same cooldown, and report or backup task polling passes a login failure through instead of wrapping it as a polling error (#117)
+
 ## [3.14.0] - 2026-11-02
 
 ### Added

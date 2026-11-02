@@ -6,8 +6,13 @@ Tests McpToolError, raise_tool_error, and html_to_markdown edge cases.
 
 import pytest
 
+from src.gramps_mcp.auth import GrampsAuthError
 from src.gramps_mcp.client import GrampsAPIError
-from src.gramps_mcp.tools._errors import McpToolError, raise_tool_error
+from src.gramps_mcp.tools._errors import (
+    McpToolError,
+    describe_auth_error,
+    raise_tool_error,
+)
 from src.gramps_mcp.utils import html_to_markdown
 
 
@@ -58,6 +63,72 @@ class TestRaiseToolError:
         """Function always raises, never returns."""
         with pytest.raises(McpToolError):
             raise_tool_error(Exception("x"), "op")
+
+    def test_auth_error_gets_actionable_message(self):
+        """A login failure is described, not reported as unexpected."""
+        original = GrampsAuthError(
+            "Invalid username or password",
+            status_code=403,
+            error_type="invalid_credentials",
+        )
+        with pytest.raises(McpToolError) as exc_info:
+            raise_tool_error(original, "person search")
+        assert str(exc_info.value) == describe_auth_error(original)
+
+
+class TestDescribeAuthError:
+    """Map each login failure to an operator-actionable message (MCP-9)."""
+
+    def test_invalid_credentials_names_the_settings(self):
+        message = describe_auth_error(
+            GrampsAuthError(
+                "Invalid username or password",
+                status_code=403,
+                error_type="invalid_credentials",
+            )
+        )
+        assert "GRAMPS_USERNAME" in message
+        assert "GRAMPS_PASSWORD" in message
+        assert "429" not in message
+
+    def test_unconfirmed_account(self):
+        message = describe_auth_error(
+            GrampsAuthError(
+                "Account not confirmed",
+                status_code=403,
+                error_type="account_unconfirmed",
+            )
+        )
+        assert "not confirmed" in message
+
+    def test_disabled_account(self):
+        message = describe_auth_error(
+            GrampsAuthError(
+                "Account disabled", status_code=403, error_type="account_disabled"
+            )
+        )
+        assert "disabled" in message
+
+    def test_rate_limited_login_says_retry_shortly(self):
+        message = describe_auth_error(GrampsAuthError("HTTP 429", status_code=429))
+        assert "rate limited" in message
+        assert "retry" in message.lower()
+
+    def test_other_status_keeps_server_message(self):
+        message = describe_auth_error(
+            GrampsAuthError(
+                "Local authentication is disabled. Please use OIDC authentication.",
+                status_code=403,
+            )
+        )
+        assert "HTTP 403" in message
+        assert "OIDC" in message
+
+    def test_transport_failure_keeps_detail(self):
+        message = describe_auth_error(
+            GrampsAuthError("Cannot connect to Gramps API: refused")
+        )
+        assert "Cannot connect to Gramps API: refused" in message
 
 
 class TestHtmlToMarkdown:
