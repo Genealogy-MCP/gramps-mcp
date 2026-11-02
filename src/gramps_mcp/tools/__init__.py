@@ -18,6 +18,9 @@ from .analysis import (
     get_tree_stats_tool,
 )
 
+# Backup Tools
+from .backups import create_backup_tool, list_backups_tool
+
 # Data Management Tools -- split across submodules by responsibility:
 # data_management (CRUD), data_management_delete (delete + tags),
 # data_management_media (media upload).
@@ -84,4 +87,7 @@ __all__ = [
     "get_descendants_tool",
     "get_ancestors_tool",
     "get_recent_changes_tool",
+    # Backup Tools
+    "create_backup_tool",
+    "list_backups_tool",
 ]

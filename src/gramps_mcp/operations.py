@@ -20,6 +20,7 @@ from .models.parameters.analysis_params import (
     DescendantsParams,
     TreeInfoParams,
 )
+from .models.parameters.backup_params import CreateBackupParams, ListBackupsParams
 from .models.parameters.citation_params import CitationData
 from .models.parameters.event_params import EventSaveParams
 from .models.parameters.family_params import FamilySaveParams
@@ -44,6 +45,7 @@ from .tools.analysis import (
     get_recent_changes_tool,
     get_tree_stats_tool,
 )
+from .tools.backups import create_backup_tool, list_backups_tool
 from .tools.data_management import (
     upsert_citation_tool,
     upsert_event_tool,
@@ -57,6 +59,15 @@ from .tools.data_management import (
 from .tools.data_management_delete import upsert_tag_tool
 from .tools.data_management_media import download_media_tool, upsert_media_tool
 from .tools.search_basic import search_text_tool
+
+# Server prerequisites and archive contents, shared by both backup entries.
+_BACKUP_NOTES = (
+    "Requires gramps-webapi 3.24 or newer, a backup directory configured on "
+    "the server (BACKUP_DIR), and an account with the Owner role or above. "
+    "An archive holds the tree, the tree settings and the user list without "
+    "credentials, but no media files. Restore, download and delete are not "
+    "exposed; use the Gramps Web UI."
+)
 
 # ---------------------------------------------------------------------------
 # Handwritten operations. search, list_tags, get and delete are built from
@@ -106,7 +117,24 @@ _HANDWRITTEN: dict[str, OperationEntry] = {
         read_only=True,
         destructive=False,
     ),
-    # --- write (10) ---
+    "list_backups": OperationEntry(
+        name="list_backups",
+        summary="List the tree's stored server-side backups, newest first",
+        description=(
+            "List the stored backups (restore points) of the tree, newest "
+            "first. Use it to find the most recent backup before or after a "
+            "run of writes. Returns one row per backup with id, size in "
+            "bytes, whether this server can restore it, and its creation "
+            "timestamp (UTC). Returns at most `limit` rows (default 20, "
+            "maximum 200) and says when rows were cut. " + _BACKUP_NOTES
+        ),
+        category="read",
+        params_schema=ListBackupsParams,
+        handler=list_backups_tool,
+        read_only=True,
+        destructive=False,
+    ),
+    # --- write (11) ---
     "upsert_person": OperationEntry(
         name="upsert_person",
         summary="Create or update a person record",
@@ -221,6 +249,27 @@ _HANDWRITTEN: dict[str, OperationEntry] = {
         read_only=False,
         destructive=False,
     ),
+    "create_backup": OperationEntry(
+        name="create_backup",
+        summary="Create a server-side backup (restore point) of the tree",
+        description=(
+            "Create a stored backup of the whole tree on the server and wait "
+            "until it exists (up to 300 seconds). The server runs one backup "
+            "per tree at a time and refuses a second while one runs. Use it "
+            "before a batch of writes so a bad batch can be rolled back. "
+            "Returns the new backup's id and creation timestamp. WARNING: "
+            "the server keeps only the newest backup_keep backups per tree "
+            "(a server setting, quoted in the result) and deletes the oldest "
+            "after every create, so an earlier restore point, including one "
+            "another agent made, may not survive. Backups are rate limited "
+            "per tree. " + _BACKUP_NOTES
+        ),
+        category="write",
+        params_schema=CreateBackupParams,
+        handler=create_backup_tool,
+        read_only=False,
+        destructive=False,
+    ),
     # --- analysis (3) ---
     "get_ancestors": OperationEntry(
         name="get_ancestors",
@@ -274,6 +323,7 @@ _OPERATION_ORDER = (
     "get",
     "get_tree_stats",
     "download_media",
+    "list_backups",
     "upsert_person",
     "upsert_family",
     "upsert_event",
@@ -284,6 +334,7 @@ _OPERATION_ORDER = (
     "upsert_media",
     "upsert_repository",
     "upsert_tag",
+    "create_backup",
     "delete",
     "get_ancestors",
     "get_descendants",
