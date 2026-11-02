@@ -146,7 +146,8 @@ def build_rows(
 
     Raises:
         CodegenError: A path or component the policy names is absent from
-            the spec, or the Person component disagrees with the policy list.
+            the spec, or the Person component disagrees with the policy
+            list.
     """
     components = spec.get("components", {}).get("schemas", {})
     paths = spec.get("paths", {})

@@ -10,22 +10,12 @@ data_management_delete.py, and data_management_media.py.
 """
 
 import logging
-from typing import Any, Dict, List
-
-from mcp.types import TextContent
-from pydantic import BaseModel
+from typing import Any
 
 from ..client import GrampsWebAPIClient
-from ..config import get_settings
-from ..models.api_calls import ApiCalls
-from ._errors import parse_params, raise_tool_error
 from .search_basic import FORMATTER_DISPATCH
 
 logger = logging.getLogger(__name__)
-
-# Entities whose data model exposes a citation_list and thus warrant a
-# "consider adding a source" nudge when created without one.
-_CITATION_NUDGE_ENTITIES = {"person", "event", "place", "media"}
 
 _CITATION_NUDGE = (
     "> Note: created without a citation. "
@@ -64,60 +54,6 @@ def _extract_entity_data(result: Any, entity_type: str | None = None) -> dict:
             return result[0]["new"]
         return result[0]
     return result
-
-
-async def _handle_crud_operation(
-    params: Dict | BaseModel,
-    entity_type: str,
-    post_api_call: ApiCalls,
-    put_api_call: ApiCalls,
-    param_class: type,
-) -> List[TextContent]:
-    """Common helper for create/update operations."""
-    try:
-        validated_params: Any = (
-            params
-            if isinstance(params, param_class)
-            else parse_params(param_class, params if isinstance(params, dict) else {})
-        )
-
-        settings = get_settings()
-        tree_id = settings.gramps_tree_id
-
-        client = GrampsWebAPIClient()
-        try:
-            if hasattr(validated_params, "handle") and validated_params.handle:
-                result = await client.make_api_call(
-                    api_call=put_api_call,
-                    params=validated_params,
-                    tree_id=tree_id,
-                    handle=validated_params.handle,
-                )
-                operation = "updated"
-            else:
-                result = await client.make_api_call(
-                    api_call=post_api_call, params=validated_params, tree_id=tree_id
-                )
-                operation = "created"
-
-            citations = getattr(validated_params, "citation_list", None)
-            nudge_citation = (
-                operation == "created"
-                and entity_type in _CITATION_NUDGE_ENTITIES
-                and not citations
-            )
-
-            entity_data = _extract_entity_data(result, entity_type)
-            formatted_response = await _format_save_response(
-                client, entity_data, entity_type, operation, tree_id, nudge_citation
-            )
-            return [TextContent(type="text", text=formatted_response)]
-
-        finally:
-            await client.close()
-
-    except Exception as e:
-        raise_tool_error(e, f"{entity_type} save")
 
 
 async def _format_save_response(

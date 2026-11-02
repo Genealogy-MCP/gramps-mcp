@@ -5,11 +5,11 @@
 Handwritten policy the schema snapshot cannot express.
 
 The gramps-webapi OpenAPI document declares no request-body schemas on POST
-and PUT and marks nothing `readOnly`, so codegen needs three maps from a
-human: which component describes each entity, which component fields the
-server computes, and the Person field list taken from upstream
-`PersonSchema` at the pinned version. Later slices add the per-entity
-overlays here.
+and PUT and marks nothing `readOnly`, so codegen needs four maps from a
+human: which component describes each entity, the collection path each
+entity lives under, which component fields the server computes, and the
+Person field list taken from upstream `PersonSchema` at the pinned
+version. Per-entity operation overlays live in `overlays.py`.
 """
 
 # Entity name (as the `type` parameter of get/search/delete spells it) to the

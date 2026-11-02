@@ -17,10 +17,10 @@ from mcp.types import TextContent
 from ..config import get_settings
 from ..handlers.family_detail_handler import format_family_detail
 from ..handlers.person_detail_handler import format_person_detail
+from ..overlays import READ_OVERLAYS
 from ._compat import extract_arguments
 from ._errors import McpToolError, raise_tool_error
 from .search_basic import with_client
-from .table_routes import READ_OVERLAYS
 
 logger = logging.getLogger(__name__)
 

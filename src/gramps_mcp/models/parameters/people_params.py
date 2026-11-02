@@ -19,7 +19,12 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from .base_params import BaseDataModel
+from .base_params import (
+    AttributeListField,
+    BaseDataModel,
+    MediaListField,
+    NoteListField,
+)
 
 
 class EventReference(BaseModel):
@@ -50,7 +55,7 @@ class PersonReference(BaseModel):
     )
 
 
-class PersonData(BaseDataModel):
+class PersonData(BaseDataModel, NoteListField, AttributeListField, MediaListField):
     """Model for creating or updating a person in Gramps API."""
 
     primary_name: Optional[Dict[str, Any]] = Field(

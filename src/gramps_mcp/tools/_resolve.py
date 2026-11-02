@@ -16,8 +16,8 @@ from ..config import get_settings
 # Reason: re-exported for tests that compare the resolved endpoint against
 # _resolve.ApiCalls; the endpoint itself now comes from the resource table.
 from ..models.api_calls import ApiCalls as ApiCalls
+from ..overlays import READ_OVERLAYS, read_route
 from ._errors import McpToolError, parse_params
-from .table_routes import READ_OVERLAYS, read_route
 
 # Entity type -> (params class, list endpoint) for raw gramps_id resolution.
 # Built from READ_OVERLAYS and the resource table, so it always matches the
