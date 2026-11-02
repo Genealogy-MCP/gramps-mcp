@@ -19,7 +19,12 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from .base_params import BaseDataModel, BaseGetMultipleParams
+from .base_params import (
+    AttributeListField,
+    BaseDataModel,
+    BaseGetMultipleParams,
+    NoteListField,
+)
 
 
 class MediaDownloadParams(BaseModel):
@@ -69,7 +74,7 @@ class MediaFileParams(BaseModel):
     )
 
 
-class MediaSaveParams(BaseDataModel):
+class MediaSaveParams(BaseDataModel, NoteListField, AttributeListField):
     """Parameters for creating or updating a media item."""
 
     desc: Optional[str] = Field(
@@ -80,6 +85,19 @@ class MediaSaveParams(BaseDataModel):
             "Required when creating (no handle)."
         ),
     )
+
+    def to_api_payload(self) -> Dict[str, Any]:
+        """
+        Return the media record body without the upload source path.
+
+        Reason: file_location names a file on the caller's disk for the
+        upload step; Gramps has no such field, and an update PUT used to
+        send it in the body (#102).
+
+        Returns:
+            Dict[str, Any]: API-ready media fields.
+        """
+        return self.model_dump(exclude={"file_location"}, exclude_none=True)
 
     @model_validator(mode="after")
     def _validate_create_required(self) -> "MediaSaveParams":

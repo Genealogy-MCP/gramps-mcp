@@ -16,7 +16,13 @@ from typing import Any, Dict, Optional
 
 from pydantic import Field, model_validator
 
-from .base_params import BaseDataModel, BaseGetMultipleParams
+from .base_params import (
+    AttributeListField,
+    BaseDataModel,
+    BaseGetMultipleParams,
+    MediaListField,
+    NoteListField,
+)
 
 
 class GetCitationsParams(BaseGetMultipleParams):
@@ -27,7 +33,7 @@ class GetCitationsParams(BaseGetMultipleParams):
     )
 
 
-class CitationData(BaseDataModel):
+class CitationData(BaseDataModel, NoteListField, AttributeListField, MediaListField):
     """Model for creating or updating a citation via POST/PUT endpoints."""
 
     date: Optional[Dict[str, Any]] = Field(

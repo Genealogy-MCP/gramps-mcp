@@ -11,11 +11,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from src.gramps_mcp.client import (
-    GrampsAPIError,
-    GrampsWebAPIClient,
-    _normalise_url_keys,
-)
+from src.gramps_mcp._request_body import _normalise_url_keys
+from src.gramps_mcp.client import GrampsAPIError, GrampsWebAPIClient
 from src.gramps_mcp.media_client import MediaClient
 from src.gramps_mcp.models.api_calls import ApiCalls
 

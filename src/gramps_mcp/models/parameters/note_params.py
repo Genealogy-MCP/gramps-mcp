@@ -15,7 +15,11 @@ from typing import Any
 
 from pydantic import Field, model_validator
 
-from .base_params import BaseDataModel, BaseGetMultipleParams, BaseGetSingleParams
+from .base_params import (
+    BaseDataModel,
+    BaseGetMultipleParams,
+    BaseGetSingleParams,
+)
 
 
 class NotesParams(BaseGetMultipleParams):

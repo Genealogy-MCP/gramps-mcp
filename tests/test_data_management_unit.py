@@ -1,5 +1,6 @@
 """
-Unit tests for data management tools — CRUD helpers, delete, tag, and media tools.
+Unit tests for data management tools: generic upsert, save helpers, delete,
+tag, and media tools.
 
 Tests mock GrampsWebAPIClient to avoid network calls.
 """
@@ -22,7 +23,6 @@ from src.gramps_mcp.models.parameters.source_params import SourceSaveParams
 from src.gramps_mcp.tools._data_helpers import (
     _extract_entity_data,
     _format_save_response,
-    _handle_crud_operation,
 )
 from src.gramps_mcp.tools._errors import McpToolError
 from src.gramps_mcp.tools.data_management import (
@@ -31,6 +31,7 @@ from src.gramps_mcp.tools.data_management import (
 )
 from src.gramps_mcp.tools.data_management_delete import delete_tool, upsert_tag_tool
 from src.gramps_mcp.tools.data_management_media import upsert_media_tool
+from src.gramps_mcp.tools.upsert_table import upsert_entity
 
 
 def _mock_settings():
@@ -215,17 +216,17 @@ class TestFormatSaveResponse:
 
 
 # ---------------------------------------------------------------------------
-# _handle_crud_operation
+# upsert_entity (generic table-driven upsert, #102)
 # ---------------------------------------------------------------------------
 
 
-class TestHandleCrudOperation:
-    """Test _handle_crud_operation create/update paths."""
+class TestUpsertEntity:
+    """Test upsert_entity create/update paths."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools._data_helpers.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch(
@@ -234,31 +235,26 @@ class TestHandleCrudOperation:
     )
     async def test_create_path(self, _settings, mock_client_cls):
         """No handle in params triggers POST (create)."""
-        from src.gramps_mcp.models.api_calls import ApiCalls
-        from src.gramps_mcp.models.parameters.event_params import EventSaveParams
 
         client_inst = AsyncMock()
-        client_inst.make_api_call = AsyncMock(
+        client_inst.call_resource = AsyncMock(
             return_value=[{"new": {"handle": "e1", "gramps_id": "E001"}}]
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
-        result = await _handle_crud_operation(
-            {"type": "Birth", "citation_list": []},
+        result = await upsert_entity(
             "event",
-            ApiCalls.POST_EVENTS,
-            ApiCalls.PUT_EVENT,
-            EventSaveParams,
+            {"type": "Birth", "citation_list": []},
         )
 
         assert isinstance(result[0], TextContent)
         assert "created" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools._data_helpers.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch(
@@ -267,115 +263,98 @@ class TestHandleCrudOperation:
     )
     async def test_update_path(self, _settings, mock_client_cls):
         """Handle in params triggers PUT (update)."""
-        from src.gramps_mcp.models.api_calls import ApiCalls
-        from src.gramps_mcp.models.parameters.event_params import EventSaveParams
 
         client_inst = AsyncMock()
-        client_inst.make_api_call = AsyncMock(
+        client_inst.call_resource = AsyncMock(
             return_value={"handle": "e1", "gramps_id": "E001"}
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
-        result = await _handle_crud_operation(
-            {"handle": "e1", "type": "Birth", "citation_list": []},
+        result = await upsert_entity(
             "event",
-            ApiCalls.POST_EVENTS,
-            ApiCalls.PUT_EVENT,
-            EventSaveParams,
+            {"handle": "e1", "type": "Birth", "citation_list": []},
         )
 
         assert isinstance(result[0], TextContent)
         assert "updated" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools._data_helpers.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
     async def test_nudge_on_uncited_create(self, _settings, mock_client_cls):
         """Creating a citation-capable entity without citations nudges for a source."""
-        from src.gramps_mcp.models.api_calls import ApiCalls
 
         client_inst = AsyncMock()
-        client_inst.make_api_call = AsyncMock(
+        client_inst.call_resource = AsyncMock(
             return_value=[{"new": {"handle": "e1", "gramps_id": "E001"}}]
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
-        result = await _handle_crud_operation(
-            {"type": "Birth"},
+        result = await upsert_entity(
             "event",
-            ApiCalls.POST_EVENTS,
-            ApiCalls.PUT_EVENT,
-            EventSaveParams,
+            {"type": "Birth"},
         )
 
         assert "created without a citation" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools._data_helpers.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
     async def test_no_nudge_on_cited_create(self, _settings, mock_client_cls):
         """A non-empty citation_list on create suppresses the nudge."""
-        from src.gramps_mcp.models.api_calls import ApiCalls
 
         client_inst = AsyncMock()
-        client_inst.make_api_call = AsyncMock(
+        client_inst.call_resource = AsyncMock(
             return_value=[{"new": {"handle": "e1", "gramps_id": "E001"}}]
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
-        result = await _handle_crud_operation(
-            {"type": "Birth", "citation_list": ["c1"]},
+        result = await upsert_entity(
             "event",
-            ApiCalls.POST_EVENTS,
-            ApiCalls.PUT_EVENT,
-            EventSaveParams,
+            {"type": "Birth", "citation_list": ["c1"]},
         )
 
         assert "created without a citation" not in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools._data_helpers.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
     async def test_no_nudge_on_uncited_update(self, _settings, mock_client_cls):
         """Updating an existing uncited entity never nudges."""
-        from src.gramps_mcp.models.api_calls import ApiCalls
 
         client_inst = AsyncMock()
-        client_inst.make_api_call = AsyncMock(
+        client_inst.call_resource = AsyncMock(
             return_value={"handle": "e1", "gramps_id": "E001"}
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
-        result = await _handle_crud_operation(
-            {"handle": "e1", "type": "Birth"},
+        result = await upsert_entity(
             "event",
-            ApiCalls.POST_EVENTS,
-            ApiCalls.PUT_EVENT,
-            EventSaveParams,
+            {"handle": "e1", "type": "Birth"},
         )
 
         assert "created without a citation" not in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools._data_helpers.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -383,21 +362,17 @@ class TestHandleCrudOperation:
         self, _settings, mock_client_cls
     ):
         """Entities without a citation_list field (source) never nudge."""
-        from src.gramps_mcp.models.api_calls import ApiCalls
 
         client_inst = AsyncMock()
-        client_inst.make_api_call = AsyncMock(
+        client_inst.call_resource = AsyncMock(
             return_value=[{"new": {"handle": "s1", "gramps_id": "S001"}}]
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
-        result = await _handle_crud_operation(
-            {"title": "A Source"},
+        result = await upsert_entity(
             "source",
-            ApiCalls.POST_SOURCES,
-            ApiCalls.PUT_SOURCE,
-            SourceSaveParams,
+            {"title": "A Source"},
         )
 
         assert "created without a citation" not in result[0].text
@@ -405,44 +380,34 @@ class TestHandleCrudOperation:
     @pytest.mark.asyncio
     async def test_validation_error_raises_mcp_error(self):
         """Invalid params raise McpToolError."""
-        from src.gramps_mcp.models.api_calls import ApiCalls
-        from src.gramps_mcp.models.parameters.event_params import EventSaveParams
 
         with pytest.raises(McpToolError):
-            await _handle_crud_operation(
-                {"invalid_field_xyz": True},
+            await upsert_entity(
                 "event",
-                ApiCalls.POST_EVENTS,
-                ApiCalls.PUT_EVENT,
-                EventSaveParams,
+                {"invalid_field_xyz": True},
             )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools._data_helpers.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     async def test_api_error_raises_mcp_error(self, _settings, mock_client_cls):
         """GrampsAPIError during API call wraps as McpToolError."""
         from src.gramps_mcp.client import GrampsAPIError
-        from src.gramps_mcp.models.api_calls import ApiCalls
-        from src.gramps_mcp.models.parameters.event_params import EventSaveParams
 
         client_inst = AsyncMock()
-        client_inst.make_api_call = AsyncMock(
+        client_inst.call_resource = AsyncMock(
             side_effect=GrampsAPIError("Record not found at /events/bad")
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
         with pytest.raises(McpToolError, match="Record not found at /events/bad"):
-            await _handle_crud_operation(
-                {"type": "Birth"},
+            await upsert_entity(
                 "event",
-                ApiCalls.POST_EVENTS,
-                ApiCalls.PUT_EVENT,
-                EventSaveParams,
+                {"type": "Birth"},
             )
 
 
@@ -1105,34 +1070,30 @@ class TestClientToApiPayloadDispatch:
         assert sent_json["text"] == {"_class": "StyledText", "string": "hello"}
 
 
-class TestHandleCrudOperationBaseModel:
-    """Verify _handle_crud_operation accepts pre-validated BaseModel."""
+class TestUpsertEntityBaseModel:
+    """Verify upsert_entity accepts pre-validated BaseModel."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools._data_helpers.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools._data_helpers.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
     async def test_accepts_pre_validated_model(self, _settings, mock_client_cls):
         """Pre-validated NoteSaveParams instance passes without re-validation."""
-        from src.gramps_mcp.models.api_calls import ApiCalls
 
         client_inst = AsyncMock()
-        client_inst.make_api_call = AsyncMock(
+        client_inst.call_resource = AsyncMock(
             return_value=[{"new": {"handle": "n1", "gramps_id": "N001"}}]
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
 
         pre_validated = NoteSaveParams(text="hello", type="General")
-        result = await _handle_crud_operation(
-            pre_validated,
+        result = await upsert_entity(
             "note",
-            ApiCalls.POST_NOTES,
-            ApiCalls.PUT_NOTE,
-            NoteSaveParams,
+            pre_validated,
         )
 
         assert isinstance(result[0], TextContent)

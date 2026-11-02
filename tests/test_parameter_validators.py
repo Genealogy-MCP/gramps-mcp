@@ -114,12 +114,26 @@ class TestBaseDataModel:
         model = BaseDataModel()
         assert model.handle is None
         assert model.gramps_id is None
-        assert model.note_list is None
-        assert model.media_list is None
-        assert model.attribute_list is None
         assert model.tag_list is None
         assert model.private is None
-        assert model.change is None
+
+    def test_list_fields_come_from_mixins_only(self):
+        """#102: no shared list fields or `change`; notes store no lists."""
+        assert (
+            sorted(
+                set(BaseDataModel.model_fields)
+                & {"note_list", "attribute_list", "media_list", "change"}
+            ),
+            sorted(
+                set(NoteSaveParams.model_fields)
+                & {"note_list", "attribute_list", "media_list"}
+            ),
+        ) == ([], [])
+
+    def test_note_rejects_list_fields(self):
+        """3.24 rejects Note list keys with 400, so the model fails first."""
+        with pytest.raises(ValidationError, match="note_list"):
+            NoteSaveParams(text="x", note_list=["h"])
 
 
 class TestSourceSearchParamsValidators:

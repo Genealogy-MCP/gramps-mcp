@@ -169,20 +169,11 @@ class BaseDataModel(BaseModel):
     gramps_id: Optional[str] = Field(
         None, description="An alternate user managed identifier"
     )
-    note_list: Optional[List[str]] = Field(
-        None, description="List of handles for notes"
-    )
-    media_list: Optional[List[Dict[str, Any]]] = Field(
-        None, description="List of references to media"
-    )
-    attribute_list: Optional[List[Dict[str, Any]]] = Field(
-        None, description="List of attributes"
-    )
     tag_list: Optional[List[str]] = Field(None, description="List of handles to tags")
     private: Optional[bool] = Field(None, description="Whether the object is private")
-    change: Optional[int] = Field(
-        None, description="Time in epoch format the record was last modified"
-    )
+    # Reason: no `change` field (#102). Gramps sets the modification time
+    # itself and ignores a sent value; the drift test rejects read-only
+    # fields on every write model.
     list_mode: Optional[Literal["merge", "replace"]] = Field(
         default="merge",
         description=(
@@ -201,3 +192,34 @@ class BaseDataModel(BaseModel):
     def to_api_payload(self) -> Dict[str, Any]:
         """Return API-ready dict. Subclasses override for custom serialization."""
         return self.model_dump(exclude_none=True)
+
+
+# Reason: per-field mixins instead of one shared base (#102). Gramps Web
+# 3.24 rejects a key its object schema lacks with HTTP 400 ("unknown Note
+# keys"), and the entities differ in which of these lists they store. Each
+# write model mixes in exactly the lists its resource-table row declares;
+# the drift test fails when a model declares a field its row lacks.
+
+
+class NoteListField(BaseModel):
+    """Mixin for write models whose record stores a note_list."""
+
+    note_list: Optional[List[str]] = Field(
+        None, description="List of handles for notes"
+    )
+
+
+class AttributeListField(BaseModel):
+    """Mixin for write models whose record stores an attribute_list."""
+
+    attribute_list: Optional[List[Dict[str, Any]]] = Field(
+        None, description="List of attributes"
+    )
+
+
+class MediaListField(BaseModel):
+    """Mixin for write models whose record stores a media_list."""
+
+    media_list: Optional[List[Dict[str, Any]]] = Field(
+        None, description="List of references to media"
+    )
