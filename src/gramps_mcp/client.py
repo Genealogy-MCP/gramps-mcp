@@ -452,9 +452,32 @@ class GrampsWebAPIClient:
         )
 
 
+_shared_client: Optional[GrampsWebAPIClient] = None
+
+
+def get_client() -> GrampsWebAPIClient:
+    """
+    Return the session-wide API client (MCP-21).
+
+    Every tool call shares this one client, and through it the AuthManager's
+    httpx.AsyncClient and cached token. Only the server lifespan closes it.
+
+    Returns:
+        GrampsWebAPIClient: The shared client.
+    """
+    global _shared_client
+    # Reason: the client binds the AuthManager singleton it was built with.
+    # When that singleton is replaced (a reset, or a login as another user),
+    # a client bound to the old one would keep the old session.
+    if _shared_client is None or _shared_client.auth_manager is not AuthManager():
+        _shared_client = GrampsWebAPIClient()
+    return _shared_client
+
+
 # Export the main classes for easy import
 __all__ = [
     "GrampsWebAPIClient",
+    "get_client",
     "GrampsAPIError",
     "MIN_API_MAJOR_VERSION",
 ]

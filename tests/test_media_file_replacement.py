@@ -27,7 +27,7 @@ class TestMediaFileReplacement:
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.write_hooks.MediaClient")
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -72,7 +72,7 @@ class TestMediaFileReplacement:
             os.unlink(temp_path)
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -101,7 +101,7 @@ class TestMediaFileReplacement:
         )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -126,7 +126,7 @@ class TestMediaFileReplacement:
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.write_hooks.MediaClient")
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -171,7 +171,7 @@ class TestMediaFileReplacement:
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.write_hooks.MediaClient")
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),

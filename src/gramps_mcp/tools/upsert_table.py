@@ -21,7 +21,7 @@ from typing import Any, List
 
 from mcp.types import TextContent
 
-from ..client import GrampsWebAPIClient
+from ..client import get_client
 from ..config import get_settings
 from ..resource_rows import EntityResource
 from ..resource_table import ENTITY_RESOURCES
@@ -71,47 +71,44 @@ async def upsert_entity(
         row = write_row(entity, table)
         tree_id = get_settings().gramps_tree_id
 
-        client = GrampsWebAPIClient()
-        try:
-            for check in binding.reference_checks:
-                await check(client, tree_id, validated)
+        client = get_client()
+        for check in binding.reference_checks:
+            await check(client, tree_id, validated)
 
-            uploaded = (
-                await binding.media_upload(client, tree_id, validated)
-                if binding.media_upload is not None
-                else None
+        uploaded = (
+            await binding.media_upload(client, tree_id, validated)
+            if binding.media_upload is not None
+            else None
+        )
+
+        if validated.handle or uploaded:
+            result = await client.call_resource(
+                "PUT",
+                row.item_path,
+                validated,
+                tree_id=tree_id,
+                handle=validated.handle or uploaded,
             )
-
-            if validated.handle or uploaded:
-                result = await client.call_resource(
-                    "PUT",
-                    row.item_path,
-                    validated,
-                    tree_id=tree_id,
-                    handle=validated.handle or uploaded,
-                )
-                operation = "updated" if validated.handle else "created"
-            else:
-                result = await client.call_resource(
-                    "POST", row.collection_path, validated, tree_id=tree_id
-                )
-                operation = "created"
-
-            nudge = (
-                binding.nudge_citation
-                and operation == "created"
-                and not getattr(validated, "citation_list", None)
+            operation = "updated" if validated.handle else "created"
+        else:
+            result = await client.call_resource(
+                "POST", row.collection_path, validated, tree_id=tree_id
             )
-            entity_data = _extract_entity_data(result, entity)
-            if binding.format_response is not None:
-                text = binding.format_response(entity_data, operation)
-            else:
-                text = await _format_save_response(
-                    client, entity_data, entity, operation, tree_id, nudge
-                )
-            return [TextContent(type="text", text=text)]
-        finally:
-            await client.close()
+            operation = "created"
+
+        nudge = (
+            binding.nudge_citation
+            and operation == "created"
+            and not getattr(validated, "citation_list", None)
+        )
+        entity_data = _extract_entity_data(result, entity)
+        if binding.format_response is not None:
+            text = binding.format_response(entity_data, operation)
+        else:
+            text = await _format_save_response(
+                client, entity_data, entity, operation, tree_id, nudge
+            )
+        return [TextContent(type="text", text=text)]
 
     except McpToolError:
         raise

@@ -14,7 +14,7 @@ from typing import Any, List
 
 from mcp.types import TextContent
 
-from ..client import GrampsWebAPIClient
+from ..client import get_client
 from ..config import get_settings
 from ..media_client import MediaClient
 from ..models.api_calls import ApiCalls
@@ -59,59 +59,55 @@ async def download_media_tool(ctx: Any = None, params: Any = None) -> List[TextC
         settings = get_settings()
         tree_id = settings.gramps_tree_id
 
-        client = GrampsWebAPIClient()
+        client = get_client()
         media_client = MediaClient(client)
-        try:
-            handle = validated.handle
+        handle = validated.handle
 
-            # Resolve gramps_id to handle if needed
-            if not handle:
-                results = await client.make_api_call(
-                    api_call=ApiCalls.GET_MEDIA,
-                    params=MediaSearchParams.model_validate(
-                        {"gramps_id": validated.gramps_id}
-                    ),
-                    tree_id=tree_id,
-                )
-                if not results:
-                    raise McpToolError(
-                        f"No media found with gramps_id '{validated.gramps_id}'. "
-                        "Use search to find the correct ID first."
-                    )
-                handle = results[0]["handle"]
-
-            # Fetch metadata for the response summary
-            metadata = await client.make_api_call(
-                api_call=ApiCalls.GET_MEDIA_ITEM,
-                params=None,
+        # Resolve gramps_id to handle if needed
+        if not handle:
+            results = await client.make_api_call(
+                api_call=ApiCalls.GET_MEDIA,
+                params=MediaSearchParams.model_validate(
+                    {"gramps_id": validated.gramps_id}
+                ),
                 tree_id=tree_id,
-                handle=handle,
             )
+            if not results:
+                raise McpToolError(
+                    f"No media found with gramps_id '{validated.gramps_id}'. "
+                    "Use search to find the correct ID first."
+                )
+            handle = results[0]["handle"]
 
-            # Download the binary file
-            file_content, content_type = await media_client.download_media_file(
-                handle, tree_id
-            )
+        # Fetch metadata for the response summary
+        metadata = await client.make_api_call(
+            api_call=ApiCalls.GET_MEDIA_ITEM,
+            params=None,
+            tree_id=tree_id,
+            handle=handle,
+        )
 
-            # Write to disk
-            with open(normalized, "wb") as f:
-                f.write(file_content)
+        # Download the binary file
+        file_content, content_type = await media_client.download_media_file(
+            handle, tree_id
+        )
 
-            desc = metadata.get("desc", "")
-            gramps_id = metadata.get("gramps_id", "")
-            size_bytes = len(file_content)
-            summary = (
-                f"Downloaded media to {normalized}\n"
-                f"Handle: {handle}\n"
-                f"Gramps ID: {gramps_id}\n"
-                f"Description: {desc}\n"
-                f"MIME type: {content_type}\n"
-                f"Size: {size_bytes} bytes"
-            )
-            return [TextContent(type="text", text=summary)]
+        # Write to disk
+        with open(normalized, "wb") as f:
+            f.write(file_content)
 
-        finally:
-            await client.close()
+        desc = metadata.get("desc", "")
+        gramps_id = metadata.get("gramps_id", "")
+        size_bytes = len(file_content)
+        summary = (
+            f"Downloaded media to {normalized}\n"
+            f"Handle: {handle}\n"
+            f"Gramps ID: {gramps_id}\n"
+            f"Description: {desc}\n"
+            f"MIME type: {content_type}\n"
+            f"Size: {size_bytes} bytes"
+        )
+        return [TextContent(type="text", text=summary)]
 
     except Exception as e:
         raise_tool_error(e, "media download")

@@ -25,7 +25,7 @@ _PATCH_SETTINGS = patch(
     "src.gramps_mcp.tools.data_management_media.get_settings",
     return_value=_mock_settings(),
 )
-_PATCH_CLIENT = patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+_PATCH_CLIENT = patch("src.gramps_mcp.tools.data_management_media.get_client")
 _PATCH_MEDIA = patch("src.gramps_mcp.tools.data_management_media.MediaClient")
 
 

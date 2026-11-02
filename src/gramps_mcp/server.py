@@ -30,6 +30,7 @@ from mcp_codemode import (
 from pydantic import AnyUrl
 
 from . import __version__
+from .client import get_client
 from .operations import OPERATION_REGISTRY
 from .startup import verify_api_on_startup
 from .tools._identifier import normalize_identifier
@@ -42,9 +43,12 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def server_lifespan(_app):
-    """FastMCP lifespan hook -- verify API version before accepting connections."""
+    """FastMCP lifespan hook -- verify API version, close the shared client on exit."""
     await verify_api_on_startup()
-    yield
+    try:
+        yield
+    finally:
+        await get_client().close()
 
 
 # Create FastMCP app with stateless HTTP (no SSE)

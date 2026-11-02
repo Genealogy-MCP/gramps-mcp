@@ -23,7 +23,7 @@ class TestCitationSourceHandleValidation:
     """Test source_handle validation in UPSERT_HANDLERS["citation"]."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -52,7 +52,7 @@ class TestCitationSourceHandleValidation:
             )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -93,7 +93,7 @@ class TestCitationSourceHandleValidation:
             )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -122,7 +122,7 @@ class TestCitationSourceHandleValidation:
             )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -149,7 +149,7 @@ class TestCitationSourceHandleValidation:
             )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
