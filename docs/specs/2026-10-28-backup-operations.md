@@ -81,8 +81,8 @@ workflows around it.
 18. As a maintainer, I want every place that hardcodes the operation
     count or order updated in the same change, so that the suite is
     green when the two operations land.
-19. As a maintainer, I want the README, CLAUDE.md coverage table, CONTEXT
-    glossary and CHANGELOG to list the new operations and the server
+19. As a maintainer, I want the README, CLAUDE.md coverage table, GLOSSARY.md
+    and CHANGELOG to list the new operations and the server
     prerequisite, so that users know a backup directory must be
     configured and which server version they need.
 
@@ -188,7 +188,7 @@ workflows around it.
   list in the operations module, which the registry merge requires to
   name every operation. The health endpoints already derive the count
   and need nothing. README (which still says 19), the CLAUDE.md coverage
-  table and the CONTEXT glossary's snapshot version are updated.
+  table and the GLOSSARY.md snapshot version are updated.
 - No restore, delete or download operation. No age-based pruning; the
   server only prunes by count.
 
