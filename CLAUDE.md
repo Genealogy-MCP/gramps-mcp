@@ -704,6 +704,7 @@ Full GQL documentation is served as MCP resource `gql://documentation`.
 - `media/archive/` -- media archive export/import
 - `chat/` -- AI chat
 - `transactions/history/{id}/undo` -- undo transactions
+
 ## Agent skills
 
 ### Issue tracker
@@ -716,4 +717,4 @@ Default vocabulary, label strings equal to role names. See `docs/agents/triage-l
 
 ### Domain docs
 
-Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
