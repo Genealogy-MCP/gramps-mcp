@@ -56,7 +56,7 @@ When debugging search or execute behavior, look in mcp-codemode, not in this rep
 - **Organize code into clearly separated modules**, grouped by feature or responsibility.
   For this MCP server project:
     - `server.py` - MCP server setup (2 meta-tools: search + execute)
-    - `operations.py` - Operation registry (20 operations, single source of truth)
+    - `operations.py` - Operation registry (22 operations, single source of truth)
     - `tools/` directory - Tool implementations organized by feature
     - `tools/meta_search.py` - `search` meta-tool (operation discovery)
     - `tools/meta_execute.py` - `execute` meta-tool (operation dispatch)
@@ -655,12 +655,12 @@ Full GQL documentation is served as MCP resource `gql://documentation`.
 
 #### Current MCP Coverage
 
-**2 MCP tools** (`search` + `execute`) providing access to **20 operations** via Code Mode architecture (MCP-29):
+**2 MCP tools** (`search` + `execute`) providing access to **22 operations** via Code Mode architecture (MCP-29):
 
 - `search` meta-tool: Discovers operations from the registry by keyword. `readOnlyHint=True, openWorldHint=False` (local registry, no API call).
 - `execute` meta-tool: Runs a named operation against the Gramps Web API. `readOnlyHint=False, openWorldHint=True`.
 
-**Operations (20):**
+**Operations (22):**
 
 | Operation | API Endpoints Used | Category |
 |---|---|---|
@@ -669,6 +669,8 @@ Full GQL documentation is served as MCP resource `gql://documentation`.
 | `list_tags` | `GET tags/` | search |
 | `get` | `GET {entity}/{h}?extend=all` (+ timeline) | read |
 | `get_tree_stats` | `GET trees/{tree_id}` | read |
+| `download_media` | `GET media/{h}/file` | read |
+| `list_backups` | `GET backups/` | read |
 | `upsert_person` | `POST/PUT people/{h}` | write |
 | `upsert_family` | `POST/PUT families/{h}` | write |
 | `upsert_event` | `POST/PUT events/{h}` | write |
@@ -679,6 +681,7 @@ Full GQL documentation is served as MCP resource `gql://documentation`.
 | `upsert_media` | `POST/PUT media/{h}` + file upload | write |
 | `upsert_repository` | `POST/PUT repositories/{h}` | write |
 | `upsert_tag` | `POST/PUT tags/{h}` | write |
+| `create_backup` | `POST backups/` + task polling | write |
 | `delete` | `DELETE {entity}/{h}` | delete |
 | `get_ancestors` | `POST reports/ancestor_report/file` + task polling | analysis |
 | `get_descendants` | `POST reports/descend_report/file` + task polling | analysis |

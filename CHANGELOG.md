@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.13.0] - 2026-11-02
+
+### Added
+
+- `create_backup` operation: stores a server-side backup of the tree through `POST /api/backups/` (gramps-webapi 3.24+), waits up to 300 s when the server queues it as a task, and returns the backup id and creation time with a warning that the server prunes backups beyond its `backup_keep` setting (#110)
+- `list_backups` operation: lists the tree's stored backups newest first with id, size, restorable flag and creation time; `limit` (1-200, default 20) caps the rows and the header reports truncation (#110)
+- Backup error mapping on `status_code`: 403 names the missing ManageBackups permission, 404 flags a server older than 3.24, 429 quotes the server's backup rate limit, 501 flags a missing backup directory (#110)
+
 ## [3.12.0] - 2026-11-01
 
 ### Changed

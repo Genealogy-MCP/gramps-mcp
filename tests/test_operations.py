@@ -9,7 +9,7 @@ from mcp_codemode import OperationEntry, search_operations, summarize_params
 
 from src.gramps_mcp.operations import OPERATION_REGISTRY
 
-# Expected operation names — all 20 from the current tool set
+# Expected operation names — all 22 from the current tool set
 EXPECTED_OPERATIONS = {
     "search",
     "search_text",
@@ -17,6 +17,7 @@ EXPECTED_OPERATIONS = {
     "get",
     "get_tree_stats",
     "download_media",
+    "list_backups",
     "get_descendants",
     "get_ancestors",
     "get_recent_changes",
@@ -30,6 +31,7 @@ EXPECTED_OPERATIONS = {
     "upsert_media",
     "upsert_repository",
     "upsert_tag",
+    "create_backup",
     "delete",
 }
 
@@ -39,9 +41,9 @@ VALID_CATEGORIES = {"search", "read", "write", "delete", "analysis"}
 class TestOperationRegistry:
     """Tests for OPERATION_REGISTRY completeness and correctness."""
 
-    def test_all_20_operations_registered(self):
-        """Registry must contain exactly 20 operations."""
-        assert len(OPERATION_REGISTRY) == 20
+    def test_all_22_operations_registered(self):
+        """Registry must contain exactly 22 operations."""
+        assert len(OPERATION_REGISTRY) == 22
 
     def test_operation_names_match_expected(self):
         """Registry keys must match the expected operation names."""
@@ -78,6 +80,7 @@ class TestOperationRegistry:
             "get",
             "get_tree_stats",
             "download_media",
+            "list_backups",
             "get_descendants",
             "get_ancestors",
             "get_recent_changes",
@@ -100,6 +103,7 @@ class TestOperationRegistry:
             "upsert_media",
             "upsert_repository",
             "upsert_tag",
+            "create_backup",
             "delete",
         }
         for name in write_ops:
@@ -122,14 +126,14 @@ class TestOperationRegistry:
             assert isinstance(entry, OperationEntry), f"{name}: not an OperationEntry"
 
     def test_category_distribution(self):
-        """Verify distribution: 3 search, 3 read, 10 write, 1 delete, 3 analysis."""
+        """Verify distribution: 3 search, 4 read, 11 write, 1 delete, 3 analysis."""
         counts = {}
         for entry in OPERATION_REGISTRY.values():
             counts[entry.category] = counts.get(entry.category, 0) + 1
         assert counts == {
             "search": 3,
-            "read": 3,
-            "write": 10,
+            "read": 4,
+            "write": 11,
             "delete": 1,
             "analysis": 3,
         }

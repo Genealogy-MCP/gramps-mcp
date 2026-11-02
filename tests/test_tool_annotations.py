@@ -23,6 +23,7 @@ READ_TOOLS = {
     "get",
     "get_tree_stats",
     "download_media",
+    "list_backups",
     "get_descendants",
     "get_ancestors",
     "get_recent_changes",
@@ -39,6 +40,7 @@ WRITE_TOOLS = {
     "upsert_media",
     "upsert_repository",
     "upsert_tag",
+    "create_backup",
 }
 
 DELETE_TOOLS = {"delete"}

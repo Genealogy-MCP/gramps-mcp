@@ -27,6 +27,7 @@ _EXPECTED_ORDER = [
     "get",
     "get_tree_stats",
     "download_media",
+    "list_backups",
     "upsert_person",
     "upsert_family",
     "upsert_event",
@@ -37,6 +38,7 @@ _EXPECTED_ORDER = [
     "upsert_media",
     "upsert_repository",
     "upsert_tag",
+    "create_backup",
     "delete",
     "get_ancestors",
     "get_descendants",
@@ -153,7 +155,7 @@ class TestOperationRegistry:
     """The live registry merges the table-driven reads with handwritten ops."""
 
     def test_count_and_order_unchanged(self):
-        """Still 20 operations, in the pre-S2 order."""
+        """22 operations: the pre-S2 order plus the two backup operations."""
         from src.gramps_mcp.operations import OPERATION_REGISTRY
 
         assert list(OPERATION_REGISTRY) == _EXPECTED_ORDER
