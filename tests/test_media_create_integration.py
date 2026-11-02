@@ -18,7 +18,7 @@ import pytest
 from src.gramps_mcp.client import GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.models.api_calls import ApiCalls
-from src.gramps_mcp.tools.data_management_media import upsert_media_tool
+from src.gramps_mcp.tools import upsert_media_tool
 
 from .conftest import TEST_PREFIX, extract_handle
 

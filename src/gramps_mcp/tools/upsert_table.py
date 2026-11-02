@@ -2,14 +2,18 @@
 # Copyright (C) 2026 Federico Castagnini
 
 """
-Generic table-driven upsert handler (#102, slice S3 of #99).
+Generic table-driven upsert handler (#102, #103; slices S3 and S4 of #99).
 
-Event, place, source and note save through ``upsert_entity``. The
-entity's ``WriteBinding`` (``overlays.WRITE_BINDINGS``) names the hand
-model and hooks; the resource table row names the paths. The order is
-fixed: parse, reference checks, then the write (the client does the
-merge-mode GET and merge before a PUT), then the media upload. Nothing is
-written before every reference check passes.
+Every writable entity saves through ``upsert_entity``. The entity's
+``WriteBinding`` (``write_overlays.WRITE_BINDINGS``) names the hand model
+and hooks; the resource table row names the paths. The order is fixed:
+parse, reference checks, media upload, then the write (the client does
+the merge-mode GET and merge before a PUT). Nothing is written before
+every reference check passes.
+
+Reason: the upload runs before the write because on media create the
+upload is what makes the record; the metadata write is then a PUT on the
+handle it returns. On media update the stored file is replaced first.
 """
 
 from collections.abc import Callable, Coroutine, Mapping
@@ -19,9 +23,9 @@ from mcp.types import TextContent
 
 from ..client import GrampsWebAPIClient
 from ..config import get_settings
-from ..overlays import WRITE_BINDINGS, WriteBinding, write_row
 from ..resource_rows import EntityResource
 from ..resource_table import ENTITY_RESOURCES
+from ..write_overlays import WRITE_BINDINGS, WriteBinding, write_row
 from ._compat import extract_arguments
 from ._data_helpers import _extract_entity_data, _format_save_response
 from ._errors import McpToolError, parse_params, raise_tool_error
@@ -53,6 +57,8 @@ async def upsert_entity(
     """
     binding = bindings[entity]
     try:
+        if not arguments and binding.empty_arguments_error:
+            raise ValueError(binding.empty_arguments_error)
         # Reason: the hand model is the only parse boundary; the table's
         # field set never filters, adds or forwards a field.
         validated: Any = (
@@ -70,23 +76,26 @@ async def upsert_entity(
             for check in binding.reference_checks:
                 await check(client, tree_id, validated)
 
-            if validated.handle:
+            uploaded = (
+                await binding.media_upload(client, tree_id, validated)
+                if binding.media_upload is not None
+                else None
+            )
+
+            if validated.handle or uploaded:
                 result = await client.call_resource(
                     "PUT",
                     row.item_path,
                     validated,
                     tree_id=tree_id,
-                    handle=validated.handle,
+                    handle=validated.handle or uploaded,
                 )
-                operation = "updated"
+                operation = "updated" if validated.handle else "created"
             else:
                 result = await client.call_resource(
                     "POST", row.collection_path, validated, tree_id=tree_id
                 )
                 operation = "created"
-
-            if binding.media_upload is not None:
-                await binding.media_upload(client, tree_id, validated)
 
             nudge = (
                 binding.nudge_citation
@@ -94,9 +103,12 @@ async def upsert_entity(
                 and not getattr(validated, "citation_list", None)
             )
             entity_data = _extract_entity_data(result, entity)
-            text = await _format_save_response(
-                client, entity_data, entity, operation, tree_id, nudge
-            )
+            if binding.format_response is not None:
+                text = binding.format_response(entity_data, operation)
+            else:
+                text = await _format_save_response(
+                    client, entity_data, entity, operation, tree_id, nudge
+                )
             return [TextContent(type="text", text=text)]
         finally:
             await client.close()

@@ -2,10 +2,10 @@
 # Copyright (C) 2026 Federico Castagnini
 
 """
-Unit tests for the generic table-driven upsert (#102). No Docker.
+Unit tests for the generic table-driven upsert (#102, #103). No Docker.
 
 A fake client records the call order so the fixed sequence (parse,
-reference checks, write, media upload) and "no write before every check
+reference checks, media upload, write) and "no write before every check
 passes" are checked without a server.
 """
 
@@ -14,13 +14,33 @@ from dataclasses import replace
 import pytest
 
 from src.gramps_mcp.models.parameters.event_params import EventSaveParams
-from src.gramps_mcp.overlays import WRITE_BINDINGS
 from src.gramps_mcp.tools import upsert_table
 from src.gramps_mcp.tools._data_helpers import _CITATION_NUDGE
 from src.gramps_mcp.tools._errors import McpToolError
 from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS, upsert_entity
+from src.gramps_mcp.write_hooks import (
+    check_citation_source,
+    check_person_refs,
+    format_tag_save,
+    upload_media,
+)
+from src.gramps_mcp.write_overlays import WRITE_BINDINGS
+
+_ENTITIES = (
+    "person",
+    "family",
+    "event",
+    "place",
+    "source",
+    "citation",
+    "note",
+    "media",
+    "repository",
+    "tag",
+)
 
 _SAVED = {"handle": "h1", "gramps_id": "E1"}
+_NAME = {"first_name": "A", "surname_list": []}
 
 
 class _FakeClient:
@@ -90,7 +110,7 @@ def log(monkeypatch):
     return calls
 
 
-def _hook(log, name, fail=False):
+def _hook(log, name, fail=False, returns=None):
     """
     Build an async hook that logs its name and optionally raises.
 
@@ -98,6 +118,7 @@ def _hook(log, name, fail=False):
         log (list): Shared call log.
         name (str): Name logged when the hook runs.
         fail (bool): Raise McpToolError after logging.
+        returns: Value the hook returns (an upload's new handle).
 
     Returns:
         Callable: The hook.
@@ -108,15 +129,16 @@ def _hook(log, name, fail=False):
         log.append(("hook", name))
         if fail:
             raise McpToolError(f"{name} failed")
+        return returns
 
     return hook
 
 
 class TestOrdering:
-    """Parse, reference checks, write, then media upload."""
+    """Parse, reference checks, media upload, then the write."""
 
-    async def test_checks_then_write_then_upload(self, log):
-        """Hooks run around the write in the fixed order."""
+    async def test_checks_then_upload_then_write(self, log):
+        """Hooks run before the write in the fixed order."""
         bindings = {
             "event": replace(
                 WRITE_BINDINGS["event"],
@@ -128,9 +150,25 @@ class TestOrdering:
         assert log == [
             ("hook", "check1"),
             ("hook", "check2"),
-            ("call", "PUT", "events/{handle}", {"handle": "h1"}),
             ("hook", "upload"),
+            ("call", "PUT", "events/{handle}", {"handle": "h1"}),
             ("format", "event", "updated", False),
+            ("close",),
+        ]
+
+    async def test_upload_handle_turns_create_into_put(self, log):
+        """A handle returned by the upload is PUT on and reported as created."""
+        bindings = {
+            "event": replace(
+                WRITE_BINDINGS["event"],
+                media_upload=_hook(log, "upload", returns="new1"),
+            )
+        }
+        await upsert_entity("event", {"type": "Birth"}, bindings=bindings)
+        assert log == [
+            ("hook", "upload"),
+            ("call", "PUT", "events/{handle}", {"handle": "new1"}),
+            ("format", "event", "created", True),
             ("close",),
         ]
 
@@ -153,11 +191,47 @@ class TestOrdering:
             await upsert_entity("event", {"handle": "h1", "bogus": 1})
         assert (log, "bogus" in str(info.value)) == ([], True)
 
-    async def test_four_entities_bind_no_hooks(self, log):
-        """Event, place, source and note bind no checks and no upload."""
+    async def test_bound_hooks(self, log):
+        """Person and citation check refs, media uploads, tag formats."""
+        no_hooks = ((), None, None, None)
         assert {
-            e: (b.reference_checks, b.media_upload) for e, b in WRITE_BINDINGS.items()
-        } == {e: ((), None) for e in ("event", "place", "source", "note")}
+            e: (
+                b.reference_checks,
+                b.media_upload,
+                b.empty_arguments_error,
+                b.format_response,
+            )
+            for e, b in WRITE_BINDINGS.items()
+        } == {
+            **{e: no_hooks for e in _ENTITIES},
+            "person": ((check_person_refs,), None, None, None),
+            "citation": ((check_citation_source,), None, None, None),
+            "media": (
+                (),
+                upload_media,
+                "file_location is required to create new media.",
+                None,
+            ),
+            "tag": ((), None, None, format_tag_save),
+        }
+
+    async def test_empty_arguments_error(self, log):
+        """Media with no arguments fails with its message and no call."""
+        with pytest.raises(McpToolError) as info:
+            await upsert_entity("media", {})
+        assert (log, str(info.value)) == (
+            [],
+            "Unexpected error during media save: "
+            "file_location is required to create new media.",
+        )
+
+    async def test_format_response_replaces_formatter(self, log):
+        """A bound response formatter builds the confirmation."""
+        result = await upsert_entity("tag", {"name": "T"})
+        assert ([e[0] for e in log], result[0].text.splitlines()[0]) == (
+            ["call", "close"],
+            "Successfully created tag:",
+        )
 
 
 class TestRouting:
@@ -193,16 +267,24 @@ class TestNudge:
     @pytest.mark.parametrize(
         ("entity", "arguments", "expected"),
         [
+            ("person", {"gender": 1, "primary_name": _NAME}, True),
+            (
+                "person",
+                {"gender": 1, "primary_name": _NAME, "citation_list": ["c1"]},
+                False,
+            ),
             ("event", {"type": "Birth"}, True),
             ("event", {"type": "Birth", "citation_list": ["c1"]}, False),
             ("event", {"handle": "h1"}, False),
             ("place", {"place_type": "City"}, True),
             ("source", {"title": "T"}, False),
             ("note", {"text": "x", "type": "General"}, False),
+            ("family", {"father_handle": "p1"}, False),
+            ("repository", {"name": "R", "type": "Library"}, False),
         ],
     )
     async def test_nudge(self, log, entity, arguments, expected):
-        """Event and place nudge on create without citations."""
+        """Person, event and place nudge on create without citations."""
         await upsert_entity(entity, arguments)
         assert log[1][3] is expected
 
@@ -249,5 +331,5 @@ class TestHandlers:
     def test_handler_names(self):
         """Handlers keep the historical tool names."""
         assert {e: h.__name__ for e, h in UPSERT_HANDLERS.items()} == {
-            e: f"upsert_{e}_tool" for e in ("event", "place", "source", "note")
+            e: f"upsert_{e}_tool" for e in _ENTITIES
         }

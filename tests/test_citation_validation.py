@@ -9,8 +9,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from src.gramps_mcp.tools import upsert_citation_tool
 from src.gramps_mcp.tools._errors import McpToolError
-from src.gramps_mcp.tools.data_management import upsert_citation_tool
+from tests._resource_shim import route_call_resource
 
 
 def _mock_settings():
@@ -22,9 +23,9 @@ class TestCitationSourceHandleValidation:
     """Test source_handle validation in upsert_citation_tool."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -43,6 +44,7 @@ class TestCitationSourceHandleValidation:
         client_inst.make_api_call = AsyncMock(side_effect=mock_api_call)
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         with pytest.raises(McpToolError, match="(?i)source.*not found"):
             await upsert_citation_tool(
@@ -50,9 +52,9 @@ class TestCitationSourceHandleValidation:
             )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -71,6 +73,7 @@ class TestCitationSourceHandleValidation:
         client_inst.make_api_call = AsyncMock(side_effect=mock_api_call)
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         result = await upsert_citation_tool({"source_handle": "s1", "page": "p. 42"})
         assert "created" in result[0].text.lower() or "C001" in result[0].text
@@ -88,9 +91,9 @@ class TestCitationSourceHandleValidation:
             )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -109,14 +112,15 @@ class TestCitationSourceHandleValidation:
         client_inst.make_api_call = AsyncMock(side_effect=mock_api_call)
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         with pytest.raises(McpToolError, match="(?i)source.*not found"):
             await upsert_citation_tool({"source_handle": "bad_handle", "page": "p. 10"})
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -133,6 +137,7 @@ class TestCitationSourceHandleValidation:
         client_inst.make_api_call = AsyncMock(side_effect=mock_api_call)
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         with pytest.raises(McpToolError, match="(?i)source.*not found"):
             await upsert_citation_tool(
@@ -140,9 +145,9 @@ class TestCitationSourceHandleValidation:
             )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -163,6 +168,7 @@ class TestCitationSourceHandleValidation:
         client_inst.make_api_call = AsyncMock(side_effect=mock_api_call)
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         with pytest.raises(McpToolError, match="(?i)source.*not found"):
             await upsert_citation_tool(
