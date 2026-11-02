@@ -20,7 +20,8 @@ dependency_scanning:
     - when: never
 
 # The shared docker-build job pushes whatever builds. This MR gate imports the
-# server inside the image so a broken runtime never reaches a release (#115).
+# server inside the image so a broken runtime cannot merge (#115). The release
+# job rebuilds without this check until ci-templates#2 lands.
 docker-smoke:
   stage: test
   # docker:latest, same digest as the shared docker-build job
