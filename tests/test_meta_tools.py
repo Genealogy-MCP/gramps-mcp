@@ -44,7 +44,7 @@ class TestSearchOperationsTool:
         matches = search_operations("xyzzy_nonexistent_foobar", OPERATION_REGISTRY)
         text = format_search_results(matches, OPERATION_REGISTRY)
         assert (
-            "no operations matched" in text.lower() or "20 operations" in text.lower()
+            "no operations matched" in text.lower() or "22 operations" in text.lower()
         )
 
     @pytest.mark.asyncio

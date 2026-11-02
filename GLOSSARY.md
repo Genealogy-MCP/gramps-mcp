@@ -31,3 +31,8 @@
   server. Snapshot-vs-table fails CI; hand-model field missing from the spec
   fails a unit test; spec field missing from a model is a warning; live
   server version differing from the snapshot logs a startup warning.
+- **backup**: a server-side archive of one tree made by `create_backup`
+  (`POST /api/backups/`, gramps-webapi 3.24+). It holds the tree, its settings
+  and the user list without credentials, but no media files, and stays on the
+  server's backup directory. The server keeps only the newest `backup_keep`
+  backups per tree and prunes the rest after each create.

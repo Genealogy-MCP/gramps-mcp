@@ -25,6 +25,7 @@ from ..client import GrampsAPIError
 
 __all__ = [
     "McpToolError",
+    "describe_backup_error",
     "describe_validation_error",
     "parse_params",
     "raise_tool_error",
@@ -33,6 +34,29 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 _ParamsT = TypeVar("_ParamsT", bound=BaseModel)
+
+# Reason: the client's generic messages mislead on the backups collection.
+# Its 404 reads as a missing record, but there it means the server predates
+# the endpoints; its 403 and 5xx do not say which permission or setting fixes
+# the call.
+_BACKUP_STATUS_MESSAGES = {
+    403: (
+        "Account lacks the ManageBackups permission; the Owner role or above "
+        "is required."
+    ),
+    404: "Server is older than gramps-webapi 3.24 and has no backup endpoints.",
+    # Reason: backups hold a rejecting per-tree lock, so a second create while
+    # one runs is refused with 409 instead of queued.
+    409: (
+        "Another backup of this tree is already running; the server runs one "
+        "at a time. Wait for it to finish, then retry or run list_backups to "
+        "see whether it landed."
+    ),
+    501: (
+        "Server has no backup directory configured (BACKUP_DIR); ask the "
+        "server administrator to set one."
+    ),
+}
 
 
 def describe_validation_error(
@@ -68,6 +92,38 @@ def describe_validation_error(
         f"Unknown parameter(s) for {error.title}: {', '.join(parts)}. "
         f"The operation did not run.{accepted} Retry with the right names."
     )
+
+
+def describe_backup_error(
+    error: GrampsAPIError, rate_limit: str | None = None
+) -> str | None:
+    """Map a failed call on the backups collection to an actionable message.
+
+    Maps on ``status_code``, never on message text (MCP-9).
+
+    Args:
+        error: The client error raised by the backups call.
+        rate_limit: The server's ``rate_limit_backup`` value from the
+            metadata endpoint, echoed verbatim in the 429 message. None when
+            the server did not report one.
+
+    Returns:
+        str | None: The message to return to the LLM, or None when the status
+            has no backup-specific meaning and the client's message stands.
+    """
+    if error.status_code == 429:
+        allowed = (
+            f"the server allows {rate_limit}"
+            if rate_limit
+            else "the server did not report its limit"
+        )
+        return (
+            f"Backup rate limit for this tree reached; {allowed}. "
+            "Wait for the window to pass before retrying."
+        )
+    if error.status_code is None:
+        return None
+    return _BACKUP_STATUS_MESSAGES.get(error.status_code)
 
 
 def parse_params(model: type[_ParamsT], arguments: dict) -> _ParamsT:

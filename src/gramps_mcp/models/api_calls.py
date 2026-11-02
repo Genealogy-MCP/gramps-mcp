@@ -133,6 +133,13 @@ class ApiCalls(Enum):
     # PARSERS operations
     POST_PARSERS_DNA_MATCH = ("POST", "parsers/dna-match")
 
+    # BACKUPS operations (gramps-webapi 3.24+)
+    GET_BACKUPS = ("GET", "backups/")
+    POST_BACKUPS = ("POST", "backups/")
+
+    # METADATA operations
+    GET_METADATA = ("GET", "metadata/")
+
     # TREES operations
     GET_TREES = ("GET", "trees/")
     GET_TREE = ("GET", "trees/{tree_id}")

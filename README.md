@@ -45,22 +45,32 @@ No more manual data entry, no context switching between apps, no generic genealo
 
 ## Features
 
-### Code Mode Architecture: 2 Tools, 19 Operations
+### Code Mode Architecture: 2 Tools, 22 Operations
 
-Gramps MCP uses a **Code Mode** architecture: just 2 MCP tools (`search` + `execute`) that provide progressive disclosure of 19 operations. This reduces LLM context window overhead from ~19K tokens to ~1K tokens.
+Gramps MCP uses a **Code Mode** architecture: just 2 MCP tools (`search` + `execute`) that provide progressive disclosure of 22 operations. This reduces LLM context window overhead from ~19K tokens to ~1K tokens.
 
 - **`search`** - Discover available operations by keyword (e.g., "find people", "create event", "delete")
 - **`execute`** - Run a named operation with parameters (e.g., `execute("upsert_person", {...})`)
 
-#### Available Operations (19)
+#### Available Operations (22)
 
 | Category | Operations |
 |----------|-----------|
 | **Search** (3) | `search` (GQL queries), `search_text` (full-text), `list_tags` |
-| **Read** (2) | `get` (entity details), `get_tree_stats` |
-| **Write** (10) | `upsert_person`, `upsert_family`, `upsert_event`, `upsert_place`, `upsert_source`, `upsert_citation`, `upsert_note`, `upsert_media`, `upsert_repository`, `upsert_tag` |
+| **Read** (4) | `get` (entity details), `get_tree_stats`, `download_media`, `list_backups` |
+| **Write** (11) | `upsert_person`, `upsert_family`, `upsert_event`, `upsert_place`, `upsert_source`, `upsert_citation`, `upsert_note`, `upsert_media`, `upsert_repository`, `upsert_tag`, `create_backup` |
 | **Delete** (1) | `delete` (any entity type) |
 | **Analysis** (3) | `get_ancestors`, `get_descendants`, `get_recent_changes` |
+
+#### Backups
+
+`create_backup` stores a backup of the tree on the Gramps Web server; `list_backups` shows the stored backups, newest first. Restore, download and delete are not exposed; use the Gramps Web UI or the API for those. Both operations need:
+
+- gramps-webapi 3.24 or later (older servers answer 404)
+- a backup directory configured on the server (`BACKUP_DIR`; without it the server answers 501)
+- an account with the Owner role or above (the ManageBackups permission)
+
+An archive holds the tree, its settings and the user list without credentials. It holds no media files. Archives live on the server's disk, not on the machine running the MCP server. The server keeps only its configured number of newest backups per tree (`BACKUP_KEEP`) and prunes older ones after every create, and it rate-limits backup creation per tree.
 
 ## Installation
 

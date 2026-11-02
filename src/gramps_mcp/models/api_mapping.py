@@ -151,6 +151,11 @@ API_CALL_PARAMS: Dict[ApiCalls, Optional[Type[BaseModel]]] = {
     ApiCalls.GET_HOLIDAYS_DATE: HolidaysParams,
     # PARSERS operations
     ApiCalls.POST_PARSERS_DNA_MATCH: DnaMatchParseParams,
+    # BACKUPS operations: neither endpoint takes parameters
+    ApiCalls.GET_BACKUPS: None,
+    ApiCalls.POST_BACKUPS: None,
+    # METADATA operations
+    ApiCalls.GET_METADATA: None,
     # TREES operations
     ApiCalls.GET_TREES: None,
     ApiCalls.GET_TREE: None,
