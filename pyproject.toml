@@ -1,13 +1,13 @@
 [project]
 name = "gramps-mcp"
-version = "3.10.3"
+version = "3.11.0"
 description = "AI-Powered Genealogy Research & Management - MCP server for Gramps Web API"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.120.0,<1.0",
     "httpx>=0.25.0,<1.0",
     "markdownify>=0.11.6,<2",
-    "mcp>=1.23.0,<2",
+    "mcp>=1.30.0,<2",
     "mcp-codemode @ https://gitlab.com/genealogy-mcp/genealogy-mcp-codemode/-/archive/v1.0.0/genealogy-mcp-codemode-v1.0.0.tar.gz",
     "pydantic>=2.0.0,<3",
     "pyjwt>=2.8.0,<3",
@@ -31,7 +31,6 @@ select = ["E", "F", "I"]
 
 [dependency-groups]
 dev = [
-    "black>=23.0.0,<27",
     "pip-audit>=2.6.0,<3",
     "pre-commit>=4.3.0,<5",
     "pyright>=1.1.0,<2",
@@ -44,7 +43,7 @@ dev = [
 ]
 
 [tool.pyright]
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 typeCheckingMode = "standard"
 include = ["src"]
 
