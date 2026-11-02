@@ -21,21 +21,10 @@ from .analysis import (
 # Backup Tools
 from .backups import create_backup_tool, list_backups_tool
 
-# Data Management Tools -- split across submodules by responsibility:
-# data_management (CRUD), data_management_delete (delete + tags),
-# data_management_media (media upload).
-from .data_management import (
-    upsert_citation_tool,
-    upsert_event_tool,
-    upsert_family_tool,
-    upsert_note_tool,
-    upsert_person_tool,
-    upsert_place_tool,
-    upsert_repository_tool,
-    upsert_source_tool,
-)
-from .data_management_delete import delete_tool, upsert_tag_tool
-from .data_management_media import download_media_tool, upsert_media_tool
+# Data Management Tools: delete and media download have their own modules;
+# every upsert is the generic table-driven handler (#102, #103).
+from .data_management_delete import delete_tool
+from .data_management_media import download_media_tool
 from .search_basic import (
     list_tags_tool,
     search_citation_tool,
@@ -52,6 +41,18 @@ from .search_details import (
     get_family_tool,
     get_person_tool,
 )
+from .upsert_table import UPSERT_HANDLERS
+
+upsert_person_tool = UPSERT_HANDLERS["person"]
+upsert_family_tool = UPSERT_HANDLERS["family"]
+upsert_event_tool = UPSERT_HANDLERS["event"]
+upsert_place_tool = UPSERT_HANDLERS["place"]
+upsert_source_tool = UPSERT_HANDLERS["source"]
+upsert_citation_tool = UPSERT_HANDLERS["citation"]
+upsert_note_tool = UPSERT_HANDLERS["note"]
+upsert_media_tool = UPSERT_HANDLERS["media"]
+upsert_repository_tool = UPSERT_HANDLERS["repository"]
+upsert_tag_tool = UPSERT_HANDLERS["tag"]
 
 # Export all tools for easy import
 __all__ = [

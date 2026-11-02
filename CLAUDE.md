@@ -56,7 +56,7 @@ When debugging search or execute behavior, look in mcp-codemode, not in this rep
 - **Organize code into clearly separated modules**, grouped by feature or responsibility.
   For this MCP server project:
     - `server.py` - MCP server setup (2 meta-tools: search + execute)
-    - `operations.py` - Operation registry (22 operations): handwritten entries merged with entries built from the generated `resource_table.py` (entity paths, verbs, writable fields) and the per-entity policy in `overlays.py` (read routes, write bindings, operation overlays)
+    - `operations.py` - Operation registry (22 operations): handwritten entries merged with entries built from the generated `resource_table.py` (entity paths, verbs, writable fields) and the per-entity policy in `overlays.py` (read routes, read/delete operation overlays) and `write_overlays.py` (write bindings and upsert overlays for all ten entities, hooks in `write_hooks.py`)
     - `tools/` directory - Tool implementations organized by feature
     - `tools/meta_search.py` - `search` meta-tool (operation discovery)
     - `tools/meta_execute.py` - `execute` meta-tool (operation dispatch)

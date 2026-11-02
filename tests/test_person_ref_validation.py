@@ -12,8 +12,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from src.gramps_mcp.tools import upsert_person_tool
 from src.gramps_mcp.tools._errors import McpToolError
-from src.gramps_mcp.tools.data_management import upsert_person_tool
+from tests._resource_shim import route_call_resource
 
 
 def _mock_settings():
@@ -24,9 +25,9 @@ class TestPersonRefValidation:
     """person_ref_list ref validation in upsert_person_tool."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -44,6 +45,7 @@ class TestPersonRefValidation:
         client_inst.make_api_call = AsyncMock(side_effect=mock_api_call)
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         with pytest.raises(McpToolError, match="ghost"):
             await upsert_person_tool(
@@ -65,9 +67,9 @@ class TestPersonRefValidation:
             )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -85,6 +87,7 @@ class TestPersonRefValidation:
         client_inst.make_api_call = AsyncMock(side_effect=mock_api_call)
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         result = await upsert_person_tool(
             {

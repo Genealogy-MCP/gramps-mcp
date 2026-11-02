@@ -3,9 +3,10 @@
 # Copyright (C) 2026 Federico Castagnini
 
 """
-Media object management for Gramps MCP tools.
+Media file download for Gramps MCP tools.
 
-Handles media file upload, download, creation, and updating including metadata merging.
+Media create/update (with file upload) runs through the generic upsert
+and ``write_hooks.upload_media`` (#103).
 """
 
 import logging
@@ -13,136 +14,15 @@ from typing import Any, List
 
 from mcp.types import TextContent
 
-from ..client import GrampsAPIError, GrampsWebAPIClient
+from ..client import GrampsWebAPIClient
 from ..config import get_settings
 from ..media_client import MediaClient
 from ..models.api_calls import ApiCalls
-from ..models.parameters.media_params import MediaDownloadParams, MediaSaveParams
+from ..models.parameters.media_params import MediaDownloadParams
 from ._compat import extract_arguments
-from ._data_helpers import _extract_entity_data, _format_save_response
 from ._errors import McpToolError, parse_params, raise_tool_error
 
 logger = logging.getLogger(__name__)
-
-
-async def upsert_media_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
-    """
-    Create or update media files including object associations.
-    """
-    import mimetypes
-    import os
-
-    try:
-        arguments = extract_arguments(ctx, params)
-        validated = parse_params(MediaSaveParams, arguments) if arguments else None
-        file_location = validated.file_location if validated else None
-
-        settings = get_settings()
-        tree_id = settings.gramps_tree_id
-
-        client = GrampsWebAPIClient()
-        media_client = MediaClient(client)
-        try:
-            if validated and validated.handle:
-                # File replacement: upload new file before metadata update
-                if file_location:
-                    if not os.path.isfile(file_location):
-                        raise FileNotFoundError(f"File not found: {file_location}")
-                    with open(file_location, "rb") as f:
-                        file_content = f.read()
-                    mime_type, _ = mimetypes.guess_type(file_location)
-                    if not mime_type:
-                        mime_type = "application/octet-stream"
-                    try:
-                        await media_client.replace_media_file(
-                            file_content=file_content,
-                            handle=validated.handle,
-                            mime_type=mime_type,
-                            tree_id=tree_id,
-                        )
-                    except GrampsAPIError as e:
-                        if "409" in str(e):
-                            logger.warning(
-                                "File already exists (409 Conflict) "
-                                "for handle %s — skipping re-upload, "
-                                "proceeding with metadata update.",
-                                validated.handle,
-                            )
-                        else:
-                            raise
-
-                result = await client.make_api_call(
-                    api_call=ApiCalls.PUT_MEDIA_ITEM,
-                    params=validated,
-                    tree_id=tree_id,
-                    handle=validated.handle,
-                )
-                operation = "updated"
-                entity_data = _extract_entity_data(result)
-            else:
-                if not file_location:
-                    raise ValueError("file_location is required to create new media.")
-                if not os.path.isfile(file_location):
-                    raise FileNotFoundError(f"File not found: {file_location}")
-
-                with open(file_location, "rb") as f:
-                    file_content = f.read()
-                mime_type, _ = mimetypes.guess_type(file_location)
-                if not mime_type:
-                    mime_type = "application/octet-stream"
-
-                upload_result = await media_client.upload_media_file(
-                    file_content, mime_type, tree_id
-                )
-
-                if not (
-                    upload_result
-                    and isinstance(upload_result, list)
-                    and "new" in upload_result[0]
-                ):
-                    raise GrampsAPIError(
-                        "Media upload did not return the expected new object."
-                    )
-                initial_media_object = upload_result[0]["new"]
-                media_handle = initial_media_object["handle"]
-
-                # Reason: the upload response carries server-computed fields
-                # (_class, checksum, thumb) that MediaSaveParams does not declare.
-                # Since #71 forbids extra keys, echoing them back into the PUT
-                # would be rejected, so only writable fields cross the boundary.
-                writable = set(MediaSaveParams.model_fields)
-                final_media_data = {
-                    k: v for k, v in initial_media_object.items() if k in writable
-                }
-                if validated:
-                    final_media_data.update(
-                        validated.model_dump(
-                            exclude={"file_location"}, exclude_none=True
-                        )
-                    )
-
-                result = await client.make_api_call(
-                    api_call=ApiCalls.PUT_MEDIA_ITEM,
-                    params=final_media_data,
-                    tree_id=tree_id,
-                    handle=media_handle,
-                )
-                operation = "created"
-                entity_data = _extract_entity_data(result)
-
-            nudge_citation = operation == "created" and not getattr(
-                validated, "citation_list", None
-            )
-            formatted_response = await _format_save_response(
-                client, entity_data, "media", operation, tree_id, nudge_citation
-            )
-            return [TextContent(type="text", text=formatted_response)]
-
-        finally:
-            await client.close()
-
-    except Exception as e:
-        raise_tool_error(e, "media save")
 
 
 async def download_media_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:

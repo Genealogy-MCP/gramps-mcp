@@ -170,7 +170,7 @@ class TestOperationRegistry:
         } == {"search": True, "list_tags": True, "get": True, "delete": True}
 
     def test_upserts_come_from_table(self):
-        """event, place, source and note upserts are build_registry entries."""
+        """All ten upserts are build_registry entries (#103)."""
         from src.gramps_mcp.operations import OPERATION_REGISTRY, UPSERT_OPERATIONS
         from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
 
@@ -179,12 +179,23 @@ class TestOperationRegistry:
             for name, entry in UPSERT_OPERATIONS.items()
         } == {
             f"upsert_{e}": (True, UPSERT_HANDLERS[e])
-            for e in ("event", "place", "source", "note")
+            for e in (
+                "person",
+                "family",
+                "event",
+                "place",
+                "source",
+                "citation",
+                "note",
+                "media",
+                "repository",
+                "tag",
+            )
         }
 
     def test_upsert_overlay_needs_put_on_item(self):
         """A bound entity whose row lacks PUT fails the write-row check."""
-        from src.gramps_mcp.overlays import write_row
+        from src.gramps_mcp.write_overlays import write_row
 
         table = {"note": replace(ENTITY_RESOURCES["note"], item_verbs=("GET",))}
         with pytest.raises(ValueError, match="PUT"):

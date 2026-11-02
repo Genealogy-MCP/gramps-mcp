@@ -8,7 +8,7 @@ The hand models stay the parse boundary for every upsert, so nothing
 filters a payload against the table at runtime. These tests are the
 other half of that contract: every writable field a hand model declares
 must be a field the table lists for its entity, or a payload-only field
-named in ``overlays.PAYLOAD_ONLY_FIELDS`` that the model's payload hook
+named in ``write_overlays.PAYLOAD_ONLY_FIELDS`` that the model's payload hook
 consumes before the request is sent. No Docker needed.
 """
 
@@ -27,9 +27,13 @@ from src.gramps_mcp.models.parameters.place_params import PlaceSaveParams
 from src.gramps_mcp.models.parameters.repository_params import RepositoryData
 from src.gramps_mcp.models.parameters.source_params import SourceSaveParams
 from src.gramps_mcp.models.parameters.tag_params import TagSaveParams
-from src.gramps_mcp.overlays import PAYLOAD_ONLY_FIELDS, ROUTING_FIELDS
 from src.gramps_mcp.resource_policy import READ_ONLY_FIELDS
 from src.gramps_mcp.resource_table import ENTITY_RESOURCES
+from src.gramps_mcp.write_overlays import (
+    PAYLOAD_ONLY_FIELDS,
+    ROUTING_FIELDS,
+    WRITE_BINDINGS,
+)
 
 # All ten write models, keyed by the entity whose table row they write.
 WRITE_MODELS = {
@@ -119,6 +123,10 @@ class TestWriteModelDrift:
     def test_covers_all_ten_write_models(self):
         """The drift check runs over every entity in the table."""
         assert sorted(WRITE_MODELS) == sorted(ENTITY_RESOURCES)
+
+    def test_bindings_parse_through_these_models(self):
+        """Every upsert binding parses through the model checked here (#103)."""
+        assert {e: b.model for e, b in WRITE_BINDINGS.items()} == WRITE_MODELS
 
     @pytest.mark.parametrize("entity", sorted(WRITE_MODELS))
     def test_model_fields_in_table(self, entity):

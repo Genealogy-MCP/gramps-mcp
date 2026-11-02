@@ -3,9 +3,10 @@
 # Copyright (C) 2026 Federico Castagnini
 
 """
-Delete and tag operations for Gramps MCP tools.
+Delete operation for Gramps MCP tools.
 
-Handles entity deletion and tag create/update.
+Handles entity deletion; tag create/update moved to the generic upsert
+(#103).
 """
 
 import logging
@@ -15,12 +16,10 @@ from mcp.types import TextContent
 
 from ..client import GrampsWebAPIClient
 from ..config import get_settings
-from ..models.api_calls import ApiCalls
 from ..models.parameters.simple_params import DeleteParams
 from ..overlays import item_call
 from ..resource_table import ENTITY_RESOURCES
 from ._compat import extract_arguments
-from ._data_helpers import _extract_entity_data
 from ._errors import McpToolError, parse_params, raise_tool_error
 
 logger = logging.getLogger(__name__)
@@ -86,62 +85,3 @@ async def delete_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
 
     except Exception as e:
         raise_tool_error(e, "delete")
-
-
-async def upsert_tag_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
-    """
-    Create or update a tag.
-
-    Args:
-        ctx: MCP context (library) or plain dict (legacy).
-        params: Pydantic model (library) or None (legacy).
-
-    Returns:
-        List of TextContent with formatted tag details.
-    """
-    from ..models.parameters.tag_params import TagSaveParams
-
-    try:
-        arguments = extract_arguments(ctx, params)
-        validated = parse_params(TagSaveParams, arguments)
-
-        settings = get_settings()
-        tree_id = settings.gramps_tree_id
-
-        client = GrampsWebAPIClient()
-        try:
-            # Reason: PUT /tags/{handle} works on grampsweb 26.6.1 (#97). The
-            # client's PUT path merges with the stored tag; tags carry no list
-            # fields, so list_mode is irrelevant and scalars simply replace.
-            if validated.handle:
-                result = await client.make_api_call(
-                    api_call=ApiCalls.PUT_TAG,
-                    params=validated,
-                    tree_id=tree_id,
-                    handle=validated.handle,
-                )
-                operation = "updated"
-            else:
-                result = await client.make_api_call(
-                    api_call=ApiCalls.POST_TAGS, params=validated, tree_id=tree_id
-                )
-                operation = "created"
-
-            entity_data = _extract_entity_data(result)
-            tag_name = entity_data.get("name", "Unknown")
-            tag_handle = entity_data.get("handle", "N/A")
-            tag_color = entity_data.get("color", "None")
-            tag_priority = entity_data.get("priority", 0)
-
-            formatted = (
-                f"Successfully {operation} tag:\n\n"
-                f"**{tag_name}** [{tag_handle}]\n"
-                f"Color: {tag_color} | Priority: {tag_priority}"
-            )
-            return [TextContent(type="text", text=formatted)]
-
-        finally:
-            await client.close()
-
-    except Exception as e:
-        raise_tool_error(e, "tag save")

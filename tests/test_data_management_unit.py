@@ -20,18 +20,20 @@ from src.gramps_mcp.models.parameters.people_params import PersonData
 from src.gramps_mcp.models.parameters.place_params import PlaceSaveParams
 from src.gramps_mcp.models.parameters.repository_params import RepositoryData
 from src.gramps_mcp.models.parameters.source_params import SourceSaveParams
+from src.gramps_mcp.tools import (
+    upsert_family_tool,
+    upsert_media_tool,
+    upsert_repository_tool,
+    upsert_tag_tool,
+)
 from src.gramps_mcp.tools._data_helpers import (
     _extract_entity_data,
     _format_save_response,
 )
 from src.gramps_mcp.tools._errors import McpToolError
-from src.gramps_mcp.tools.data_management import (
-    upsert_family_tool,
-    upsert_repository_tool,
-)
-from src.gramps_mcp.tools.data_management_delete import delete_tool, upsert_tag_tool
-from src.gramps_mcp.tools.data_management_media import upsert_media_tool
+from src.gramps_mcp.tools.data_management_delete import delete_tool
 from src.gramps_mcp.tools.upsert_table import upsert_entity
+from tests._resource_shim import route_call_resource
 
 
 def _mock_settings():
@@ -491,9 +493,9 @@ class TestUpsertFamilyTool:
     """Test upsert_family_tool create and update paths."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -506,15 +508,16 @@ class TestUpsertFamilyTool:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         result = await upsert_family_tool({"father_handle": "p1"})
         assert isinstance(result[0], TextContent)
         assert "created" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -525,6 +528,7 @@ class TestUpsertFamilyTool:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         result = await upsert_family_tool({"handle": "f1", "father_handle": "p1"})
         assert "updated" in result[0].text
@@ -539,9 +543,9 @@ class TestUpsertRepositoryTool:
     """Test upsert_repository_tool create and update paths."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -552,14 +556,15 @@ class TestUpsertRepositoryTool:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         result = await upsert_repository_tool({"name": "Test Repo", "type": "Library"})
         assert "created" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -570,6 +575,7 @@ class TestUpsertRepositoryTool:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         result = await upsert_repository_tool(
             {"handle": "r1", "name": "Updated Repo", "type": "Archive"}
@@ -586,9 +592,9 @@ class TestUpsertTagTool:
     """Test upsert_tag_tool create and update paths."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_delete.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management_delete.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     async def test_create_tag(self, _settings, mock_client_cls):
@@ -607,15 +613,16 @@ class TestUpsertTagTool:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         result = await upsert_tag_tool({"name": "Research", "color": "#FF0000"})
         assert "created" in result[0].text
         assert "Research" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_delete.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management_delete.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     async def test_update_tag_routes_through_put(self, _settings, mock_client_cls):
@@ -636,6 +643,7 @@ class TestUpsertTagTool:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         result = await upsert_tag_tool(
             {"handle": "t1", "name": "Updated", "color": "#00FF00", "priority": 2}
@@ -649,9 +657,9 @@ class TestUpsertTagTool:
         assert "#00FF00" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_delete.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management_delete.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     async def test_update_tag_color_only(self, _settings, mock_client_cls):
@@ -662,6 +670,7 @@ class TestUpsertTagTool:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         result = await upsert_tag_tool({"handle": "t1", "color": "#0F0"})
 
@@ -687,9 +696,9 @@ class TestUpsertMediaTool:
     """Test upsert_media_tool update path (create requires real file)."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management_media.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -700,15 +709,16 @@ class TestUpsertMediaTool:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         result = await upsert_media_tool({"handle": "m1", "desc": "Updated photo"})
         assert "updated" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_media.MediaClient")
-    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.write_hooks.MediaClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management_media.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -731,6 +741,7 @@ class TestUpsertMediaTool:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         result = await upsert_media_tool(
             {"file_location": str(test_file), "desc": "Uncited photo"}
@@ -739,10 +750,10 @@ class TestUpsertMediaTool:
         assert "created without a citation" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_media.MediaClient")
-    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.write_hooks.MediaClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management_media.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -765,6 +776,7 @@ class TestUpsertMediaTool:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         result = await upsert_media_tool(
             {
@@ -777,9 +789,9 @@ class TestUpsertMediaTool:
         assert "created without a citation" not in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management_media.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -793,6 +805,7 @@ class TestUpsertMediaTool:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         result = await upsert_media_tool({"handle": "m1", "desc": "Updated photo"})
 
@@ -805,9 +818,9 @@ class TestUpsertMediaTool:
             await upsert_media_tool({"desc": "No file"})
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management_media.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -816,6 +829,7 @@ class TestUpsertMediaTool:
         client_inst = AsyncMock()
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         with pytest.raises(McpToolError):
             await upsert_media_tool(
@@ -823,9 +837,9 @@ class TestUpsertMediaTool:
             )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management_media.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -850,9 +864,10 @@ class TestUpsertMediaTool:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         with patch(
-            "src.gramps_mcp.tools.data_management_media.MediaClient",
+            "src.gramps_mcp.write_hooks.MediaClient",
             return_value=mock_media_client,
         ):
             result = await upsert_media_tool(
@@ -868,9 +883,9 @@ class TestUpsertMediaTool:
         client_inst.make_api_call.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management_media.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -891,10 +906,11 @@ class TestUpsertMediaTool:
         client_inst = AsyncMock()
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         with (
             patch(
-                "src.gramps_mcp.tools.data_management_media.MediaClient",
+                "src.gramps_mcp.write_hooks.MediaClient",
                 return_value=mock_media_client,
             ),
             pytest.raises(McpToolError),
@@ -1089,6 +1105,7 @@ class TestUpsertEntityBaseModel:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         pre_validated = NoteSaveParams(text="hello", type="General")
         result = await upsert_entity(

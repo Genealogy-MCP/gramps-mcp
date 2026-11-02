@@ -265,7 +265,9 @@ make docker-down   # Stop and remove containers
 src/gramps_mcp/
 |-- server.py           # MCP server (2 meta-tools: search + execute)
 |-- operations.py       # Operation registry (handwritten + table-built entries)
-|-- overlays.py         # Per-entity policy: read routes, write bindings, op overlays
+|-- overlays.py         # Per-entity read policy: read routes, read/delete op overlays
+|-- write_overlays.py   # Per-entity write policy: bindings and upsert op overlays
+|-- write_hooks.py      # Write hooks: reference checks, media upload, tag reply
 |-- registry_build.py   # Builds and merges registry entries from the resource table
 |-- resource_table.py   # Generated entity resource table (OpenAPI snapshot)
 |-- client.py           # Gramps Web API client
@@ -276,8 +278,9 @@ src/gramps_mcp/
 |   |-- meta_execute.py    # 'execute' meta-tool (operation dispatch)
 |   |-- search_basic.py    # GQL search + text search handlers
 |   |-- search_details.py  # Entity detail handlers
-|   |-- upsert_table.py    # Generic upsert (event, place, source, note)
-|   |-- data_management.py # CRUD operation handlers
+|   |-- upsert_table.py    # Generic upsert (all ten entities)
+|   |-- data_management_delete.py # Delete handler
+|   |-- data_management_media.py  # Media download handler
 |   `-- analysis.py        # Tree analysis handlers
 |-- handlers/           # Data formatting handlers
 `-- models/             # Pydantic data models

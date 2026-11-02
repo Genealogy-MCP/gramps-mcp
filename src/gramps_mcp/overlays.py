@@ -11,20 +11,15 @@ cannot say, as named per-entity bindings:
 * Read side: ``READ_OVERLAYS`` (search params class, display label,
   formatter) and the ``collection_call`` / ``item_call`` lookups that turn
   a table row into the client's ``ApiCalls`` key.
-* Write side: ``WRITE_BINDINGS`` (hand model, citation nudge,
-  reference-check and media-upload slots) for the entities the generic
-  upsert handler serves, plus the drift-test allowlist
-  ``PAYLOAD_ONLY_FIELDS``.
 * Operation overlays: ``table_overlays()`` for search, list_tags, get and
-  delete, and ``upsert_overlays()`` for the generic upserts.
+  delete.
 
-Person, family, citation, repository, tag and media keep handwritten
-upsert handlers in ``tools/``.
+The write side (bindings, drift allowlist, upsert overlays) lives in
+``write_overlays.py``.
 """
 
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any
 
 from .handlers.citation_handler import format_citation
 from .handlers.event_handler import format_event
@@ -37,14 +32,12 @@ from .handlers.repository_handler import format_repository
 from .handlers.source_handler import format_source
 from .models.api_calls import ApiCalls
 from .models.parameters.base_params import BaseGetMultipleParams
-from .models.parameters.citation_params import CitationData, GetCitationsParams
-from .models.parameters.event_params import EventSaveParams, EventSearchParams
-from .models.parameters.family_params import FamilySaveParams
-from .models.parameters.media_params import MediaSaveParams, MediaSearchParams
-from .models.parameters.note_params import NoteSaveParams, NotesParams
-from .models.parameters.people_params import PersonData
-from .models.parameters.place_params import PlaceSaveParams, PlaceSearchParams
-from .models.parameters.repository_params import RepositoriesParams, RepositoryData
+from .models.parameters.citation_params import GetCitationsParams
+from .models.parameters.event_params import EventSearchParams
+from .models.parameters.media_params import MediaSearchParams
+from .models.parameters.note_params import NotesParams
+from .models.parameters.place_params import PlaceSearchParams
+from .models.parameters.repository_params import RepositoriesParams
 from .models.parameters.simple_params import (
     DeletableEntityType,
     DeleteParams,
@@ -52,7 +45,7 @@ from .models.parameters.simple_params import (
     SimpleFindParams,
     SimpleGetParams,
 )
-from .models.parameters.source_params import SourceSaveParams, SourceSearchParams
+from .models.parameters.source_params import SourceSearchParams
 from .models.parameters.tag_params import TagSearchParams
 from .registry_build import OpOverlay
 from .resource_rows import EntityResource
@@ -232,124 +225,11 @@ def read_route(entity: str) -> tuple[type, ApiCalls]:
 
 
 # ---------------------------------------------------------------------------
-# Write side
-# ---------------------------------------------------------------------------
-
-# Fields that pick the target record rather than describe it. ``handle``
-# chooses PUT on the item path over POST on the collection path.
-ROUTING_FIELDS: tuple[str, ...] = ("handle",)
-
-# (hand model, field) pairs a model declares although the table does not
-# list them. Each one must be consumed by the model's payload hook (or by
-# ``_request_body.api_body``) so it never reaches the request body; the drift
-# unit test enforces both halves.
-_LIST_MODE_MODELS = (
-    PersonData,
-    FamilySaveParams,
-    EventSaveParams,
-    PlaceSaveParams,
-    SourceSaveParams,
-    CitationData,
-    NoteSaveParams,
-    RepositoryData,
-    MediaSaveParams,
-)
-PAYLOAD_ONLY_FIELDS: tuple[tuple[type, str], ...] = (
-    *((model, "list_mode") for model in _LIST_MODE_MODELS),
-    (PlaceSaveParams, "enclosed_by"),
-    (FamilySaveParams, "child_handles"),
-    (FamilySaveParams, "family_type"),
-    (MediaSaveParams, "file_location"),
-)
-
-# Async ``(client, tree_id, params)`` hook run by the generic upsert.
-WriteHook = Callable[[Any, str, Any], Awaitable[None]]
-
-
-@dataclass(frozen=True)
-class WriteBinding:
-    """Hand-kept write facts for one entity the generic upsert serves.
-
-    Attributes:
-        model: Hand model the arguments are parsed through (extra=forbid).
-            Its ``to_api_payload`` hook shapes the request body.
-        nudge_citation: Append the "add a source" reminder when a record
-            is created without a citation_list.
-        reference_checks: Hooks that raise McpToolError when a referenced
-            record is missing; all run before any write.
-        media_upload: Hook run after the POST/PUT to upload a file, or None.
-    """
-
-    model: type
-    nudge_citation: bool
-    reference_checks: tuple[WriteHook, ...] = ()
-    media_upload: WriteHook | None = None
-
-
-# Reason: the four entities bind no reference checks and no upload; the
-# slots exist so person, citation or media can move here without a new
-# handler shape.
-WRITE_BINDINGS: dict[str, WriteBinding] = {
-    "event": WriteBinding(EventSaveParams, nudge_citation=True),
-    "place": WriteBinding(PlaceSaveParams, nudge_citation=True),
-    "source": WriteBinding(SourceSaveParams, nudge_citation=False),
-    "note": WriteBinding(NoteSaveParams, nudge_citation=False),
-}
-
-
-def write_row(
-    entity: str, table: Mapping[str, EntityResource] = ENTITY_RESOURCES
-) -> EntityResource:
-    """
-    Return the table row for an upsert, checked for POST and PUT.
-
-    Args:
-        entity (str): Entity key.
-        table (Mapping[str, EntityResource]): Resource rows.
-
-    Returns:
-        EntityResource: The row; POST on its collection path creates,
-            PUT on its item path updates.
-
-    Raises:
-        ValueError: Unknown entity, or POST/PUT missing from the row.
-    """
-    row = _row(entity, table)
-    _check_verb("POST", row.collection_path, entity, row.collection_verbs)
-    _check_verb("PUT", row.item_path, entity, row.item_verbs)
-    return row
-
-
-# ---------------------------------------------------------------------------
 # Operation overlays
 # ---------------------------------------------------------------------------
 
 _SEARCHABLE = tuple(e.value for e in EntityType)
 _DELETABLE = tuple(e.value for e in DeletableEntityType)
-
-# Operation name -> (entity, summary, description) for the generic upserts.
-_UPSERT_TEXT: dict[str, tuple[str, str, str]] = {
-    "upsert_event": (
-        "event",
-        "Create or update a life event",
-        "Create or update life event including person/place associations",
-    ),
-    "upsert_place": (
-        "place",
-        "Create or update a geographic location",
-        "Create or update geographic location",
-    ),
-    "upsert_source": (
-        "source",
-        "Create or update a source document",
-        "Create or update source document",
-    ),
-    "upsert_note": (
-        "note",
-        "Create or update a textual note",
-        "Create or update textual note including object associations",
-    ),
-}
 
 
 def table_overlays() -> tuple[OpOverlay, ...]:
@@ -453,39 +333,3 @@ def table_overlays() -> tuple[OpOverlay, ...]:
             entities=_DELETABLE,
         ),
     )
-
-
-def upsert_overlays() -> tuple[OpOverlay, ...]:
-    """
-    Return the overlays for the generic upserts (event, place, source, note).
-
-    Each one checks its row for POST and PUT, takes its params schema from
-    ``WRITE_BINDINGS`` and its handler from the generic upsert module.
-
-    Returns:
-        tuple[OpOverlay, ...]: One overlay per generic upsert operation.
-
-    Raises:
-        ValueError: A bound entity whose row lacks POST or PUT.
-    """
-    from .tools.upsert_table import UPSERT_HANDLERS
-
-    overlays = []
-    for name, (entity, summary, description) in _UPSERT_TEXT.items():
-        write_row(entity)
-        overlays.append(
-            OpOverlay(
-                name=name,
-                summary=summary,
-                description=description,
-                category="write",
-                params_schema=WRITE_BINDINGS[entity].model,
-                handler=UPSERT_HANDLERS[entity],
-                read_only=False,
-                destructive=False,
-                scope="collection",
-                verb="POST",
-                entities=(entity,),
-            )
-        )
-    return tuple(overlays)
