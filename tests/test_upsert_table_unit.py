@@ -77,7 +77,7 @@ class _FakeClient:
         return _SAVED
 
     async def close(self):
-        """Record the close."""
+        """Record a close; the shared client must never log one."""
         self.log.append(("close",))
 
 
@@ -98,7 +98,7 @@ def log(monkeypatch):
     monkeypatch.setattr(upsert_table, "get_settings", lambda: _Settings())
     monkeypatch.setattr(
         upsert_table,
-        "GrampsWebAPIClient",
+        "get_client",
         lambda: _FakeClient(calls, calls.fail_with),
     )
 
@@ -153,7 +153,6 @@ class TestOrdering:
             ("hook", "upload"),
             ("call", "PUT", "events/{handle}", {"handle": "h1"}),
             ("format", "event", "updated", False),
-            ("close",),
         ]
 
     async def test_upload_handle_turns_create_into_put(self, log):
@@ -169,7 +168,6 @@ class TestOrdering:
             ("hook", "upload"),
             ("call", "PUT", "events/{handle}", {"handle": "new1"}),
             ("format", "event", "created", True),
-            ("close",),
         ]
 
     async def test_failed_check_blocks_write(self, log):
@@ -183,7 +181,7 @@ class TestOrdering:
         }
         with pytest.raises(McpToolError, match="^check failed$"):
             await upsert_entity("event", {"handle": "h1"}, bindings=bindings)
-        assert log == [("hook", "check"), ("close",)]
+        assert log == [("hook", "check")]
 
     async def test_parse_failure_makes_no_call(self, log):
         """Invalid arguments fail before a client exists."""
@@ -229,7 +227,7 @@ class TestOrdering:
         """A bound response formatter builds the confirmation."""
         result = await upsert_entity("tag", {"name": "T"})
         assert ([e[0] for e in log], result[0].text.splitlines()[0]) == (
-            ["call", "close"],
+            ["call"],
             "Successfully created tag:",
         )
 

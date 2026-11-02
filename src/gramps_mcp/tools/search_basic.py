@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List
 
 from mcp.types import TextContent
 
-from ..client import GrampsWebAPIClient
+from ..client import get_client
 from ..config import get_settings
 from ..models.api_calls import ApiCalls
 from ..models.parameters.search_params import SearchParams
@@ -38,7 +38,9 @@ FORMATTER_DISPATCH: Dict[str, Callable] = {
 
 def with_client(func: Callable) -> Callable:
     """
-    Decorator that provides a GrampsWebAPIClient instance and handles cleanup.
+    Decorator that injects the shared GrampsWebAPIClient from get_client().
+
+    The client stays open across calls; the transport runner closes it at process exit.
 
     The decorated function will receive 'client' as the first argument
     followed by a dict of arguments. The mcp-codemode library calls
@@ -50,17 +52,14 @@ def with_client(func: Callable) -> Callable:
         func: Async function to decorate
 
     Returns:
-        Decorated function with client management
+        Decorated function with the shared client injected
     """
 
     @functools.wraps(func)
     async def wrapper(ctx_or_args=None, params=None, **kwargs):
-        client = GrampsWebAPIClient()
-        try:
-            arguments = extract_arguments(ctx_or_args, params)
-            return await func(client, arguments, **kwargs)
-        finally:
-            await client.close()
+        client = get_client()
+        arguments = extract_arguments(ctx_or_args, params)
+        return await func(client, arguments, **kwargs)
 
     return wrapper
 

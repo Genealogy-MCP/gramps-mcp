@@ -14,7 +14,7 @@ from typing import Any, List
 
 from mcp.types import TextContent
 
-from ..client import GrampsWebAPIClient
+from ..client import get_client
 from ..config import get_settings
 from ..models.parameters.simple_params import DeleteParams
 from ..overlays import item_call
@@ -66,22 +66,19 @@ async def delete_tool(ctx: Any = None, params: Any = None) -> List[TextContent]:
         settings = get_settings()
         tree_id = settings.gramps_tree_id
 
-        client = GrampsWebAPIClient()
-        try:
-            await client.make_api_call(
-                api_call=api_call, tree_id=tree_id, handle=validated.handle
+        client = get_client()
+        await client.make_api_call(
+            api_call=api_call, tree_id=tree_id, handle=validated.handle
+        )
+        return [
+            TextContent(
+                type="text",
+                text=(
+                    f"Successfully deleted {entity_type_str} "
+                    f"with handle `{validated.handle}`."
+                ),
             )
-            return [
-                TextContent(
-                    type="text",
-                    text=(
-                        f"Successfully deleted {entity_type_str} "
-                        f"with handle `{validated.handle}`."
-                    ),
-                )
-            ]
-        finally:
-            await client.close()
+        ]
 
     except Exception as e:
         raise_tool_error(e, "delete")

@@ -25,7 +25,7 @@ from src.gramps_mcp.tools.backups import (
     list_backups_tool,
 )
 
-_CLIENT = "src.gramps_mcp.tools.search_basic.GrampsWebAPIClient"
+_CLIENT = "src.gramps_mcp.tools.search_basic.get_client"
 _WAIT = "src.gramps_mcp.tools.backups._wait_for_task_completion"
 
 

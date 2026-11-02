@@ -220,7 +220,7 @@ class TestUpsertEntity:
     """Test upsert_entity create/update paths."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -248,7 +248,7 @@ class TestUpsertEntity:
         assert "created" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -276,7 +276,7 @@ class TestUpsertEntity:
         assert "updated" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -300,7 +300,7 @@ class TestUpsertEntity:
         assert "created without a citation" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -324,7 +324,7 @@ class TestUpsertEntity:
         assert "created without a citation" not in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -348,7 +348,7 @@ class TestUpsertEntity:
         assert "created without a citation" not in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -384,7 +384,7 @@ class TestUpsertEntity:
             )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -416,7 +416,7 @@ class TestDeleteTool:
     """Test delete_tool dispatch and error handling."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_delete.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.data_management_delete.get_client")
     @patch(
         "src.gramps_mcp.tools.data_management_delete.get_settings",
         return_value=_mock_settings(),
@@ -433,7 +433,7 @@ class TestDeleteTool:
         assert "p1" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_delete.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.data_management_delete.get_client")
     @patch(
         "src.gramps_mcp.tools.data_management_delete.get_settings",
         return_value=_mock_settings(),
@@ -456,7 +456,7 @@ class TestDeleteTool:
             await delete_tool({})
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_delete.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.data_management_delete.get_client")
     @patch(
         "src.gramps_mcp.tools.data_management_delete.get_settings",
         return_value=_mock_settings(),
@@ -487,7 +487,7 @@ class TestUpsertFamilyTool:
     """Test UPSERT_HANDLERS["family"] create and update paths."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -509,7 +509,7 @@ class TestUpsertFamilyTool:
         assert "created" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -539,7 +539,7 @@ class TestUpsertRepositoryTool:
     """Test UPSERT_HANDLERS["repository"] create and update paths."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -560,7 +560,7 @@ class TestUpsertRepositoryTool:
         assert "created" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -590,7 +590,7 @@ class TestUpsertTagTool:
     """Test UPSERT_HANDLERS["tag"] create and update paths."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -618,7 +618,7 @@ class TestUpsertTagTool:
         assert "Research" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -655,7 +655,7 @@ class TestUpsertTagTool:
         assert "#00FF00" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -694,7 +694,7 @@ class TestUpsertMediaTool:
     """Test UPSERT_HANDLERS["media"] update path (create requires real file)."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -716,7 +716,7 @@ class TestUpsertMediaTool:
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.write_hooks.MediaClient")
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -751,7 +751,7 @@ class TestUpsertMediaTool:
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.write_hooks.MediaClient")
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -789,7 +789,7 @@ class TestUpsertMediaTool:
         assert "created without a citation" not in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -820,7 +820,7 @@ class TestUpsertMediaTool:
             await UPSERT_HANDLERS["media"]({"desc": "No file"})
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -839,7 +839,7 @@ class TestUpsertMediaTool:
             )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -885,7 +885,7 @@ class TestUpsertMediaTool:
         client_inst.make_api_call.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
@@ -1092,7 +1092,7 @@ class TestUpsertEntityBaseModel:
     """Verify upsert_entity accepts pre-validated BaseModel."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.get_client")
     @patch(
         "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),

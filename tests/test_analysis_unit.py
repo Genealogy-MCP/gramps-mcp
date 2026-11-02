@@ -361,13 +361,13 @@ class TestFormatTreeInfo:
 class TestGetTreeStatsTool:
     """Test get_tree_stats_tool dispatch.
 
-    The @with_client decorator injects a GrampsWebAPIClient as the first arg,
-    so we patch GrampsWebAPIClient at the search_basic module level (where
+    The @with_client decorator injects the shared client as the first arg,
+    so we patch get_client at the search_basic module level (where
     with_client imports it) and call the tool with just the arguments dict.
     """
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
     @patch(
         "src.gramps_mcp.tools.analysis.get_settings",
         return_value=_mock_settings("tree1"),
@@ -384,7 +384,7 @@ class TestGetTreeStatsTool:
         assert "My Tree" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
     @patch(
         "src.gramps_mcp.tools.analysis.get_settings",
         return_value=_mock_settings(""),
@@ -410,7 +410,7 @@ class TestGetTreeStatsTool:
         assert "Found" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
     @patch(
         "src.gramps_mcp.tools.analysis.get_settings",
         return_value=_mock_settings(""),
@@ -435,7 +435,7 @@ class TestGetRecentChangesTool:
     """Test get_recent_changes_tool dispatch."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
     @patch(
         "src.gramps_mcp.tools.analysis.get_settings",
         return_value=_mock_settings("tree1"),
@@ -460,7 +460,7 @@ class TestGetRecentChangesTool:
         assert "admin" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
     @patch(
         "src.gramps_mcp.tools.analysis.get_settings",
         return_value=_mock_settings("tree1"),
@@ -484,7 +484,7 @@ class TestGetDescendantsTool:
     """Test get_descendants_tool report flow."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
     @patch(
         "src.gramps_mcp.tools.analysis.get_settings",
         return_value=_mock_settings("tree1"),
@@ -511,7 +511,7 @@ class TestGetDescendantsTool:
         assert "Descendants" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
     @patch(
         "src.gramps_mcp.tools.analysis.get_settings",
         return_value=_mock_settings("tree1"),
@@ -543,7 +543,7 @@ class TestGetDescendantsTool:
         assert "Report" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
     @patch(
         "src.gramps_mcp.tools.analysis.get_settings",
         return_value=_mock_settings("tree1"),
@@ -557,7 +557,7 @@ class TestGetDescendantsTool:
             await get_descendants_tool({})
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
     @patch(
         "src.gramps_mcp.tools.analysis.get_settings",
         return_value=_mock_settings("tree1"),
@@ -573,7 +573,7 @@ class TestGetDescendantsTool:
             await get_descendants_tool({"gramps_id": "I0001"})
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
     @patch(
         "src.gramps_mcp.tools.analysis.get_settings",
         return_value=_mock_settings("tree1"),
@@ -609,7 +609,7 @@ class TestGetAncestorsTool:
     """Test get_ancestors_tool report flow."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
     @patch(
         "src.gramps_mcp.tools.analysis.get_settings",
         return_value=_mock_settings("tree1"),
@@ -633,7 +633,7 @@ class TestGetAncestorsTool:
         assert "Ancestors" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
     @patch(
         "src.gramps_mcp.tools.analysis.get_settings",
         return_value=_mock_settings("tree1"),
@@ -664,7 +664,7 @@ class TestGetAncestorsTool:
         assert "Ancestor Report" in result[0].text
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
     @patch(
         "src.gramps_mcp.tools.analysis.get_settings",
         return_value=_mock_settings("tree1"),
@@ -678,7 +678,7 @@ class TestGetAncestorsTool:
             await get_ancestors_tool({})
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.search_basic.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
     @patch(
         "src.gramps_mcp.tools.analysis.get_settings",
         return_value=_mock_settings("tree1"),
