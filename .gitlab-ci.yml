@@ -82,10 +82,6 @@ dependency_scanning:
     - docker compose -f docker-compose.test.yml logs --tail=100 || true
     - docker compose -f docker-compose.test.yml down -v || true
 
-test-py3.10:
-  extends: .test-base
-  image: python:3.10-slim-bookworm
-
 test-py3.11:
   extends: .test-base
   image: python:3.11-slim-bookworm

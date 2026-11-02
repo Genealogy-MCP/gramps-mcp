@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.11.0] - 2026-11-01
+
+### Security
+
+- Dependency updates clearing known advisories (`mcp`, `certifi`, `msgpack`, `virtualenv`, `filelock`). The `mcp` floor is now 1.30.0 (#111)
+
+### Removed
+
+- Python 3.10 support: `requires-python` is now `>=3.11`, the `test-py3.10` CI job is gone, because the patched `filelock` releases need Python 3.11 and 3.10 is end of life (#111)
+- `black` dev dependency, unused since `ruff format` handles formatting (#111)
+
 ## [3.10.3] - 2026-10-10
 
 ### Changed
