@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from ._merge import merge_object
 from ._request_body import api_body
-from .auth import AuthManager
+from .auth import AuthManager, GrampsAuthError
 from .config import get_settings
 from .models.api_calls import ApiCalls
 from .models.api_mapping import validate_api_call_params
@@ -89,7 +89,8 @@ class GrampsWebAPIClient:
         version is below MIN_API_MAJOR_VERSION, raises GrampsAPIError with an
         actionable upgrade message. If the metadata endpoint is unreachable or
         returns unexpected data, logs a warning and returns empty string
-        (graceful degradation).
+        (graceful degradation). A login failure is not degraded: it
+        propagates so the caller can report its real cause.
 
         Args:
             tree_id: Tree identifier for URL building.
@@ -100,10 +101,13 @@ class GrampsWebAPIClient:
 
         Raises:
             GrampsAPIError: If the API version is below 3.x.
+            GrampsAuthError: If logging in to the API fails.
         """
         try:
             url = self._build_url(tree_id, "metadata/")
             metadata = await self._make_request("GET", url=url)
+        except GrampsAuthError:
+            raise
         except Exception as e:
             logger.warning(f"Could not reach metadata endpoint: {e}")
             return ""
@@ -228,7 +232,7 @@ class GrampsWebAPIClient:
             raise GrampsAPIError(f"Cannot connect to Gramps API: {e}") from e
         except httpx.TimeoutException as e:
             raise GrampsAPIError(f"Request timeout: {e}") from e
-        except GrampsAPIError:
+        except (GrampsAPIError, GrampsAuthError):
             raise
         except Exception as e:
             raise GrampsAPIError(f"Unexpected error: {e}") from e

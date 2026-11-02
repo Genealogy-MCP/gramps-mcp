@@ -16,8 +16,11 @@ import asyncio
 from unittest.mock import patch
 
 import pytest
+from mcp_codemode import McpToolError, execute_operation
 
-from src.gramps_mcp.auth import AuthManager
+from src.gramps_mcp.auth import AUTH_FAILURE_COOLDOWN_SECONDS, AuthManager
+from src.gramps_mcp.operations import OPERATION_REGISTRY
+from src.gramps_mcp.startup import verify_api_on_startup
 
 pytestmark = pytest.mark.integration
 
@@ -133,3 +136,52 @@ class TestAuthIntegration:
         assert all(isinstance(t, str) and t for t in results)
         assert len(set(results)) == 1
         assert results[0] != stale
+
+
+class TestWrongPassword:
+    """A wrong password surfaces as invalid credentials, never as 429 (#117)."""
+
+    @pytest.mark.asyncio
+    async def test_every_execute_reports_invalid_credentials(self):
+        """Startup then back-to-back executes all name the credential settings.
+
+        Before #117, startup's failed login and the first execute landed in
+        the same 1/second token window, so every call reported HTTP 429. The
+        last call runs after the failure cooldown, so it exercises a real
+        second login rather than the cached failure.
+        """
+        saved = AuthManager._instance
+        AuthManager._instance = None
+        auth = AuthManager()
+        auth.settings = auth.settings.model_copy(
+            update={"gramps_password": "MCP_TEST_wrong_password"}
+        )
+        calls = [
+            {"operation": "get_tree_stats", "params": {}},
+            {"operation": "search_text", "params": {"query": "Garner"}},
+            {
+                "operation": "search",
+                "params": {"type": "person", "gql": "gramps_id = I0001"},
+            },
+            {"operation": "get_tree_stats", "params": {}},
+        ]
+        messages = []
+        try:
+            await asyncio.sleep(1.1)
+            await verify_api_on_startup()
+            for index, call in enumerate(calls):
+                if index == len(calls) - 1:
+                    await asyncio.sleep(AUTH_FAILURE_COOLDOWN_SECONDS + 0.2)
+                with pytest.raises(McpToolError) as exc_info:
+                    await execute_operation(call, OPERATION_REGISTRY, None)
+                messages.append(str(exc_info.value))
+        finally:
+            await auth.close()
+            AuthManager._instance = saved
+            # Leave the token window clear for tests that log in next.
+            await asyncio.sleep(1.1)
+
+        for message in messages:
+            assert "invalid username or password" in message, messages
+            assert "GRAMPS_PASSWORD" in message, messages
+            assert "429" not in message, messages

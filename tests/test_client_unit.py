@@ -12,6 +12,7 @@ import httpx
 import pytest
 
 from src.gramps_mcp._request_body import _normalise_url_keys
+from src.gramps_mcp.auth import GrampsAuthError
 from src.gramps_mcp.client import GrampsAPIError, GrampsWebAPIClient
 from src.gramps_mcp.media_client import MediaClient
 from src.gramps_mcp.models.api_calls import ApiCalls
@@ -437,6 +438,22 @@ class TestMakeRequest:
 
         with pytest.raises(GrampsAPIError, match="Unexpected error"):
             await client._make_request("GET", "http://test/api/people/")
+
+    @pytest.mark.asyncio
+    async def test_auth_error_passes_through_unwrapped(self):
+        """A login failure keeps its type, status and server error type."""
+        client = self._setup_client()
+        original = GrampsAuthError(
+            "Invalid username or password",
+            status_code=403,
+            error_type="invalid_credentials",
+        )
+        client.auth_manager.get_token = AsyncMock(side_effect=original)
+
+        with pytest.raises(GrampsAuthError) as exc_info:
+            await client._make_request("GET", "http://test/api/people/")
+
+        assert exc_info.value is original
 
     @pytest.mark.asyncio
     async def test_json_with_return_headers(self):

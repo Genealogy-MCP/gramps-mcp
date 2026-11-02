@@ -8,8 +8,10 @@ Server startup initialization and validation.
 
 import logging
 
+from .auth import GrampsAuthError
 from .client import GrampsWebAPIClient
 from .schema_pin import SCHEMA_VERSION
+from .tools._errors import describe_auth_error
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +21,9 @@ async def verify_api_on_startup() -> None:
 
     Raises on unsupported (pre-3.x) versions. Gracefully degrades on
     connection errors (the check is best-effort at startup; tool calls
-    will surface auth/connection errors later). When the server reports
+    will surface them later). A login failure is logged at error level
+    with its real cause and the server keeps starting, so tool calls can
+    report the same cause to the LLM. When the server reports
     a version other than the one the schema snapshot is pinned to, logs
     one warning and carries on: the snapshot may describe fields the
     server lacks, or miss ones it has.
@@ -27,6 +31,9 @@ async def verify_api_on_startup() -> None:
     client = GrampsWebAPIClient()
     try:
         version = await client.verify_api_version()
+    except GrampsAuthError as e:
+        logger.error("Gramps Web login failed at startup: %s", describe_auth_error(e))
+        return
     finally:
         await client.close()
     if version and version.lstrip("v") != SCHEMA_VERSION:
