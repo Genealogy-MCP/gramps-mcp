@@ -101,9 +101,6 @@ class FamilySaveParams(BaseDataModel):
     event_ref_list: Optional[List[dict]] = Field(
         None, description="List of event references"
     )
-    urls: Optional[List[dict]] = Field(
-        None, description="List of URLs associated with the family"
-    )
 
     def to_api_payload(self) -> Dict[str, Any]:
         """Build the Gramps family payload from the caller's parameters."""

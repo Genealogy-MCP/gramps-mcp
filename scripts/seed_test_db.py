@@ -5,8 +5,9 @@
 """
 Seed a local Gramps Web Docker instance with test data.
 
-Waits for the service to be healthy, creates an owner user, imports
-the vendored seed.gramps fixture, and rebuilds the search index.
+Waits for the service to be healthy, creates an owner user and an
+Editor-role user, imports the vendored seed.gramps fixture, and rebuilds
+the search index.
 
 Usage:
     python scripts/seed_test_db.py [--base-url URL] [--timeout SECONDS]
@@ -21,13 +22,20 @@ from pathlib import Path
 
 import httpx
 
-SEED_FILE = (
-    Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "seed.gramps"
-)
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from tests._test_env import EDITOR_PASSWORD, EDITOR_USERNAME  # noqa: E402
+
+SEED_FILE = REPO_ROOT / "tests" / "fixtures" / "seed.gramps"
 DEFAULT_BASE_URL = "http://localhost:5055"
 DEFAULT_USERNAME = "owner"
 DEFAULT_PASSWORD = "owner"
 DEFAULT_TIMEOUT = 120
+
+# gramps-webapi role levels (gramps_webapi.auth.const).
+ROLE_EDITOR = 3
+ROLE_OWNER = 4
 
 # Exact entity counts in tests/fixtures/seed.gramps, used as floors by
 # verify_data. Re-derive after replacing the fixture by counting the
@@ -70,17 +78,18 @@ def wait_for_healthy(base_url: str, timeout: float) -> None:
     sys.exit(1)
 
 
-def create_owner(compose_file: str, username: str, password: str) -> None:
+def create_user(compose_file: str, username: str, password: str, role: int) -> None:
     """
-    Create the owner user via docker compose exec.
+    Create a user with the given role via docker compose exec.
 
     The Gramps Web API does not expose a reliable user-creation endpoint,
     so we use the CLI inside the container.
 
     Args:
         compose_file: Path to docker-compose.test.yml.
-        username: Owner username.
-        password: Owner password.
+        username: Username.
+        password: Password.
+        role: gramps-webapi role level (ROLE_EDITOR, ROLE_OWNER).
     """
     result = subprocess.run(
         [
@@ -99,7 +108,7 @@ def create_owner(compose_file: str, username: str, password: str) -> None:
             username,
             password,
             "--role",
-            "4",
+            str(role),
             "--email",
             f"{username}@test.com",
         ],
@@ -114,7 +123,7 @@ def create_owner(compose_file: str, username: str, password: str) -> None:
             return
         print(f"Failed to create user: {stderr}", file=sys.stderr)
         sys.exit(1)
-    print(f"Created owner user '{username}'")
+    print(f"Created user '{username}' (role {role})")
 
 
 def authenticate(base_url: str, username: str, password: str) -> str:
@@ -455,7 +464,8 @@ def main() -> None:
     print()
 
     wait_for_healthy(args.base_url, timeout=args.timeout)
-    create_owner(args.compose_file, args.username, args.password)
+    create_user(args.compose_file, args.username, args.password, ROLE_OWNER)
+    create_user(args.compose_file, EDITOR_USERNAME, EDITOR_PASSWORD, ROLE_EDITOR)
     token = authenticate(args.base_url, args.username, args.password)
 
     if args.skip_if_seeded and is_already_seeded(args.base_url, token):
