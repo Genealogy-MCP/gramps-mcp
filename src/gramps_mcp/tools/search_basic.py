@@ -30,7 +30,7 @@ from ._gql_type_rewrite import apply_post_filters, rewrite_search_args
 logger = logging.getLogger(__name__)
 
 # Shared dispatch: entity type -> format handler.
-# Used by search_basic and data_management.
+# Used by search_basic and the generic upsert.
 FORMATTER_DISPATCH: Dict[str, Callable] = {
     entity: overlay.formatter for entity, overlay in READ_OVERLAYS.items()
 }

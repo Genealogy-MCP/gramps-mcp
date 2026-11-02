@@ -6,7 +6,7 @@ Operation registry for Code Mode architecture (MCP-29 through MCP-34).
 
 Assembles every available operation: handwritten entries here plus the
 entries ``registry_build`` builds from the generated resource table and
-the overlays in ``overlays.py``. Each entry describes
+the overlays in ``overlays.py`` and ``write_overlays.py``. Each entry describes
 an operation's name, category, parameter schema, handler function, and
 behavioral hints. The ``search`` meta-tool queries this registry; the
 ``execute`` meta-tool dispatches to the handler.
@@ -23,15 +23,10 @@ from .models.parameters.analysis_params import (
     TreeInfoParams,
 )
 from .models.parameters.backup_params import CreateBackupParams, ListBackupsParams
-from .models.parameters.citation_params import CitationData
-from .models.parameters.family_params import FamilySaveParams
-from .models.parameters.media_params import MediaDownloadParams, MediaSaveParams
-from .models.parameters.people_params import PersonData
-from .models.parameters.repository_params import RepositoryData
+from .models.parameters.media_params import MediaDownloadParams
 from .models.parameters.simple_params import SimpleSearchParams
-from .models.parameters.tag_params import TagSaveParams
 from .models.parameters.transactions_params import TransactionHistoryParams
-from .overlays import table_overlays, upsert_overlays
+from .overlays import table_overlays
 from .registry_build import build_registry, merge_registry
 from .resource_table import ENTITY_RESOURCES
 
@@ -44,15 +39,9 @@ from .tools.analysis import (
     get_tree_stats_tool,
 )
 from .tools.backups import create_backup_tool, list_backups_tool
-from .tools.data_management import (
-    upsert_citation_tool,
-    upsert_family_tool,
-    upsert_person_tool,
-    upsert_repository_tool,
-)
-from .tools.data_management_delete import upsert_tag_tool
-from .tools.data_management_media import download_media_tool, upsert_media_tool
+from .tools.data_management_media import download_media_tool
 from .tools.search_basic import search_text_tool
+from .write_overlays import upsert_overlays
 
 # Server prerequisites and archive contents, shared by both backup entries.
 _BACKUP_NOTES = (
@@ -65,8 +54,8 @@ _BACKUP_NOTES = (
 
 # ---------------------------------------------------------------------------
 # Handwritten operations. search, list_tags, get and delete (#101) and the
-# event, place, source and note upserts (#102) are built from the resource
-# table (TABLE_OPERATIONS and UPSERT_OPERATIONS below).
+# ten upserts (#102, #103) are built from the resource table
+# (TABLE_OPERATIONS and UPSERT_OPERATIONS below).
 # ---------------------------------------------------------------------------
 
 _HANDWRITTEN: dict[str, OperationEntry] = {
@@ -129,81 +118,7 @@ _HANDWRITTEN: dict[str, OperationEntry] = {
         read_only=True,
         destructive=False,
     ),
-    # --- write (7 handwritten; event, place, source, note are table-built) ---
-    "upsert_person": OperationEntry(
-        name="upsert_person",
-        summary="Create or update a person record",
-        description=(
-            "Create or update person information including family links, "
-            "event associations, and alternate names (AKA, married names)"
-        ),
-        category="write",
-        params_schema=PersonData,
-        handler=upsert_person_tool,
-        read_only=False,
-        destructive=False,
-    ),
-    "upsert_family": OperationEntry(
-        name="upsert_family",
-        summary="Create or update a family unit",
-        description="Create or update family unit including member relationships",
-        category="write",
-        params_schema=FamilySaveParams,
-        handler=upsert_family_tool,
-        read_only=False,
-        destructive=False,
-    ),
-    "upsert_citation": OperationEntry(
-        name="upsert_citation",
-        summary="Create or update a citation",
-        description="Create or update citation including object associations",
-        category="write",
-        params_schema=CitationData,
-        handler=upsert_citation_tool,
-        read_only=False,
-        destructive=False,
-    ),
-    "upsert_media": OperationEntry(
-        name="upsert_media",
-        summary="Create or update a media record with optional file upload",
-        description=(
-            "Create or update a media record (photo, document, etc.) and its metadata. "
-            "When creating (no handle): provide file_location as an absolute local "
-            "file path -- the file is uploaded and a new record is created. "
-            "When updating (provide handle): omit file_location; only metadata fields "
-            "(desc, date, mime, etc.) are changed. "
-            "Note: path is the Gramps-relative storage path, not the upload source."
-        ),
-        category="write",
-        params_schema=MediaSaveParams,
-        handler=upsert_media_tool,
-        read_only=False,
-        destructive=False,
-    ),
-    "upsert_repository": OperationEntry(
-        name="upsert_repository",
-        summary="Create or update a repository",
-        description="Create or update repository information",
-        category="write",
-        params_schema=RepositoryData,
-        handler=upsert_repository_tool,
-        read_only=False,
-        destructive=False,
-    ),
-    "upsert_tag": OperationEntry(
-        name="upsert_tag",
-        summary="Create or update a tag",
-        description=(
-            "Create a tag with name, color, and priority, or update an existing "
-            "one by passing its handle. On update, omitted fields keep their "
-            "stored value; tags have no list fields, so list_mode does not apply."
-        ),
-        category="write",
-        params_schema=TagSaveParams,
-        handler=upsert_tag_tool,
-        read_only=False,
-        destructive=False,
-    ),
+    # --- write (every upsert is table-built; create_backup stays here) ---
     "create_backup": OperationEntry(
         name="create_backup",
         summary="Create a server-side backup (restore point) of the tree",

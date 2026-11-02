@@ -12,8 +12,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from mcp.types import TextContent
 
+from src.gramps_mcp.tools import upsert_media_tool
 from src.gramps_mcp.tools._errors import McpToolError
-from src.gramps_mcp.tools.data_management_media import upsert_media_tool
+from tests._resource_shim import route_call_resource
 
 
 def _mock_settings():
@@ -25,10 +26,10 @@ class TestMediaFileReplacement:
     """Test file replacement when updating existing media."""
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_media.MediaClient")
-    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.write_hooks.MediaClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management_media.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -42,6 +43,7 @@ class TestMediaFileReplacement:
             return_value={"handle": "m1", "gramps_id": "O001"}
         )
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         media_inst = AsyncMock()
         media_inst.replace_media_file = AsyncMock(return_value={})
@@ -70,9 +72,9 @@ class TestMediaFileReplacement:
             os.unlink(temp_path)
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management_media.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -84,6 +86,7 @@ class TestMediaFileReplacement:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         result = await upsert_media_tool(
             {"handle": "m1", "desc": "Metadata only update"}
@@ -98,9 +101,9 @@ class TestMediaFileReplacement:
         )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management_media.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     async def test_update_with_nonexistent_file_raises(
@@ -110,6 +113,7 @@ class TestMediaFileReplacement:
         client_inst = AsyncMock()
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         with pytest.raises(McpToolError):
             await upsert_media_tool(
@@ -121,10 +125,10 @@ class TestMediaFileReplacement:
             )
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_media.MediaClient")
-    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.write_hooks.MediaClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management_media.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -138,6 +142,7 @@ class TestMediaFileReplacement:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         media_inst = AsyncMock()
         media_inst.replace_media_file = AsyncMock(return_value={})
@@ -165,10 +170,10 @@ class TestMediaFileReplacement:
             os.unlink(temp_path)
 
     @pytest.mark.asyncio
-    @patch("src.gramps_mcp.tools.data_management_media.MediaClient")
-    @patch("src.gramps_mcp.tools.data_management_media.GrampsWebAPIClient")
+    @patch("src.gramps_mcp.write_hooks.MediaClient")
+    @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
     @patch(
-        "src.gramps_mcp.tools.data_management_media.get_settings",
+        "src.gramps_mcp.tools.upsert_table.get_settings",
         return_value=_mock_settings(),
     )
     @patch("src.gramps_mcp.tools._data_helpers.FORMATTER_DISPATCH", {})
@@ -182,6 +187,7 @@ class TestMediaFileReplacement:
         )
         client_inst.close = AsyncMock()
         mock_client_cls.return_value = client_inst
+        route_call_resource(client_inst)
 
         media_inst = AsyncMock()
         media_inst.replace_media_file = AsyncMock(return_value={})

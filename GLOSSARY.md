@@ -24,16 +24,16 @@
   the gramps-webapi version it describes (3.24.0, what the Docker test image
   runs). Codegen reads it; CI never fetches the spec live.
 - **overlay**: a handwritten, named per-entity binding to a resource-table row
-  that carries what the spec cannot express, all kept in
-  `src/gramps_mcp/overlays.py`. Read side: routes (`READ_OVERLAYS`: list
-  params class, display label, formatter) and the operation overlays for
-  `search`, `list_tags`, `get` and `delete`. Write side: `WRITE_BINDINGS`
-  (hand model whose payload hook does the rewrites such as the StyledText
-  wrap, citation nudge, pre-write reference-check slot, post-write
-  media-upload slot) for the upserts the generic handler serves, plus the
-  drift allowlist `PAYLOAD_ONLY_FIELDS`. Read-side joins (timeline) and the
-  handwritten upserts (person, family, citation, repository, tag, media) stay
-  in `tools/`.
+  that carries what the spec cannot express. Read side, in
+  `src/gramps_mcp/overlays.py`: routes (`READ_OVERLAYS`: list params class,
+  display label, formatter) and the operation overlays for `search`,
+  `list_tags`, `get` and `delete`. Write side, in
+  `src/gramps_mcp/write_overlays.py`: `WRITE_BINDINGS` (hand model whose
+  payload hook does the rewrites such as the StyledText wrap or
+  `child_handles` to `child_ref_list`, citation nudge, reference checks,
+  media upload, response formatter) for all ten upserts, the upsert operation
+  overlays, and the drift allowlist `PAYLOAD_ONLY_FIELDS`. The hooks live in
+  `write_hooks.py`. Read-side joins (timeline) stay in `tools/`.
 - **drift**: any mismatch between snapshot, table, write models, or the live
   server. Snapshot-vs-table fails CI; hand-model field missing from the spec
   fails a unit test; spec field missing from a model is a warning; live

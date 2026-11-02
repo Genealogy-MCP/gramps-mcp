@@ -5,8 +5,7 @@
 """
 Shared helper functions for data management tools.
 
-Extracted to break a circular import between data_management.py,
-data_management_delete.py, and data_management_media.py.
+Used by the generic upsert (upsert_table.py) and the delete tool.
 """
 
 import logging
