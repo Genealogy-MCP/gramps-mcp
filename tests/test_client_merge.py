@@ -12,6 +12,16 @@ import pytest
 
 from src.gramps_mcp.client import GrampsWebAPIClient
 from src.gramps_mcp.models.api_calls import ApiCalls
+from src.gramps_mcp.models.parameters.people_params import PersonData
+from src.gramps_mcp.models.parameters.place_params import PlaceSaveParams
+from src.gramps_mcp.models.parameters.repository_params import RepositoryData
+
+# Save model each PUT endpoint parses its update dict with.
+_SAVE_MODELS = {
+    ApiCalls.PUT_PERSON: PersonData,
+    ApiCalls.PUT_PLACE: PlaceSaveParams,
+    ApiCalls.PUT_REPOSITORY: RepositoryData,
+}
 
 
 class TestClientMergeLogic:
@@ -82,7 +92,7 @@ class TestClientMergeLogic:
             # Make the API call
             _result = await client.make_api_call(
                 api_call=ApiCalls.PUT_PERSON,
-                params=update_data,
+                params=PersonData.model_validate(update_data),
                 tree_id="test_tree",
                 handle="test_person_handle",
             )
@@ -195,7 +205,7 @@ class TestClientMergeLogic:
             # Make the API call
             _result = await client.make_api_call(
                 api_call=ApiCalls.PUT_PERSON,
-                params=update_data,
+                params=PersonData.model_validate(update_data),
                 tree_id="test_tree",
                 handle="person123",
             )
@@ -265,7 +275,7 @@ class TestClientMergeLogic:
 
             _result = await client.make_api_call(
                 api_call=ApiCalls.PUT_PERSON,
-                params=update_data,
+                params=PersonData.model_validate(update_data),
                 tree_id="test_tree",
                 handle="person123",
             )
@@ -313,7 +323,7 @@ class TestCompositeIdentityMerge:
             mock_request.side_effect = [existing, {"success": True}]
             await client.make_api_call(
                 api_call=api_call,
-                params=update_params,
+                params=_SAVE_MODELS[api_call].model_validate(update_params),
                 tree_id="test_tree",
                 handle=handle,
             )
@@ -448,7 +458,7 @@ class TestPersonRefListMerge:
             mock_request.side_effect = [existing, {"success": True}]
             await client.make_api_call(
                 api_call=ApiCalls.PUT_PERSON,
-                params=update,
+                params=PersonData.model_validate(update),
                 tree_id="test_tree",
                 handle="person123",
             )
@@ -516,7 +526,7 @@ class TestClientPostBodies:
 
             await client.make_api_call(
                 api_call=ApiCalls.POST_PLACES,
-                params=post_params,
+                params=PlaceSaveParams.model_validate(post_params),
                 tree_id="test_tree",
             )
 
@@ -550,7 +560,7 @@ class TestClientPostBodies:
 
             await client.make_api_call(
                 api_call=ApiCalls.POST_REPOSITORIES,
-                params=post_params,
+                params=RepositoryData.model_validate(post_params),
                 tree_id="test_tree",
             )
 
@@ -598,7 +608,7 @@ class TestNonListCollectionMerge:
             mock_request.side_effect = [existing, {"success": True}]
             await client.make_api_call(
                 api_call=api_call,
-                params=update_params,
+                params=_SAVE_MODELS[api_call].model_validate(update_params),
                 tree_id="test_tree",
                 handle=handle,
             )

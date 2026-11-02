@@ -10,7 +10,7 @@ import pytest
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.operations import OPERATION_REGISTRY
 from src.gramps_mcp.tools._errors import McpToolError, raise_tool_error
-from src.gramps_mcp.tools.search_basic import _SEARCH_TOOL_DISPATCH, FORMATTER_DISPATCH
+from src.gramps_mcp.tools.search_basic import FORMATTER_DISPATCH, SEARCH_HANDLERS
 
 # ---------------------------------------------------------------------------
 # Tool annotation categories
@@ -118,19 +118,19 @@ class TestDispatchPatterns:
     """MCP-18: No globals() dispatch; use explicit dicts."""
 
     def test_find_dispatch_covers_all_searchable_entity_types(self):
-        """_SEARCH_TOOL_DISPATCH must cover all EntityType values.
+        """SEARCH_HANDLERS must cover all EntityType values.
 
         EntityType excludes TAG by design — tags use list_tags, not GQL search.
         """
         from src.gramps_mcp.models.parameters.simple_params import EntityType
 
         expected = {e.value for e in EntityType}
-        actual = set(_SEARCH_TOOL_DISPATCH.keys())
+        actual = set(SEARCH_HANDLERS.keys())
         assert actual == expected, f"Missing dispatch entries: {expected - actual}"
 
     def test_find_dispatch_values_are_callable(self):
         """Every dispatch value must be callable."""
-        for name, func in _SEARCH_TOOL_DISPATCH.items():
+        for name, func in SEARCH_HANDLERS.items():
             assert callable(func), f"Dispatch entry '{name}' is not callable"
 
     def test_formatter_dispatch_covers_all_searchable_entity_types(self):

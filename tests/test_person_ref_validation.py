@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 Federico Castagnini
 
-"""Unit tests for person_ref_list validation in upsert_person_tool (issue #40).
+"""Unit tests for person_ref_list validation in UPSERT_HANDLERS["person"] (issue #40).
 
 Mirrors tests/test_citation_validation.py: a mocked client checks that each
 association's `ref` resolves to an existing person, self-references are
@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.gramps_mcp.tools import upsert_person_tool
 from src.gramps_mcp.tools._errors import McpToolError
+from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
 from tests._resource_shim import route_call_resource
 
 
@@ -22,7 +22,7 @@ def _mock_settings():
 
 
 class TestPersonRefValidation:
-    """person_ref_list ref validation in upsert_person_tool."""
+    """person_ref_list ref validation in UPSERT_HANDLERS["person"]."""
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
@@ -48,7 +48,7 @@ class TestPersonRefValidation:
         route_call_resource(client_inst)
 
         with pytest.raises(McpToolError, match="ghost"):
-            await upsert_person_tool(
+            await UPSERT_HANDLERS["person"](
                 {
                     "primary_name": {"first_name": "A", "surname_list": []},
                     "gender": 1,
@@ -59,7 +59,7 @@ class TestPersonRefValidation:
     @pytest.mark.asyncio
     async def test_self_reference_rejected(self):
         with pytest.raises(McpToolError, match="(?i)itself"):
-            await upsert_person_tool(
+            await UPSERT_HANDLERS["person"](
                 {
                     "handle": "p1",
                     "person_ref_list": [{"ref": "p1", "rel": "Cousin"}],
@@ -89,7 +89,7 @@ class TestPersonRefValidation:
         mock_client_cls.return_value = client_inst
         route_call_resource(client_inst)
 
-        result = await upsert_person_tool(
+        result = await UPSERT_HANDLERS["person"](
             {
                 "primary_name": {"first_name": "A", "surname_list": []},
                 "gender": 1,

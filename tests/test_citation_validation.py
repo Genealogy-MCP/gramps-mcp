@@ -1,5 +1,5 @@
 """
-Unit tests for citation source_handle validation in upsert_citation_tool.
+Unit tests for citation source_handle validation in UPSERT_HANDLERS["citation"].
 
 Tests verify that source_handle existence is checked before writing,
 and that self-referencing citations are rejected.
@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.gramps_mcp.tools import upsert_citation_tool
 from src.gramps_mcp.tools._errors import McpToolError
+from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
 from tests._resource_shim import route_call_resource
 
 
@@ -20,7 +20,7 @@ def _mock_settings():
 
 
 class TestCitationSourceHandleValidation:
-    """Test source_handle validation in upsert_citation_tool."""
+    """Test source_handle validation in UPSERT_HANDLERS["citation"]."""
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
@@ -47,7 +47,7 @@ class TestCitationSourceHandleValidation:
         route_call_resource(client_inst)
 
         with pytest.raises(McpToolError, match="(?i)source.*not found"):
-            await upsert_citation_tool(
+            await UPSERT_HANDLERS["citation"](
                 {"source_handle": "nonexistent_handle", "page": "p. 42"}
             )
 
@@ -75,14 +75,16 @@ class TestCitationSourceHandleValidation:
         mock_client_cls.return_value = client_inst
         route_call_resource(client_inst)
 
-        result = await upsert_citation_tool({"source_handle": "s1", "page": "p. 42"})
+        result = await UPSERT_HANDLERS["citation"](
+            {"source_handle": "s1", "page": "p. 42"}
+        )
         assert "created" in result[0].text.lower() or "C001" in result[0].text
 
     @pytest.mark.asyncio
     async def test_self_reference_rejected(self):
         """Citation's source_handle must not equal its own handle."""
         with pytest.raises(McpToolError, match="cannot reference itself"):
-            await upsert_citation_tool(
+            await UPSERT_HANDLERS["citation"](
                 {
                     "handle": "same_handle",
                     "source_handle": "same_handle",
@@ -115,7 +117,9 @@ class TestCitationSourceHandleValidation:
         route_call_resource(client_inst)
 
         with pytest.raises(McpToolError, match="(?i)source.*not found"):
-            await upsert_citation_tool({"source_handle": "bad_handle", "page": "p. 10"})
+            await UPSERT_HANDLERS["citation"](
+                {"source_handle": "bad_handle", "page": "p. 10"}
+            )
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.tools.upsert_table.GrampsWebAPIClient")
@@ -140,7 +144,7 @@ class TestCitationSourceHandleValidation:
         route_call_resource(client_inst)
 
         with pytest.raises(McpToolError, match="(?i)source.*not found"):
-            await upsert_citation_tool(
+            await UPSERT_HANDLERS["citation"](
                 {"source_handle": "empty_handle", "page": "p. 10"}
             )
 
@@ -171,7 +175,7 @@ class TestCitationSourceHandleValidation:
         route_call_resource(client_inst)
 
         with pytest.raises(McpToolError, match="(?i)source.*not found"):
-            await upsert_citation_tool(
+            await UPSERT_HANDLERS["citation"](
                 {
                     "handle": "c1",
                     "source_handle": "bad_src",

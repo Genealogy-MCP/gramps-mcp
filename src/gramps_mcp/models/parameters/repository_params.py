@@ -19,7 +19,6 @@ from pydantic import Field, field_validator, model_validator
 from .base_params import (
     BaseDataModel,
     BaseGetMultipleParams,
-    BaseGetSingleParams,
     NoteListField,
 )
 
@@ -45,24 +44,6 @@ class RepositoriesParams(BaseGetMultipleParams):
                         f"Must be one of {REPOSITORY_SORT_KEYS}"
                     )
         return v
-
-    @field_validator("extend")
-    @classmethod
-    def validate_extend(cls, v):
-        if v is not None:
-            # Convert comma-separated string to list for validation
-            extend_list = [choice.strip() for choice in v.split(",")]
-            for choice in extend_list:
-                if choice not in REPOSITORY_EXTEND_CHOICES:
-                    raise ValueError(
-                        f"Invalid extend choice: {choice}. "
-                        f"Must be one of {REPOSITORY_EXTEND_CHOICES}"
-                    )
-        return v
-
-
-class RepositoryParams(BaseGetSingleParams):
-    """Parameters for getting a single repository by handle from Gramps API."""
 
     @field_validator("extend")
     @classmethod

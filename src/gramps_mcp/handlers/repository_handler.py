@@ -11,6 +11,7 @@ Provides clean, direct formatting of repository data from handles.
 import logging
 
 from ..models.api_calls import ApiCalls
+from ..models.parameters.base_params import BaseGetSingleParams
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ async def format_repository(client, tree_id: str, handle: str) -> str:
             api_call=ApiCalls.GET_REPOSITORY,
             tree_id=tree_id,
             handle=handle,
-            params={"extend": "all"},
+            params=BaseGetSingleParams.model_validate({"extend": "all"}),
         )
         if not repo_data:
             return ""

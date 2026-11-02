@@ -143,24 +143,3 @@ class FamilySaveParams(
         if self.handle is not None:
             return dict(entry)
         return {"frel": _BIRTH_REL, "mrel": _BIRTH_REL, **entry}
-
-
-class FamilyTimelineParams(BaseModel):
-    """Parameters for getting family timeline information."""
-
-    handle: str = Field(min_length=8, description="The unique identifier for a family")
-    dates: Optional[str] = Field(None, description="Date range to bound the timeline")
-    events: Optional[str] = Field(
-        None, description="Comma delimited list of specific events"
-    )
-    event_classes: Optional[str] = Field(
-        None, description="Comma delimited list of event classes"
-    )
-    ratings: Optional[bool] = Field(
-        None, description="Include citation count and highest confidence score"
-    )
-    discard_empty: Optional[bool] = Field(None, description="Discard undated events")
-    page: Optional[int] = Field(
-        None, ge=1, description="Page number for pagination (1-based)"
-    )
-    pagesize: Optional[int] = Field(None, ge=1, description="Number of items per page")

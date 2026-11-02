@@ -14,7 +14,7 @@ import pytest
 from src.gramps_mcp.client import GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.models.api_calls import ApiCalls
-from src.gramps_mcp.tools import upsert_place_tool
+from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
 
 from .conftest import TEST_PREFIX, extract_handle
 
@@ -32,7 +32,7 @@ async def _create_place(name: str, place_type: str, **extra) -> str:
     Returns:
         str: The handle of the created place.
     """
-    result = await upsert_place_tool(
+    result = await UPSERT_HANDLERS["place"](
         {"name": {"value": name}, "place_type": place_type, **extra}
     )
     text = result[0].text
@@ -87,7 +87,9 @@ class TestEnclosedByRoundTrip:
 
         assert await _read_placeref_list(orphan) == []
 
-        result = await upsert_place_tool({"handle": orphan, "enclosed_by": parent})
+        result = await UPSERT_HANDLERS["place"](
+            {"handle": orphan, "enclosed_by": parent}
+        )
         assert "Error:" not in result[0].text, result[0].text
 
         placeref_list = await _read_placeref_list(orphan)
@@ -102,7 +104,7 @@ class TestEnclosedByRoundTrip:
             f"{TEST_PREFIX}EnclosureMoved", "City", enclosed_by=first_parent
         )
 
-        await upsert_place_tool({"handle": child, "enclosed_by": second_parent})
+        await UPSERT_HANDLERS["place"]({"handle": child, "enclosed_by": second_parent})
 
         placeref_list = await _read_placeref_list(child)
         assert [ref["ref"] for ref in placeref_list] == [second_parent], (
@@ -117,7 +119,7 @@ class TestEnclosedByRoundTrip:
             f"{TEST_PREFIX}EnclosureIdemChild", "City", enclosed_by=parent
         )
 
-        await upsert_place_tool({"handle": child, "enclosed_by": parent})
+        await UPSERT_HANDLERS["place"]({"handle": child, "enclosed_by": parent})
 
         placeref_list = await _read_placeref_list(child)
         assert [ref["ref"] for ref in placeref_list] == [parent]

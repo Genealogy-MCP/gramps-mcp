@@ -18,14 +18,12 @@ from src.gramps_mcp.models.parameters.media_params import MediaSaveParams
 from src.gramps_mcp.models.parameters.note_params import NoteSaveParams
 from src.gramps_mcp.models.parameters.repository_params import (
     RepositoriesParams,
-    RepositoryParams,
 )
 from src.gramps_mcp.models.parameters.simple_params import (
     SimpleFindParams,
     SimpleSearchParams,
 )
 from src.gramps_mcp.models.parameters.source_params import (
-    SourceDetailsParams,
     SourceSearchParams,
 )
 
@@ -171,19 +169,6 @@ class TestSourceSearchParamsValidators:
         assert "Invalid extend choice" in str(exc_info.value)
 
 
-class TestSourceDetailsParamsValidators:
-    """Test source detail validators."""
-
-    def test_valid_extend(self):
-        params = SourceDetailsParams(extend="all")
-        assert params.extend == "all"
-
-    def test_invalid_extend(self):
-        with pytest.raises(ValidationError) as exc_info:
-            SourceDetailsParams(extend="event_ref_list")
-        assert "Invalid extend choice" in str(exc_info.value)
-
-
 class TestRepositoriesParamsValidators:
     """Test repository-specific validators."""
 
@@ -211,19 +196,6 @@ class TestRepositoriesParamsValidators:
     def test_invalid_extend_repo_specific(self):
         with pytest.raises(ValidationError) as exc_info:
             RepositoriesParams(extend="media_list")
-        assert "Invalid extend choice" in str(exc_info.value)
-
-
-class TestRepositoryParamsValidators:
-    """Test single repository detail validators."""
-
-    def test_valid_extend(self):
-        params = RepositoryParams(extend="all")
-        assert params.extend == "all"
-
-    def test_invalid_extend(self):
-        with pytest.raises(ValidationError) as exc_info:
-            RepositoryParams(extend="citation_list")
         assert "Invalid extend choice" in str(exc_info.value)
 
 

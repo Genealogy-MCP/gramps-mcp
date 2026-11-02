@@ -18,7 +18,10 @@ from ..client import GrampsWebAPIClient
 from ..config import get_settings
 from ..media_client import MediaClient
 from ..models.api_calls import ApiCalls
-from ..models.parameters.media_params import MediaDownloadParams
+from ..models.parameters.media_params import (
+    MediaDownloadParams,
+    MediaSearchParams,
+)
 from ._compat import extract_arguments
 from ._errors import McpToolError, parse_params, raise_tool_error
 
@@ -65,7 +68,9 @@ async def download_media_tool(ctx: Any = None, params: Any = None) -> List[TextC
             if not handle:
                 results = await client.make_api_call(
                     api_call=ApiCalls.GET_MEDIA,
-                    params={"gramps_id": validated.gramps_id},
+                    params=MediaSearchParams.model_validate(
+                        {"gramps_id": validated.gramps_id}
+                    ),
                     tree_id=tree_id,
                 )
                 if not results:

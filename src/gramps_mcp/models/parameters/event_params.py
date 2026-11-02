@@ -11,12 +11,11 @@ API calls supported in this category:
 - GET_EVENT: Get information about a specific event
 - PUT_EVENT: Update the event
 - DELETE_EVENT: Delete the event
-- GET_EVENT_SPAN: Get elapsed time span between two events
 """
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import Field, model_validator
 
 from .base_params import (
     AttributeListField,
@@ -73,14 +72,3 @@ class EventSaveParams(BaseDataModel, NoteListField, AttributeListField, MediaLis
         if missing:
             raise ValueError(f"Required when creating: {', '.join(missing)}")
         return self
-
-
-class EventSpanParams(BaseModel):
-    """Parameters for getting elapsed time span between two events."""
-
-    handle1: str = Field(description="The unique identifier for the first event")
-    handle2: str = Field(description="The unique identifier for the second event")
-    as_age: Optional[bool] = Field(None, description="Return result as an age")
-    precision: Optional[int] = Field(
-        None, ge=1, le=3, description="Number of significant levels (1-3)"
-    )

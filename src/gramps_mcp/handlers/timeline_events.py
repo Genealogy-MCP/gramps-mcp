@@ -15,6 +15,7 @@ resolution (`resolve_event_date`) that both handlers reuse verbatim.
 import logging
 
 from ..models.api_calls import ApiCalls
+from ..models.parameters.base_params import BaseGetSingleParams
 from ..utils import gather_bounded
 from .date_handler import format_date
 
@@ -59,7 +60,7 @@ async def prefetch_timeline_events(client, tree_id: str, timeline_data: list) ->
                 ApiCalls.GET_EVENT,
                 tree_id=tree_id,
                 handle=event_handle,
-                params={"extend": "all"},
+                params=BaseGetSingleParams.model_validate({"extend": "all"}),
             )
             for event_handle in unique_handles
         ],

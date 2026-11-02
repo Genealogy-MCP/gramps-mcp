@@ -18,7 +18,7 @@ import pytest
 from src.gramps_mcp.client import GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.models.api_calls import ApiCalls
-from src.gramps_mcp.tools import upsert_media_tool
+from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
 
 from .conftest import TEST_PREFIX, extract_handle
 
@@ -28,7 +28,7 @@ pytestmark = pytest.mark.integration
 @pytest.mark.asyncio
 async def test_created_media_keeps_its_server_computed_file_link():
     """A created media object still resolves to its uploaded file."""
-    result = await upsert_media_tool(
+    result = await UPSERT_HANDLERS["media"](
         {
             "desc": f"{TEST_PREFIX}Checksum survival probe",
             "file_location": "tests/sample/33SQ-GP8N-NLK.jpg",

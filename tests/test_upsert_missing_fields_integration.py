@@ -19,11 +19,7 @@ import pytest
 from src.gramps_mcp.client import GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
 from src.gramps_mcp.models.api_calls import ApiCalls
-from src.gramps_mcp.tools import (
-    upsert_person_tool,
-    upsert_repository_tool,
-    upsert_source_tool,
-)
+from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
 
 from .conftest import TEST_PREFIX, extract_handle
 
@@ -93,7 +89,7 @@ class TestSourceAbbrev:
     async def test_create_source_with_abbrev(self):
         """abbrev passed on create is stored."""
         handle = _handle_of(
-            await upsert_source_tool(
+            await UPSERT_HANDLERS["source"](
                 {"title": f"{TEST_PREFIX}Abbrev Create", "abbrev": f"{TEST_PREFIX}AC"}
             )
         )
@@ -104,9 +100,9 @@ class TestSourceAbbrev:
     async def test_update_source_abbrev(self):
         """abbrev passed on update overwrites the stored value."""
         handle = _handle_of(
-            await upsert_source_tool({"title": f"{TEST_PREFIX}Abbrev Update"})
+            await UPSERT_HANDLERS["source"]({"title": f"{TEST_PREFIX}Abbrev Update"})
         )
-        result = await upsert_source_tool(
+        result = await UPSERT_HANDLERS["source"](
             {"handle": handle, "abbrev": f"{TEST_PREFIX}AU"}
         )
         assert "Error:" not in result[0].text, result[0].text
@@ -122,7 +118,7 @@ class TestRepositoryAddressList:
     async def test_create_repository_with_address(self):
         """address_list passed on create is stored."""
         handle = _handle_of(
-            await upsert_repository_tool(
+            await UPSERT_HANDLERS["repository"](
                 {
                     "name": f"{TEST_PREFIX}Addr Create",
                     "type": "Archive",
@@ -141,7 +137,7 @@ class TestRepositoryAddressList:
     async def test_update_repository_address_merges_by_default(self):
         """A second address appends under the default list_mode='merge'."""
         handle = _handle_of(
-            await upsert_repository_tool(
+            await UPSERT_HANDLERS["repository"](
                 {
                     "name": f"{TEST_PREFIX}Addr Merge",
                     "type": "Archive",
@@ -149,7 +145,7 @@ class TestRepositoryAddressList:
                 }
             )
         )
-        result = await upsert_repository_tool(
+        result = await UPSERT_HANDLERS["repository"](
             {
                 "handle": handle,
                 "address_list": [{"street": "2 Elm St", "city": "Salem"}],
@@ -168,7 +164,7 @@ class TestRepositoryAddressList:
         """Re-sending the same address leaves one entry (merge dedups)."""
         address = {"street": "3 Oak Ave", "city": "Concord"}
         handle = _handle_of(
-            await upsert_repository_tool(
+            await UPSERT_HANDLERS["repository"](
                 {
                     "name": f"{TEST_PREFIX}Addr Idempotent",
                     "type": "Archive",
@@ -176,7 +172,7 @@ class TestRepositoryAddressList:
                 }
             )
         )
-        result = await upsert_repository_tool(
+        result = await UPSERT_HANDLERS["repository"](
             {"handle": handle, "address_list": [address]}
         )
         assert "Error:" not in result[0].text, result[0].text
@@ -192,7 +188,7 @@ class TestPersonAddressList:
     async def test_create_person_with_address(self):
         """address_list passed on create is stored."""
         handle = _handle_of(
-            await upsert_person_tool(
+            await UPSERT_HANDLERS["person"](
                 _person_payload(
                     "PersonAddrCreate",
                     address_list=[{"street": "4 Pine Rd", "city": "Lowell"}],
@@ -208,14 +204,14 @@ class TestPersonAddressList:
     async def test_update_person_address_merges_by_default(self):
         """A second address appends under the default list_mode='merge'."""
         handle = _handle_of(
-            await upsert_person_tool(
+            await UPSERT_HANDLERS["person"](
                 _person_payload(
                     "PersonAddrMerge",
                     address_list=[{"street": "4 Pine Rd", "city": "Lowell"}],
                 )
             )
         )
-        result = await upsert_person_tool(
+        result = await UPSERT_HANDLERS["person"](
             {
                 "handle": handle,
                 "address_list": [{"street": "5 Cedar Ln", "city": "Quincy"}],
@@ -237,7 +233,7 @@ class TestPersonLdsOrdList:
     async def test_create_person_with_lds_ordinance(self):
         """lds_ord_list passed on create is stored."""
         handle = _handle_of(
-            await upsert_person_tool(
+            await UPSERT_HANDLERS["person"](
                 _person_payload(
                     "LdsCreate",
                     lds_ord_list=[{"type": 0, "status": 1, "temple": "LOGAN"}],
@@ -253,14 +249,14 @@ class TestPersonLdsOrdList:
     async def test_update_person_lds_ordinance_merges_by_default(self):
         """A second ordinance appends under the default list_mode='merge'."""
         handle = _handle_of(
-            await upsert_person_tool(
+            await UPSERT_HANDLERS["person"](
                 _person_payload(
                     "LdsMerge",
                     lds_ord_list=[{"type": 0, "status": 1, "temple": "LOGAN"}],
                 )
             )
         )
-        result = await upsert_person_tool(
+        result = await UPSERT_HANDLERS["person"](
             {
                 "handle": handle,
                 "lds_ord_list": [{"type": 1, "status": 1, "temple": "SLAKE"}],
@@ -282,7 +278,7 @@ class TestPersonLdsOrdList:
         "Baptism" here, this test fails and the description needs updating.
         """
         with pytest.raises(Exception) as excinfo:
-            await upsert_person_tool(
+            await UPSERT_HANDLERS["person"](
                 _person_payload(
                     "LdsNameString",
                     lds_ord_list=[{"type": "Baptism", "status": "Completed"}],

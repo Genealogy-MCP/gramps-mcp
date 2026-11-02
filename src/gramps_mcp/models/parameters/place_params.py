@@ -20,7 +20,6 @@ from pydantic import Field, model_validator
 from .base_params import (
     BaseDataModel,
     BaseGetMultipleParams,
-    BaseGetSingleParams,
     MediaListField,
     NoteListField,
 )
@@ -28,12 +27,6 @@ from .base_params import (
 
 class PlaceSearchParams(BaseGetMultipleParams):
     """Parameters for searching places."""
-
-    pass
-
-
-class PlaceDetailsParams(BaseGetSingleParams):
-    """Parameters for getting specific place details."""
 
     pass
 

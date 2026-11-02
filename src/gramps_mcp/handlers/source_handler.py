@@ -11,6 +11,7 @@ Provides clean, direct formatting of source data from handles.
 import logging
 
 from ..models.api_calls import ApiCalls
+from ..models.parameters.base_params import BaseGetSingleParams
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ async def format_source(client, tree_id: str, handle: str) -> str:
             api_call=ApiCalls.GET_SOURCE,
             tree_id=tree_id,
             handle=handle,
-            params={"extend": "all"},
+            params=BaseGetSingleParams.model_validate({"extend": "all"}),
         )
         if not source_data:
             return f"• **Source {handle}**\n  Source not found\n\n"

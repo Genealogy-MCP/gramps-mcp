@@ -68,27 +68,3 @@ class TransactionHistoryParams(BaseModel):
         description="Unix timestamp. Only return transactions committed after "
         "this time",
     )
-
-
-class TransactionHistoryByIdParams(BaseModel):
-    """
-    Parameters for getting specific transaction history.
-
-    Args:
-        transaction_id (int): ID of the transaction to get details for
-        old (Optional[bool]): Whether to include the raw object data before the change
-        new (Optional[bool]): Whether to include the raw object data after the change
-
-    Returns:
-        Dict[str, Any]: Transaction details
-    """
-
-    transaction_id: int = Field(
-        ..., description="ID of the transaction to get details for"
-    )
-    old: Optional[bool] = Field(
-        None, description="Whether to include the raw object data before the change"
-    )
-    new: Optional[bool] = Field(
-        None, description="Whether to include the raw object data after the change"
-    )

@@ -11,8 +11,6 @@ API calls supported in this category:
 - GET_MEDIA_ITEM: Get information about a specific media item
 - PUT_MEDIA_ITEM: Update the media object
 - DELETE_MEDIA_ITEM: Delete the media object
-- GET_MEDIA_FILE: Download a specific media item
-- PUT_MEDIA_FILE: Update an existing media object's file
 """
 
 from typing import Any, Dict, List, Optional
@@ -62,15 +60,6 @@ class MediaSearchParams(BaseGetMultipleParams):
     dates: Optional[str] = Field(None, description="Date filter for media items")
     filemissing: Optional[bool] = Field(
         None, description="Only return media where file is missing"
-    )
-
-
-class MediaFileParams(BaseModel):
-    """Parameters for media file operations."""
-
-    handle: str = Field(..., min_length=8, description="Media handle identifier")
-    uploadmissing: Optional[bool] = Field(
-        None, description="Upload missing file to existing media object"
     )
 
 

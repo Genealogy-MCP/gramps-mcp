@@ -12,7 +12,7 @@ import pytest
 
 from src.gramps_mcp.client import GrampsWebAPIClient
 from src.gramps_mcp.config import get_settings
-from src.gramps_mcp.tools import upsert_event_tool, upsert_note_tool, upsert_tag_tool
+from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
 
 from .conftest import TEST_PREFIX, extract_handle
 
@@ -44,12 +44,12 @@ class TestGenericUpsertRoundTrip:
 
     async def test_note_tag_list_round_trip_and_merge(self):
         """A note's tag_list persists and a PUT merges it by default."""
-        tag_a = await upsert_tag_tool({"name": f"{TEST_PREFIX}NoteTagA"})
-        tag_b = await upsert_tag_tool({"name": f"{TEST_PREFIX}NoteTagB"})
+        tag_a = await UPSERT_HANDLERS["tag"]({"name": f"{TEST_PREFIX}NoteTagA"})
+        tag_b = await UPSERT_HANDLERS["tag"]({"name": f"{TEST_PREFIX}NoteTagB"})
         handle_a = extract_handle(tag_a[0].text)
         handle_b = extract_handle(tag_b[0].text)
 
-        created = await upsert_note_tool(
+        created = await UPSERT_HANDLERS["note"](
             {
                 "text": f"{TEST_PREFIX}note with tags",
                 "type": "General",
@@ -57,7 +57,7 @@ class TestGenericUpsertRoundTrip:
             }
         )
         handle = extract_handle(created[0].text)
-        await upsert_note_tool({"handle": handle, "tag_list": [handle_b]})
+        await UPSERT_HANDLERS["note"]({"handle": handle, "tag_list": [handle_b]})
 
         stored = await _get("notes/{handle}", handle)
         assert (stored["tag_list"], stored["text"]["string"]) == (
@@ -67,7 +67,7 @@ class TestGenericUpsertRoundTrip:
 
     async def test_event_create_without_citation_nudges(self):
         """An uncited event create carries the unchanged citation nudge."""
-        result = await upsert_event_tool(
+        result = await UPSERT_HANDLERS["event"](
             {"type": "Birth", "description": f"{TEST_PREFIX}uncited birth"}
         )
         assert result[0].text.startswith("Successfully created event:") and (

@@ -18,25 +18,11 @@ from pydantic import Field, model_validator
 from .base_params import (
     BaseDataModel,
     BaseGetMultipleParams,
-    BaseGetSingleParams,
 )
 
 
 class NotesParams(BaseGetMultipleParams):
     """Parameters for getting information about multiple notes."""
-
-    formats: str | None = Field(
-        None,
-        description="Comma delimited list of formats to apply (html)",
-    )
-    format_options: str | None = Field(
-        None,
-        description="JSON dictionary of options for note formatters",
-    )
-
-
-class NoteParams(BaseGetSingleParams):
-    """Parameters for getting information about a specific note."""
 
     formats: str | None = Field(
         None,

@@ -1,5 +1,5 @@
 """
-Unit tests for file replacement in upsert_media_tool.
+Unit tests for file replacement in UPSERT_HANDLERS["media"].
 
 Tests verify that when both handle and file_location are provided,
 the file is uploaded via PUT /media/{handle}/file before updating metadata.
@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from mcp.types import TextContent
 
-from src.gramps_mcp.tools import upsert_media_tool
 from src.gramps_mcp.tools._errors import McpToolError
+from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
 from tests._resource_shim import route_call_resource
 
 
@@ -54,7 +54,7 @@ class TestMediaFileReplacement:
             temp_path = f.name
 
         try:
-            result = await upsert_media_tool(
+            result = await UPSERT_HANDLERS["media"](
                 {
                     "handle": "m1",
                     "desc": "Updated photo",
@@ -88,7 +88,7 @@ class TestMediaFileReplacement:
         mock_client_cls.return_value = client_inst
         route_call_resource(client_inst)
 
-        result = await upsert_media_tool(
+        result = await UPSERT_HANDLERS["media"](
             {"handle": "m1", "desc": "Metadata only update"}
         )
 
@@ -116,7 +116,7 @@ class TestMediaFileReplacement:
         route_call_resource(client_inst)
 
         with pytest.raises(McpToolError):
-            await upsert_media_tool(
+            await UPSERT_HANDLERS["media"](
                 {
                     "handle": "m1",
                     "desc": "Bad file",
@@ -153,7 +153,7 @@ class TestMediaFileReplacement:
             temp_path = f.name
 
         try:
-            await upsert_media_tool(
+            await UPSERT_HANDLERS["media"](
                 {
                     "handle": "m1",
                     "desc": "PNG photo",
@@ -198,7 +198,7 @@ class TestMediaFileReplacement:
             temp_path = f.name
 
         try:
-            await upsert_media_tool(
+            await UPSERT_HANDLERS["media"](
                 {
                     "handle": "m1",
                     "desc": "New description",
