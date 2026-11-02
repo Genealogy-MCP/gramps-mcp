@@ -1,4 +1,16 @@
-FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim@sha256:4f5d923c9dcea037f57bda425dd209f3ec643da2f0b74227f68d09dab0b3bb36 AS builder
+# Reason: one image for both stages. A venv only runs on the interpreter that
+# built it (site-packages path and compiled wheel ABI), so the builder and the
+# runtime must never drift apart (#115).
+ARG PYTHON_IMAGE=python:3.13-slim-bookworm@sha256:281d39ff02e3b389401586134ff9e6572954687822a58055ec07a60ded4e0b7f
+
+FROM ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv
+
+FROM ${PYTHON_IMAGE} AS builder
+
+COPY --from=uv /uv /bin/uv
+
+# Build the venv on the image's own interpreter, never a uv-managed download.
+ENV UV_PYTHON_DOWNLOADS=never
 
 WORKDIR /app
 
@@ -9,7 +21,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 COPY src/ src/
 
-FROM python:3.14-slim-bookworm@sha256:86f975aca15cf04a40b399eebede9aea7c82eae084d1f1a0a6ef6bcaae871a30
+FROM ${PYTHON_IMAGE}
 
 # Add OCI labels
 LABEL org.opencontainers.image.title="Gramps MCP"
