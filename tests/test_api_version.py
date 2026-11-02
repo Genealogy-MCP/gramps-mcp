@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.gramps_mcp.auth import GrampsAuthError
 from src.gramps_mcp.client import (
     MIN_API_MAJOR_VERSION,
     GrampsAPIError,
@@ -127,6 +128,18 @@ class TestVerifyApiVersion:
         assert version == ""
 
     @pytest.mark.asyncio
+    async def test_auth_error_propagates(self):
+        """A login failure is not a version-check miss; the caller reports it."""
+        original = GrampsAuthError(
+            "Invalid username or password",
+            status_code=403,
+            error_type="invalid_credentials",
+        )
+        client = self._make_client(side_effect=original)
+        with pytest.raises(GrampsAuthError):
+            await client.verify_api_version()
+
+    @pytest.mark.asyncio
     async def test_missing_gramps_webapi_key(self):
         """Response without gramps_webapi key should return empty string."""
         client = self._make_client(metadata_response={"some_other": "data"})
@@ -204,6 +217,32 @@ class TestVerifyApiOnStartup:
 
         client_inst.verify_api_version.assert_called_once()
         client_inst.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.startup.GrampsWebAPIClient")
+    async def test_startup_logs_auth_error_and_continues(self, mock_client_cls, caplog):
+        """A login failure is logged at error level with the real cause."""
+        client_inst = AsyncMock()
+        client_inst.verify_api_version = AsyncMock(
+            side_effect=GrampsAuthError(
+                "Invalid username or password",
+                status_code=403,
+                error_type="invalid_credentials",
+            )
+        )
+        client_inst.close = AsyncMock()
+        mock_client_cls.return_value = client_inst
+
+        with caplog.at_level(logging.WARNING, logger="src.gramps_mcp.startup"):
+            await verify_api_on_startup()
+
+        client_inst.close.assert_called_once()
+        records = [(r.levelno, r.getMessage()) for r in caplog.records]
+        assert any(
+            level == logging.ERROR and "GRAMPS_PASSWORD" in msg
+            for level, msg in records
+        ), records
+        assert not any("Could not reach metadata" in msg for _, msg in records)
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.startup.GrampsWebAPIClient")

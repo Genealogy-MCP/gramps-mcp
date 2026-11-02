@@ -8,16 +8,119 @@ JWT Authentication handling for Gramps Web API.
 
 import asyncio
 import logging
+import random
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
 import jwt
+from pydantic import BaseModel, ValidationError
 
 from .config import get_settings
 
 logger = logging.getLogger(__name__)
+
+# Reason: a failed login caches nothing, so without a cooldown every tool call
+# logs in again within a second and trips the token endpoint's 1/second
+# per-IP limit, replacing the real cause (bad credentials) with HTTP 429.
+AUTH_FAILURE_COOLDOWN_SECONDS = 2.0
+LOGIN_MAX_ATTEMPTS = 3
+
+
+class GrampsAuthError(Exception):
+    """Login at ``POST /token/`` failed.
+
+    Attributes:
+        status_code (int | None): HTTP status of the token response, or None
+            when no response arrived (connection or timeout failure).
+        error_type (str | None): The server's ``error.type`` (for example
+            ``invalid_credentials``), or None when it sent none.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        error_type: str | None = None,
+    ) -> None:
+        """
+        Store the server message, HTTP status and error type.
+
+        Args:
+            message (str): The server's error message, or a transport detail.
+            status_code (int | None): HTTP status of the token response.
+            error_type (str | None): The server's ``error.type`` value.
+        """
+        super().__init__(message)
+        self.status_code = status_code
+        self.error_type = error_type
+
+
+class _TokenBody(BaseModel):
+    """Body of a successful token response."""
+
+    access_token: str
+
+
+class _TokenErrorDetail(BaseModel):
+    """The ``error`` object of a failed token response."""
+
+    message: str = ""
+    type: str | None = None
+
+
+class _TokenErrorBody(BaseModel):
+    """Body of a failed token response: ``{"error": {...}}``."""
+
+    error: _TokenErrorDetail
+
+
+def _parse_access_token(response: httpx.Response) -> str:
+    """Extract the access token from a successful token response.
+
+    Args:
+        response (httpx.Response): A 2xx response from the token endpoint.
+
+    Returns:
+        str: The access token.
+
+    Raises:
+        GrampsAuthError: If the body is not JSON or has no access_token.
+    """
+    # Reason: ValueError covers both a non-JSON body and pydantic's
+    # ValidationError, which subclasses it.
+    try:
+        return _TokenBody.model_validate(response.json()).access_token
+    except ValueError as e:
+        raise GrampsAuthError(
+            "Token response carried no access_token",
+            status_code=response.status_code,
+        ) from e
+
+
+def _auth_error_from_response(response: httpx.Response) -> GrampsAuthError:
+    """Build a GrampsAuthError from a non-2xx token response.
+
+    Args:
+        response: The failed ``POST /token/`` response.
+
+    Returns:
+        GrampsAuthError: Carries the status, and the server's message and
+            type when the body parses.
+    """
+    try:
+        detail = _TokenErrorBody.model_validate_json(response.content).error
+    except ValidationError:
+        return GrampsAuthError(
+            f"HTTP {response.status_code}", status_code=response.status_code
+        )
+    return GrampsAuthError(
+        detail.message or f"HTTP {response.status_code}",
+        status_code=response.status_code,
+        error_type=detail.type,
+    )
 
 
 class AuthManager:
@@ -48,6 +151,8 @@ class AuthManager:
         self._loop = None
         self._auth_lock = None
         self._auth_lock_loop = None
+        self._last_failure: Optional[GrampsAuthError] = None
+        self._last_failure_at = 0.0
 
         self._initialized = True
         logger.info("Singleton AuthManager instance created")
@@ -113,54 +218,94 @@ class AuthManager:
         """
         Authenticate with Gramps Web API and get access token.
 
+        A failure is remembered for AUTH_FAILURE_COOLDOWN_SECONDS; calls inside
+        that window re-raise it without contacting the server. A 429 from the
+        token endpoint is retried up to LOGIN_MAX_ATTEMPTS times in total.
+
         Returns:
             Access token string
+
+        Raises:
+            GrampsAuthError: If the login fails.
+        """
+        if (
+            self._last_failure is not None
+            and time.monotonic() - self._last_failure_at < AUTH_FAILURE_COOLDOWN_SECONDS
+        ):
+            raise self._last_failure
+        try:
+            response = await self._post_token()
+            token = _parse_access_token(response)
+        except GrampsAuthError as e:
+            self._last_failure = e
+            self._last_failure_at = time.monotonic()
+            raise
+        self._last_failure = None
+        self._access_token = token
+
+        # Set expiration time
+        try:
+            payload = jwt.decode(token, options={"verify_signature": False})
+            exp = payload.get("exp")
+            if exp:
+                self._token_expires_at = datetime.fromtimestamp(exp, tz=timezone.utc)
+            else:
+                self._token_expires_at = datetime.now(timezone.utc) + timedelta(
+                    minutes=15
+                )
+        except Exception as e:
+            logger.warning(f"Failed to parse JWT expiry, defaulting to 15 min: {e}")
+            self._token_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+
+        logger.info("Successfully authenticated with Gramps Web API")
+        return token
+
+    async def _post_token(self) -> httpx.Response:
+        """POST the credentials, retrying a 429 with jittered backoff.
+
+        Returns:
+            httpx.Response: A successful token response.
+
+        Raises:
+            GrampsAuthError: On any non-2xx response once retries are spent,
+                or when the server cannot be reached.
+        """
+        response = await self._post_credentials()
+        for attempt in range(1, LOGIN_MAX_ATTEMPTS):
+            if response.status_code != 429:
+                break
+            # Reason: the server sends no Retry-After; its limit is 1/second,
+            # so wait at least that long, doubling, plus jitter.
+            delay = 2 ** (attempt - 1) + random.uniform(0, 0.5)
+            logger.warning(
+                f"Login rate limited (HTTP 429), retrying in {delay:.1f}s "
+                f"(attempt {attempt}/{LOGIN_MAX_ATTEMPTS})"
+            )
+            await asyncio.sleep(delay)
+            response = await self._post_credentials()
+        if response.is_success:
+            return response
+        raise _auth_error_from_response(response)
+
+    async def _post_credentials(self) -> httpx.Response:
+        """Send one ``POST /token/`` with the configured credentials.
+
+        Returns:
+            httpx.Response: The token endpoint's response, whatever its status.
+
+        Raises:
+            GrampsAuthError: If no response arrives.
         """
         try:
-            response = await self.client.post(
+            return await self.client.post(
                 "/token/",
                 json={
                     "username": self.settings.gramps_username,
                     "password": self.settings.gramps_password,
                 },
             )
-            response.raise_for_status()
-
-            data = response.json()
-            self._access_token = str(data["access_token"])
-
-            # Set expiration time
-            try:
-                payload = jwt.decode(
-                    self._access_token, options={"verify_signature": False}
-                )
-                exp = payload.get("exp")
-                if exp:
-                    self._token_expires_at = datetime.fromtimestamp(
-                        exp, tz=timezone.utc
-                    )
-                else:
-                    self._token_expires_at = datetime.now(timezone.utc) + timedelta(
-                        minutes=15
-                    )
-            except Exception as e:
-                logger.warning(f"Failed to parse JWT expiry, defaulting to 15 min: {e}")
-                self._token_expires_at = datetime.now(timezone.utc) + timedelta(
-                    minutes=15
-                )
-
-            logger.info("Successfully authenticated with Gramps Web API")
-            assert self._access_token is not None
-            return self._access_token
-
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 403:
-                raise ValueError("Invalid username or password")
-            raise ValueError(f"Authentication failed: HTTP {e.response.status_code}")
-        except httpx.ConnectError as e:
-            raise ValueError(f"Cannot connect to Gramps API: {e}")
-        except Exception as e:
-            raise ValueError(f"Authentication error: {e}")
+        except httpx.HTTPError as e:
+            raise GrampsAuthError(f"Cannot connect to Gramps API: {e}") from e
 
     def _get_lock(self) -> asyncio.Lock:
         """Get an asyncio.Lock bound to the current running event loop.

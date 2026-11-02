@@ -17,6 +17,7 @@ from typing import Dict, List
 
 from mcp.types import TextContent
 
+from ..auth import GrampsAuthError
 from ..client import GrampsAPIError, GrampsWebAPIClient
 from ..config import get_settings
 from ..models.api_calls import ApiCalls
@@ -167,9 +168,9 @@ async def _wait_for_task_completion(
             # Exponential backoff, but cap at max_sleep
             sleep_interval = min(sleep_interval * 1.5, max_sleep)
 
+        except (GrampsAPIError, GrampsAuthError):
+            raise
         except Exception as e:
-            if isinstance(e, GrampsAPIError):
-                raise
             raise GrampsAPIError(f"Error polling task {task_id}: {str(e)}")
 
 
