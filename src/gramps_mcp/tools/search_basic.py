@@ -40,7 +40,7 @@ def with_client(func: Callable) -> Callable:
     """
     Decorator that injects the shared GrampsWebAPIClient from get_client().
 
-    The client stays open across calls; the server lifespan closes it.
+    The client stays open across calls; the transport runner closes it at process exit.
 
     The decorated function will receive 'client' as the first argument
     followed by a dict of arguments. The mcp-codemode library calls

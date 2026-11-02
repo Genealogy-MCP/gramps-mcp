@@ -460,7 +460,8 @@ def get_client() -> GrampsWebAPIClient:
     Return the session-wide API client (MCP-21).
 
     Every tool call shares this one client, and through it the AuthManager's
-    httpx.AsyncClient and cached token. Only the server lifespan closes it.
+    httpx.AsyncClient and cached token. Only the transport runner closes it,
+    at process exit.
 
     Returns:
         GrampsWebAPIClient: The shared client.

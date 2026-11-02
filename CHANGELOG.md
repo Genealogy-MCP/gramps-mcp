@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.1] - 2026-11-02
+
 ### Fixed
 
-- Tool calls share one API client for the whole session (MCP-21). Before, every call built its own client and closed the shared HTTP connection pool on exit, so the next call opened a new connection. `get_client()` in `client.py` now hands out the shared client and the server lifespan closes it at shutdown (#105)
+- Tool calls share one API client for the whole session (MCP-21). Before, every call built its own client and closed the shared HTTP connection pool on exit, so the next call opened a new connection. `get_client()` in `client.py` now hands out the shared client and the stdio or HTTP runner closes it once at process exit, not the FastMCP lifespan that stateless HTTP enters per request (#105)
 
 ## [3.15.1] - 2026-11-02
 

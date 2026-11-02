@@ -43,12 +43,14 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def server_lifespan(_app):
-    """FastMCP lifespan hook -- verify API version, close the shared client on exit."""
+    """FastMCP lifespan hook -- verify API version.
+
+    Reason: with stateless_http=True FastMCP enters this lifespan once per
+    HTTP request, so it must not close the shared client (MCP-21). The
+    transport runners close it when the process stops.
+    """
     await verify_api_on_startup()
-    try:
-        yield
-    finally:
-        await get_client().close()
+    yield
 
 
 # Create FastMCP app with stateless HTTP (no SSE)
@@ -331,10 +333,24 @@ async def run_stdio_server():
         return load_resource(filename)
 
     # Run the server with stdio transport
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream, write_stream, server.create_initialization_options()
-        )
+    try:
+        async with stdio_server() as (read_stream, write_stream):
+            await server.run(
+                read_stream, write_stream, server.create_initialization_options()
+            )
+    finally:
+        await get_client().close()
+
+
+async def run_http_server():
+    """Run the FastMCP server with streamable HTTP transport.
+
+    Closes the shared API client once, after the server stops.
+    """
+    try:
+        await app.run_streamable_http_async()
+    finally:
+        await get_client().close()
 
 
 if __name__ == "__main__":
@@ -352,4 +368,4 @@ if __name__ == "__main__":
         app.settings.port = int(os.environ.get("GRAMPS_MCP_PORT", "8000"))
 
         # Run with streamable-http transport for production use
-        app.run(transport="streamable-http")
+        asyncio.run(run_http_server())

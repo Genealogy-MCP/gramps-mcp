@@ -5,7 +5,7 @@
 Unit tests for the session-wide API client (MCP-21, issue #105).
 
 Tool handlers share one GrampsWebAPIClient from get_client(); only the
-server lifespan closes it.
+transport runner closes it, once, when the process stops.
 """
 
 import ast
@@ -77,8 +77,8 @@ async def test_with_client_keeps_the_shared_client_open():
 
 
 @pytest.mark.asyncio
-async def test_lifespan_closes_the_shared_client_on_shutdown():
-    """The server lifespan owns the shared client's shutdown."""
+async def test_lifespan_leaves_the_shared_client_open():
+    """Stateless HTTP enters the lifespan per request, so it must not close."""
     from src.gramps_mcp.server import server_lifespan
 
     shared = AsyncMock()
@@ -87,6 +87,40 @@ async def test_lifespan_closes_the_shared_client_on_shutdown():
         patch("src.gramps_mcp.server.get_client", return_value=shared),
     ):
         async with server_lifespan(None):
-            shared.close.assert_not_awaited()
+            pass
+        async with server_lifespan(None):
+            pass
+
+    shared.close.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_http_server_closes_the_shared_client_on_exit():
+    """The HTTP runner closes the shared client once, after the server stops."""
+    from src.gramps_mcp import server
+
+    shared = AsyncMock()
+    with (
+        patch.object(server.app, "run_streamable_http_async", new_callable=AsyncMock),
+        patch("src.gramps_mcp.server.get_client", return_value=shared),
+    ):
+        await server.run_http_server()
+
+    shared.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_stdio_server_closes_the_shared_client_on_exit():
+    """The stdio runner closes the shared client even when the transport fails."""
+    from src.gramps_mcp import server
+
+    shared = AsyncMock()
+    with (
+        patch("src.gramps_mcp.server.verify_api_on_startup", new_callable=AsyncMock),
+        patch("src.gramps_mcp.server.stdio_server", side_effect=RuntimeError("eof")),
+        patch("src.gramps_mcp.server.get_client", return_value=shared),
+        pytest.raises(RuntimeError, match="eof"),
+    ):
+        await server.run_stdio_server()
 
     shared.close.assert_awaited_once()
