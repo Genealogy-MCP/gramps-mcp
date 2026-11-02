@@ -14,8 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `upsert_person`, `upsert_family`, `upsert_citation`, `upsert_repository`, `upsert_tag` and `upsert_media` now run on the generic table-driven upsert, so all ten upserts share one handler. Operation names, the count of 22 and parameters are unchanged. Person keeps its `person_ref_list` existence and self-reference checks and citation its `source_handle` checks, both before any write. Family keeps `child_handles` to `child_ref_list` with Birth defaults on create only. Tag still updates by PUT with no list merge (#103)
 - The citation nudge now follows one rule: person, event, place and media creates without a `citation_list` get it. Person creates did not before (#103)
 - The repository save response is built with the entity hint, like every other entity (#103)
-- `upsert_family`, `upsert_repository` and `upsert_media` re-raise a tool error bare instead of wrapping it in "Unexpected error during ... save" (#103)
-- Media upload now runs before the metadata write. A create uploads the file, then PUTs the metadata onto the new record; an update with `file_location` replaces the file first, logging and skipping a 409, then PUTs the metadata. Create with no arguments still fails with "file_location is required to create new media." (#103)
+- A tool error raised during a save is passed through without a second error-level log line; its text is unchanged (#103)
+- The generic upsert runs its media upload hook before the write instead of after it, so media keeps its upload-then-PUT order: a create uploads the file and PUTs the metadata onto the new record, and an update with `file_location` replaces the file (logging and skipping a 409) before the PUT. Media behavior and error text match 3.14.1 (#103)
 - Write bindings and the upsert operation overlays moved from `overlays.py` to `write_overlays.py`; the person and citation checks, the media upload and the tag reply live in `write_hooks.py` (#103)
 
 ### Removed
