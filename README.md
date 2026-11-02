@@ -211,7 +211,7 @@ For any other MCP client, use the HTTP transport endpoint:
 
 ### Prerequisites
 
-- Python 3.10+ and [uv](https://docs.astral.sh/uv/)
+- Python 3.11+ and [uv](https://docs.astral.sh/uv/)
 - Docker and Docker Compose (for integration tests)
 
 ### Setup

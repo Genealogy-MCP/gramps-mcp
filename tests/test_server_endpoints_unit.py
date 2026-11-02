@@ -22,8 +22,7 @@ from src.gramps_mcp.server import app, health_check, root
 def _pyproject_version() -> str:
     """Read [project].version from pyproject.toml.
 
-    Uses a regex rather than tomllib so the test runs on Python 3.10
-    (tomllib is stdlib only from 3.11), mirroring scripts/version_check.py.
+    Uses a regex rather than tomllib, mirroring scripts/version_check.py.
     """
     text = (Path(__file__).resolve().parent.parent / "pyproject.toml").read_text()
     match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
