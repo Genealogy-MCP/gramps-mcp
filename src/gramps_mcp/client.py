@@ -364,7 +364,8 @@ class GrampsWebAPIClient:
                 POST/PUT, query params otherwise.
             tree_id (str): Family tree identifier.
             with_headers (bool): Also return the response headers.
-            **url_params: Values for the path placeholders (``handle``).
+            **url_params: Values for the path placeholders (``handle``). A
+                POST has no placeholder; its ``handle`` goes into the body.
 
         Returns:
             Any: Parsed API response.
@@ -428,6 +429,11 @@ class GrampsWebAPIClient:
         if validated_params is not None:
             if as_body:
                 json_data, list_mode = api_body(validated_params)
+                # Reason: a create names its own handle so a 5xx can be checked
+                # (#106). It joins the body after serialisation because on the
+                # params model a handle means update, which changes to_api_payload.
+                if method == "POST" and "handle" in url_params:
+                    json_data["handle"] = url_params["handle"]
             else:
                 request_params = validated_params.model_dump(exclude_none=True)
 

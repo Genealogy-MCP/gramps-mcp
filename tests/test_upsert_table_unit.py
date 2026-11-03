@@ -9,10 +9,14 @@ reference checks, media upload, write) and "no write before every check
 passes" are checked without a server.
 """
 
+import re
 from dataclasses import replace
+from unittest.mock import ANY
 
 import pytest
 
+from src.gramps_mcp.auth import GrampsAuthError
+from src.gramps_mcp.client import GrampsAPIError
 from src.gramps_mcp.models.parameters.event_params import EventSaveParams
 from src.gramps_mcp.tools import upsert_table
 from src.gramps_mcp.tools._data_helpers import _CITATION_NUDGE
@@ -238,13 +242,13 @@ class TestRouting:
     @pytest.mark.parametrize(
         ("entity", "arguments", "expected"),
         [
-            ("event", {"type": "Birth"}, ("POST", "events/", {})),
+            ("event", {"type": "Birth"}, ("POST", "events/", {"handle": ANY})),
             ("place", {"handle": "p1"}, ("PUT", "places/{handle}", {"handle": "p1"})),
-            ("source", {"title": "T"}, ("POST", "sources/", {})),
+            ("source", {"title": "T"}, ("POST", "sources/", {"handle": ANY})),
             (
                 "note",
                 {"text": "x", "type": "General"},
-                ("POST", "notes/", {}),
+                ("POST", "notes/", {"handle": ANY}),
             ),
         ],
     )
@@ -331,3 +335,145 @@ class TestHandlers:
         assert {e: h.__name__ for e, h in UPSERT_HANDLERS.items()} == {
             e: f"upsert_{e}_tool" for e in _ENTITIES
         }
+
+
+class _ScriptedClient:
+    """Client double answering POST and GET from a script (#106)."""
+
+    def __init__(self, post, get=None):
+        """
+        Store the scripted outcomes.
+
+        Args:
+            post (Exception | dict): Raised or returned by the POST.
+            get (Exception | dict | None): Raised or returned by the GET.
+        """
+        self.script = {"POST": post, "GET": get}
+        self.calls = []
+        self.models = []
+
+    async def call_resource(self, method, path, params=None, tree_id=None, **kw):
+        """
+        Record the call and play its scripted outcome.
+
+        Args:
+            method (str): HTTP verb.
+            path (str): Path template.
+            params: Parsed model.
+            tree_id (str): Tree id.
+            **kw: Path placeholders.
+
+        Returns:
+            dict: The scripted record.
+        """
+        self.calls.append((method, path, kw["handle"]))
+        self.models.append(params)
+        outcome = self.script[method]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+
+_POST_500 = GrampsAPIError("Server error (500) at /records/.", status_code=500)
+
+
+@pytest.fixture
+def scripted(monkeypatch):
+    """Install a scripted client; return a setter for its script."""
+
+    class _Settings:
+        gramps_tree_id = "tree"
+
+    monkeypatch.setattr(upsert_table, "get_settings", lambda: _Settings())
+
+    async def _fmt(client, data, entity, operation, tree_id, nudge):
+        return f"{operation} {data['gramps_id']}"
+
+    monkeypatch.setattr(upsert_table, "_format_save_response", _fmt)
+
+    def install(post, get=None):
+        client = _ScriptedClient(post, get)
+        monkeypatch.setattr(upsert_table, "get_client", lambda: client)
+        return client
+
+    return install
+
+
+class TestCreateServerError:
+    """A 5xx on create is checked against the stored record (#106)."""
+
+    async def test_create_sends_fresh_handle(self, scripted):
+        """Each create POSTs a new 32-hex handle chosen client side."""
+        client = scripted(_SAVED)
+        await upsert_entity("event", {"type": "Birth"})
+        await upsert_entity("event", {"type": "Birth"})
+        first, second = (handle for _, _, handle in client.calls)
+        assert (re.fullmatch(r"[0-9a-f]{32}", first) is not None, first != second) == (
+            True,
+            True,
+        )
+
+    async def test_landed_write_reports_created(self, scripted):
+        """A 5xx whose record exists is reported as a normal create."""
+        client = scripted(_POST_500, {"handle": "x", "gramps_id": "I9"})
+        result = await upsert_entity("person", {"gender": 1, "primary_name": _NAME})
+        handle = client.calls[0][2]
+        assert (result[0].text, client.calls) == (
+            "created I9",
+            [("POST", "people/", handle), ("GET", "people/{handle}", handle)],
+        )
+
+    async def test_missing_record_says_retry_is_safe(self, scripted):
+        """A 5xx with no stored record says nothing was written."""
+        client = scripted(
+            _POST_500, GrampsAPIError("Record not found.", status_code=404)
+        )
+        with pytest.raises(McpToolError) as info:
+            await upsert_entity("event", {"type": "Birth"})
+        assert str(info.value) == (
+            "Server error (500) at /records/. Nothing was written: no event "
+            f"has handle `{client.calls[0][2]}`, so a retry makes no duplicate."
+        )
+
+    async def test_failed_check_names_the_handle(self, scripted):
+        """When the check fails too, the error names the handle to look up."""
+        client = scripted(
+            _POST_500, GrampsAPIError("Server error (502).", status_code=502)
+        )
+        with pytest.raises(McpToolError) as info:
+            await upsert_entity("event", {"type": "Birth"})
+        assert str(info.value) == (
+            "Server error (500) at /records/. The event may have been written. "
+            f"Get handle `{client.calls[0][2]}` before retrying, "
+            "so a retry makes no duplicate."
+        )
+
+    async def test_create_model_stays_handle_free(self, scripted):
+        """The handle travels beside the model, so it still serialises as a create."""
+        client = scripted(_SAVED)
+        await upsert_entity("family", {"child_ref_list": [{"ref": "c1"}]})
+        assert client.models[0].to_api_payload()["child_ref_list"] == [
+            {"ref": "c1", "frel": "Birth", "mrel": "Birth"}
+        ]
+
+    async def test_auth_failure_on_check_names_the_handle(self, scripted):
+        """A login failure during the check still names the handle to look up."""
+        client = scripted(_POST_500, GrampsAuthError("Login failed.", status_code=500))
+        with pytest.raises(McpToolError) as info:
+            await upsert_entity("event", {"type": "Birth"})
+        assert f"Get handle `{client.calls[0][2]}` before retrying" in str(info.value)
+
+    async def test_client_error_is_not_checked(self, scripted):
+        """A 4xx on create raises as is, with no GET."""
+        client = scripted(GrampsAPIError("Bad request.", status_code=400))
+        with pytest.raises(McpToolError, match=r"^Bad request\.$"):
+            await upsert_entity("event", {"type": "Birth"})
+        assert [method for method, _, _ in client.calls] == ["POST"]
+
+    async def test_update_error_is_not_checked(self, scripted):
+        """A 5xx on update raises as is: a PUT retry makes no duplicate."""
+        client = scripted(None)
+        client.script["PUT"] = _POST_500
+        with pytest.raises(McpToolError, match=r"^Server error \(500\)"):
+            await upsert_entity("event", {"handle": "h1"})
+        assert client.calls == [("PUT", "events/{handle}", "h1")]
