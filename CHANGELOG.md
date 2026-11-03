@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.17] - 2026-11-03
+
+### Changed
+
+- Renovate now refreshes `uv.lock` every weekend with `lockFileMaintenance`, so transitive pins move forward instead of collecting advisories. It also raises vulnerability fix MRs from the OSV database (`osvVulnerabilityAlerts`), labelled `security` and outside the weekend schedule. `vulnerabilityAlerts` alone reads only GitHub Dependabot alerts, which this GitLab project has none of, and OSV covers direct dependencies only, so the weekly lock refresh is what reaches transitive ones (#114)
+
 ## [3.15.16] - 2026-11-03
 
 ### Changed
