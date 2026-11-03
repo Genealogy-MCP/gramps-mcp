@@ -18,6 +18,7 @@ from typing import Any
 from mcp.server import Server
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.stdio import stdio_server
+from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import Resource, TextContent, Tool, ToolAnnotations
 from mcp_codemode import (
     ExecuteOperationParams,
@@ -38,6 +39,36 @@ from .tools._identifier import normalize_identifier
 # so all logging MUST go to stderr.
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger(__name__)
+
+
+def transport_security(allowed_hosts: str) -> TransportSecuritySettings:
+    """Build the /mcp DNS-rebinding guard: localhost plus extra allowed hosts.
+
+    Args:
+        allowed_hosts (str): Comma-separated Host header values, the raw
+            GRAMPS_MCP_ALLOWED_HOSTS value. ``name:*`` matches any port.
+
+    Returns:
+        TransportSecuritySettings: Settings that reject any other Host header
+            with HTTP 421.
+
+    Raises:
+        ValueError: If an entry is a URL instead of a bare host[:port].
+    """
+    extra = [entry.strip() for entry in allowed_hosts.split(",") if entry.strip()]
+    for entry in extra:
+        if "/" in entry:
+            raise ValueError(
+                f"GRAMPS_MCP_ALLOWED_HOSTS entry {entry!r} is a URL; list bare "
+                "Host header values such as 'gramps-mcp:8000' or 'mcp.example.com'."
+            )
+    # Reason: these are the MCP SDK's own localhost defaults, written out
+    # because passing transport_security explicitly replaces them.
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=["127.0.0.1:*", "localhost:*", "[::1]:*", *extra],
+        allowed_origins=["http://127.0.0.1:*", "http://localhost:*", "http://[::1]:*"],
+    )
 
 
 # Create FastMCP app with stateless HTTP (no SSE)
@@ -356,6 +387,11 @@ if __name__ == "__main__":
         # MCP-20: default to loopback; use GRAMPS_MCP_HOST=0.0.0.0 for Docker
         app.settings.host = os.environ.get("GRAMPS_MCP_HOST", "127.0.0.1")
         app.settings.port = int(os.environ.get("GRAMPS_MCP_PORT", "8000"))
+        # Reason: FastMCP fixed its Host allow-list at construction from the
+        # default 127.0.0.1 host; the session manager reads this at run time.
+        app.settings.transport_security = transport_security(
+            os.environ.get("GRAMPS_MCP_ALLOWED_HOSTS", "")
+        )
 
         # Run with streamable-http transport for production use
         asyncio.run(run_http_server())
