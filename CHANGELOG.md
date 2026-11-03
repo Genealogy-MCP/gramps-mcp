@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.15] - 2026-11-03
+
+### Fixed
+
+- A failed media file download or file replacement now reports the HTTP status of the Gramps Web response on the raised `GrampsAPIError`. Both paths left `status_code` as `None` although a response existed, unlike every other API call (#112)
+
 ## [3.15.14] - 2026-11-03
 
 ### Fixed
