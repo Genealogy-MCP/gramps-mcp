@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.5] - 2026-11-02
+
+### Fixed
+
+- Over streamable HTTP, a tool call no longer sends an extra `GET metadata/` to Gramps Web or repeats the API version warning. FastMCP enters its lifespan once per request in stateless HTTP mode, so the startup version check ran on every call. `run_http_server()` now runs it once before serving, as `run_stdio_server()` already did, and the lifespan hook is gone (#121)
+
 ## [3.15.4] - 2026-11-02
 
 ### Fixed
