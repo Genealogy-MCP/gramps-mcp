@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.12] - 2026-11-03
+
+### Fixed
+
+- `upsert_*` updates no longer fail with HTTP 400 `unknown Person keys: 'list_mode'` on a record that an older server version stored with a `list_mode` key. The PUT merge copied every stored key into the body, the leaked key included. It now drops `list_mode` from the stored record before merging (#116)
+
 ## [3.15.11] - 2026-11-03
 
 ### Fixed
