@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.4] - 2026-11-02
+
+### Fixed
+
+- The Docker `HEALTHCHECK` no longer goes past its 3s timeout on a loaded host. The probe called `localhost`, which can resolve to `::1` first while the server binds IPv4 only, so every probe paid a refused IPv6 connect before falling back. It now calls `127.0.0.1` with a 2s `urlopen` timeout, so a hung server fails the probe cleanly. `make docker-smoke` and the MR CI job now run the image's own healthcheck command against a live server (#123)
+
 ## [3.15.3] - 2026-11-02
 
 ### Fixed
