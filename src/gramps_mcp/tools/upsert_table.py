@@ -28,6 +28,7 @@ from typing import Any, List
 
 from mcp.types import TextContent
 
+from ..auth import GrampsAuthError
 from ..client import GrampsAPIError, GrampsWebAPIClient, get_client
 from ..config import get_settings
 from ..resource_rows import EntityResource
@@ -153,8 +154,9 @@ async def _create(
         return await client.call_resource(
             "POST",
             row.collection_path,
-            validated.model_copy(update={"handle": handle}),
+            validated,
             tree_id=tree_id,
+            handle=handle,
         )
     except GrampsAPIError as error:
         if error.status_code is None or error.status_code < 500:
@@ -163,8 +165,8 @@ async def _create(
             stored = await client.call_resource(
                 "GET", row.item_path, tree_id=tree_id, handle=handle
             )
-        except GrampsAPIError as check:
-            if check.status_code == 404:
+        except (GrampsAPIError, GrampsAuthError) as check:
+            if isinstance(check, GrampsAPIError) and check.status_code == 404:
                 raise GrampsAPIError(
                     f"{error} Nothing was written: no {entity} has handle "
                     f"`{handle}`, so a retry makes no duplicate.",

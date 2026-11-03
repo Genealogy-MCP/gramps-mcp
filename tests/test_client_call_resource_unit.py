@@ -60,6 +60,21 @@ class TestCallResource:
     """call_resource sends the same request make_api_call sends."""
 
     @pytest.mark.asyncio
+    async def test_post_handle_goes_into_body(self):
+        """A POST handle joins the serialised body, not the model (#106)."""
+        client = _client()
+        with patch.object(client, "_make_request", new_callable=AsyncMock) as req:
+            req.return_value = [{"new": {"handle": "n1"}}]
+            await client.call_resource(
+                "POST", "tags/", TagSaveParams(name="x"), handle="n1"
+            )
+        kwargs = req.await_args_list[0].kwargs
+        assert (kwargs["url"], kwargs["json_data"]) == (
+            "http://gramps.test/api/tags/",
+            {"name": "x", "handle": "n1"},
+        )
+
+    @pytest.mark.asyncio
     async def test_post_on_collection_path(self):
         """POST goes to the collection path with the hook's body."""
         client = _client()

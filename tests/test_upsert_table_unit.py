@@ -11,9 +11,11 @@ passes" are checked without a server.
 
 import re
 from dataclasses import replace
+from unittest.mock import ANY
 
 import pytest
 
+from src.gramps_mcp.auth import GrampsAuthError
 from src.gramps_mcp.client import GrampsAPIError
 from src.gramps_mcp.models.parameters.event_params import EventSaveParams
 from src.gramps_mcp.tools import upsert_table
@@ -240,13 +242,13 @@ class TestRouting:
     @pytest.mark.parametrize(
         ("entity", "arguments", "expected"),
         [
-            ("event", {"type": "Birth"}, ("POST", "events/", {})),
+            ("event", {"type": "Birth"}, ("POST", "events/", {"handle": ANY})),
             ("place", {"handle": "p1"}, ("PUT", "places/{handle}", {"handle": "p1"})),
-            ("source", {"title": "T"}, ("POST", "sources/", {})),
+            ("source", {"title": "T"}, ("POST", "sources/", {"handle": ANY})),
             (
                 "note",
                 {"text": "x", "type": "General"},
-                ("POST", "notes/", {}),
+                ("POST", "notes/", {"handle": ANY}),
             ),
         ],
     )
@@ -348,6 +350,7 @@ class _ScriptedClient:
         """
         self.script = {"POST": post, "GET": get}
         self.calls = []
+        self.models = []
 
     async def call_resource(self, method, path, params=None, tree_id=None, **kw):
         """
@@ -363,14 +366,15 @@ class _ScriptedClient:
         Returns:
             dict: The scripted record.
         """
-        self.calls.append((method, path, params.handle if params else kw["handle"]))
+        self.calls.append((method, path, kw["handle"]))
+        self.models.append(params)
         outcome = self.script[method]
         if isinstance(outcome, Exception):
             raise outcome
         return outcome
 
 
-_POST_500 = GrampsAPIError("Server error (500) at /people/.", status_code=500)
+_POST_500 = GrampsAPIError("Server error (500) at /records/.", status_code=500)
 
 
 @pytest.fixture
@@ -427,7 +431,7 @@ class TestCreateServerError:
         with pytest.raises(McpToolError) as info:
             await upsert_entity("event", {"type": "Birth"})
         assert str(info.value) == (
-            "Server error (500) at /people/. Nothing was written: no event "
+            "Server error (500) at /records/. Nothing was written: no event "
             f"has handle `{client.calls[0][2]}`, so a retry makes no duplicate."
         )
 
@@ -439,10 +443,25 @@ class TestCreateServerError:
         with pytest.raises(McpToolError) as info:
             await upsert_entity("event", {"type": "Birth"})
         assert str(info.value) == (
-            "Server error (500) at /people/. The event may have been written. "
+            "Server error (500) at /records/. The event may have been written. "
             f"Get handle `{client.calls[0][2]}` before retrying, "
             "so a retry makes no duplicate."
         )
+
+    async def test_create_model_stays_handle_free(self, scripted):
+        """The handle travels beside the model, so it still serialises as a create."""
+        client = scripted(_SAVED)
+        await upsert_entity("family", {"child_ref_list": [{"ref": "c1"}]})
+        assert client.models[0].to_api_payload()["child_ref_list"] == [
+            {"ref": "c1", "frel": "Birth", "mrel": "Birth"}
+        ]
+
+    async def test_auth_failure_on_check_names_the_handle(self, scripted):
+        """A login failure during the check still names the handle to look up."""
+        client = scripted(_POST_500, GrampsAuthError("Login failed.", status_code=500))
+        with pytest.raises(McpToolError) as info:
+            await upsert_entity("event", {"type": "Birth"})
+        assert f"Get handle `{client.calls[0][2]}` before retrying" in str(info.value)
 
     async def test_client_error_is_not_checked(self, scripted):
         """A 4xx on create raises as is, with no GET."""
