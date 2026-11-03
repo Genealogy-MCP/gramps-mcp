@@ -44,7 +44,11 @@ USER gramps
 
 EXPOSE 8000
 
+# Reason: probe 127.0.0.1, not localhost. localhost can resolve to ::1 first,
+# and the server binds IPv4 only, so each probe paid a refused IPv6 connect
+# before falling back. The urlopen timeout stays under the Docker timeout so a
+# hung server fails the probe instead of Docker killing it (#123).
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)" || exit 1
 
 CMD ["python", "-m", "src.gramps_mcp.server"]
