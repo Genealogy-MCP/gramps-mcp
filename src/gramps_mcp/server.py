@@ -359,6 +359,25 @@ async def run_stdio_server():
         await get_client().close()
 
 
+def configure_http(mcp: FastMCP) -> None:
+    """Apply the GRAMPS_MCP_* HTTP environment variables to a FastMCP app.
+
+    Call before serving: the session manager reads these settings when the
+    HTTP app is first built.
+
+    Args:
+        mcp (FastMCP): The app to configure.
+    """
+    # MCP-20: default to loopback; use GRAMPS_MCP_HOST=0.0.0.0 for Docker
+    mcp.settings.host = os.environ.get("GRAMPS_MCP_HOST", "127.0.0.1")
+    mcp.settings.port = int(os.environ.get("GRAMPS_MCP_PORT", "8000"))
+    # Reason: FastMCP fixed its Host allow-list at construction from the
+    # default 127.0.0.1 host, so changing settings.host above leaves it as is.
+    mcp.settings.transport_security = transport_security(
+        os.environ.get("GRAMPS_MCP_ALLOWED_HOSTS", "")
+    )
+
+
 async def run_http_server():
     """Run the FastMCP server with streamable HTTP transport.
 
@@ -383,15 +402,5 @@ if __name__ == "__main__":
         # Run with stdio transport for CLI usage
         asyncio.run(run_stdio_server())
     else:
-        # Run the FastMCP server with streamable HTTP transport
-        # MCP-20: default to loopback; use GRAMPS_MCP_HOST=0.0.0.0 for Docker
-        app.settings.host = os.environ.get("GRAMPS_MCP_HOST", "127.0.0.1")
-        app.settings.port = int(os.environ.get("GRAMPS_MCP_PORT", "8000"))
-        # Reason: FastMCP fixed its Host allow-list at construction from the
-        # default 127.0.0.1 host; the session manager reads this at run time.
-        app.settings.transport_security = transport_security(
-            os.environ.get("GRAMPS_MCP_ALLOWED_HOSTS", "")
-        )
-
-        # Run with streamable-http transport for production use
+        configure_http(app)
         asyncio.run(run_http_server())

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.7] - 2026-11-03
+
 ### Fixed
 
 - A reverse proxy or another compose service can reach `/mcp` again. FastMCP fixes its DNS-rebinding guard at construction from the default `127.0.0.1` host, so every `/mcp` request whose `Host` header was not localhost got HTTP 421, even with `GRAMPS_MCP_HOST=0.0.0.0`. The new `GRAMPS_MCP_ALLOWED_HOSTS` adds comma-separated hosts to the localhost defaults, which stay the only ones accepted when it is unset (#127)
