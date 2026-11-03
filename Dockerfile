@@ -39,6 +39,10 @@ COPY --from=builder /app/src /app/src
 
 ENV PATH="/app/.venv/bin:$PATH"
 
+# Reason: the server defaults to loopback (MCP-20), which a published port
+# cannot reach. The container's network namespace is the isolation here (#118).
+ENV GRAMPS_MCP_HOST=0.0.0.0
+
 RUN useradd -m -u 1000 gramps && chown -R gramps:gramps /app
 USER gramps
 
