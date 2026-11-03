@@ -1,6 +1,17 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["every weekend"],
+    "assignees": ["facastagnini"]
+  },
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"],
+    "assignees": ["facastagnini"]
+  },
   "packageRules": [
     {
       "matchManagers": ["pip_requirements", "pep621"],
