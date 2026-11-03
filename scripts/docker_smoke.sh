@@ -17,7 +17,13 @@ docker run --rm --entrypoint python "$image" -c \
     'import sys, src.gramps_mcp.server; print("import ok on", sys.version.split()[0])'
 
 trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
-docker run -d --name "$container" "$image" >/dev/null
+# Reason: the server reads its settings before binding and exits without
+# them (#121). Port 9 refuses the login fast, which startup logs and survives.
+docker run -d --name "$container" \
+    -e GRAMPS_API_URL=http://127.0.0.1:9 \
+    -e GRAMPS_USERNAME=smoke \
+    -e GRAMPS_PASSWORD=smoke \
+    "$image" >/dev/null
 probe="$(docker inspect --format '{{index .Config.Healthcheck.Test 1}}' "$image")"
 # Reason: the server needs a moment to bind; retry the probe, bounded.
 for _ in 1 2 3 4 5 6 7 8 9 10; do
