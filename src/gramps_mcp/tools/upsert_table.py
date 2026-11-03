@@ -14,14 +14,22 @@ every reference check passes.
 Reason: the upload runs before the write because on media create the
 upload is what makes the record; the metadata write is then a PUT on the
 handle it returns. On media update the stored file is replaced first.
+
+A create POSTs under a handle chosen here (#106). Gramps Web commits the
+record before it updates the search index and usage counts, and answers
+5xx when that later step fails. The known handle lets one GET tell a
+landed write from a lost one, so a caller never retries into a duplicate.
 """
 
+import logging
+import uuid
 from collections.abc import Callable, Coroutine, Mapping
 from typing import Any, List
 
 from mcp.types import TextContent
 
-from ..client import get_client
+from ..auth import GrampsAuthError
+from ..client import GrampsAPIError, GrampsWebAPIClient, get_client
 from ..config import get_settings
 from ..resource_rows import EntityResource
 from ..resource_table import ENTITY_RESOURCES
@@ -29,6 +37,8 @@ from ..write_overlays import WRITE_BINDINGS, WriteBinding, write_row
 from ._compat import extract_arguments
 from ._data_helpers import _extract_entity_data, _format_save_response
 from ._errors import McpToolError, parse_params, raise_tool_error
+
+logger = logging.getLogger(__name__)
 
 UpsertHandler = Callable[..., Coroutine[Any, Any, List[TextContent]]]
 
@@ -91,9 +101,7 @@ async def upsert_entity(
             )
             operation = "updated" if validated.handle else "created"
         else:
-            result = await client.call_resource(
-                "POST", row.collection_path, validated, tree_id=tree_id
-            )
+            result = await _create(client, entity, row, validated, tree_id)
             operation = "created"
 
         nudge = (
@@ -114,6 +122,66 @@ async def upsert_entity(
         raise
     except Exception as e:
         raise_tool_error(e, f"{entity} save")
+
+
+async def _create(
+    client: GrampsWebAPIClient,
+    entity: str,
+    row: EntityResource,
+    validated: Any,
+    tree_id: str,
+) -> Any:
+    """
+    POST a new record under a fresh handle; check the record on a 5xx.
+
+    Args:
+        client (GrampsWebAPIClient): Session-wide API client.
+        entity (str): Entity key, for the error text.
+        row (EntityResource): The entity's resource row.
+        validated (Any): Parsed write model without a handle.
+        tree_id (str): Family tree identifier.
+
+    Returns:
+        Any: The POST response, or the stored record when the POST
+            answered 5xx after the write landed.
+
+    Raises:
+        GrampsAPIError: The POST failed; on a 5xx the message says whether
+            the record was written.
+    """
+    handle = uuid.uuid4().hex
+    try:
+        return await client.call_resource(
+            "POST",
+            row.collection_path,
+            validated,
+            tree_id=tree_id,
+            handle=handle,
+        )
+    except GrampsAPIError as error:
+        if error.status_code is None or error.status_code < 500:
+            raise
+        try:
+            stored = await client.call_resource(
+                "GET", row.item_path, tree_id=tree_id, handle=handle
+            )
+        except (GrampsAPIError, GrampsAuthError) as check:
+            if isinstance(check, GrampsAPIError) and check.status_code == 404:
+                raise GrampsAPIError(
+                    f"{error} Nothing was written: no {entity} has handle "
+                    f"`{handle}`, so a retry makes no duplicate.",
+                    status_code=error.status_code,
+                ) from error
+            raise GrampsAPIError(
+                f"{error} The {entity} may have been written. Get handle "
+                f"`{handle}` before retrying, so a retry makes no duplicate.",
+                status_code=error.status_code,
+            ) from error
+        logger.warning(
+            f"{entity} create answered HTTP {error.status_code} but the record "
+            f"with handle {handle} is stored; reporting it as created"
+        )
+        return stored
 
 
 def make_upsert_handler(entity: str) -> UpsertHandler:
