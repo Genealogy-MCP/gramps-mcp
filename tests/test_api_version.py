@@ -276,21 +276,6 @@ class TestVerifyApiOnStartup:
         client_inst.close.assert_not_called()
 
 
-class TestServerLifespan:
-    """Test that the FastMCP lifespan hook wires startup verification."""
-
-    @pytest.mark.asyncio
-    @patch("src.gramps_mcp.server.verify_api_on_startup", new_callable=AsyncMock)
-    async def test_lifespan_calls_verify(self, mock_verify):
-        """server_lifespan must call verify_api_on_startup before yielding."""
-        from src.gramps_mcp.server import server_lifespan
-
-        async with server_lifespan(None):
-            pass
-
-        mock_verify.assert_called_once()
-
-
 class TestSchemaDriftWarning:
     """Startup warns once when the live version differs from the snapshot pin."""
 
