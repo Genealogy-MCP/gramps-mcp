@@ -11,6 +11,7 @@ Provides clean, direct formatting of place data from handles.
 import logging
 
 from ..models.api_calls import ApiCalls
+from ..models.parameters.base_params import BaseGetSingleParams
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +34,15 @@ async def format_place(client, tree_id: str, handle: str, inline: bool = False) 
 
     try:
         place_data = await client.make_api_call(
-            api_call=ApiCalls.GET_PLACE, tree_id=tree_id, handle=handle
+            api_call=ApiCalls.GET_PLACE,
+            tree_id=tree_id,
+            handle=handle,
+            params=BaseGetSingleParams.model_validate({"profile": "self"}),
         )
         if not place_data:
             return "" if inline else f"• **Place {handle}**\n  Place not found\n\n"
 
-        # Build place hierarchy
-        place_hierarchy = await _build_place_hierarchy(client, tree_id, place_data)
+        place_hierarchy = _build_place_hierarchy(place_data)
 
         # For inline use, just return the hierarchy
         if inline:
@@ -76,47 +79,25 @@ async def format_place(client, tree_id: str, handle: str, inline: bool = False) 
         return ""
 
 
-async def _build_place_hierarchy(client, tree_id: str, place_data: dict) -> str:
-    """Build place hierarchy string from place data."""
-    # The title field contains the full hierarchy
+def _build_place_hierarchy(place_data: dict) -> str:
+    """
+    Build the "place, enclosing, ..., country" string from one place record.
+
+    Args:
+        place_data (dict): Place record fetched with ``profile=self``.
+
+    Returns:
+        str: The place title if set, otherwise its name followed by the names
+        in ``profile.parent_places``.
+    """
     title = place_data.get("title", "")
     if title:
         return title
 
-    # If no title, build from name and parent places
-    place_names = []
-
-    # Get current place name
-    name_value = place_data.get("name", {}).get("value", "")
-    if name_value:
-        place_names.append(name_value)
-
-    # Follow parent places
-    placeref_list = place_data.get("placeref_list", [])
-
-    while placeref_list:
-        parent_handle = placeref_list[0].get("ref")
-        if not parent_handle:
-            break
-
-        parent_data = await client.make_api_call(
-            api_call=ApiCalls.GET_PLACE, tree_id=tree_id, handle=parent_handle
-        )
-        if not parent_data:
-            break
-
-        # Check if parent has a title (full hierarchy)
-        parent_title = parent_data.get("title", "")
-        if parent_title:
-            place_names.append(parent_title)
-            break
-
-        # Otherwise get parent name
-        parent_name = parent_data.get("name", {}).get("value", "")
-        if parent_name:
-            place_names.append(parent_name)
-
-        # Continue up the hierarchy
-        placeref_list = parent_data.get("placeref_list", [])
-
-    return ", ".join(place_names) if place_names else ""
+    # Reason: Gramps Web walks the enclosing chain server side and stops on a
+    # revisited handle, so a placeref cycle yields a finite list and the
+    # hierarchy costs one request at any depth (#122).
+    parent_places = place_data.get("profile", {}).get("parent_places", [])
+    names = [place_data.get("name", {}).get("value", "")]
+    names += [parent.get("name", "") for parent in parent_places]
+    return ", ".join(name for name in names if name)
