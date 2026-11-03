@@ -25,10 +25,13 @@ import httpx
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from tests._test_env import EDITOR_PASSWORD, EDITOR_USERNAME  # noqa: E402
+from tests._test_env import (  # noqa: E402
+    EDITOR_PASSWORD,
+    EDITOR_USERNAME,
+    resolve_base_url,
+)
 
 SEED_FILE = REPO_ROOT / "tests" / "fixtures" / "seed.gramps"
-DEFAULT_BASE_URL = "http://localhost:5055"
 DEFAULT_USERNAME = "owner"
 DEFAULT_PASSWORD = "owner"
 DEFAULT_TIMEOUT = 120
@@ -52,7 +55,7 @@ def wait_for_healthy(base_url: str, timeout: float) -> None:
     Poll the root URL until the service responds with HTTP 200.
 
     Args:
-        base_url: Gramps Web base URL (e.g. http://localhost:5055).
+        base_url: Gramps Web base URL (e.g. http://127.0.0.1:54321).
         timeout: Maximum seconds to wait.
 
     Raises:
@@ -114,7 +117,8 @@ def create_user(compose_file: str, username: str, password: str, role: int) -> N
         ],
         capture_output=True,
         text=True,
-        timeout=30,
+        # Reason: each call boots gramps_webapi, past 30s under parallel stacks (#124).
+        timeout=DEFAULT_TIMEOUT,
     )
     if result.returncode != 0:
         stderr = result.stderr.strip()
@@ -434,7 +438,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Seed a local Gramps Web test instance"
     )
-    parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="Gramps Web URL")
+    parser.add_argument("--base-url", help="Gramps Web URL (default: own test stack)")
     parser.add_argument("--username", default=DEFAULT_USERNAME, help="Owner username")
     parser.add_argument("--password", default=DEFAULT_PASSWORD, help="Owner password")
     parser.add_argument(
@@ -454,6 +458,7 @@ def main() -> None:
         help="Exit early if the integrity probe (I0001 + R0000) passes",
     )
     args = parser.parse_args()
+    args.base_url = resolve_base_url(args.base_url)
 
     if not SEED_FILE.exists():
         print(f"Seed file not found: {SEED_FILE}", file=sys.stderr)

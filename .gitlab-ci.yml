@@ -75,9 +75,6 @@ docker-smoke:
         -v "$CI_PROJECT_DIR:/app" \
         -w /app \
         -e REQUIRE_INTEGRATION=1 \
-        -e GRAMPS_API_URL=http://127.0.0.1:5055 \
-        -e GRAMPS_USERNAME=owner \
-        -e GRAMPS_PASSWORD=owner \
         -e DOCKER_HOST="tcp://${DOCKER_IP}:2375" \
         -e COMPOSE_PROJECT_NAME=gramps-mcp \
         "$PYTHON_IMG" \

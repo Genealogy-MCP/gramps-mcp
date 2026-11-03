@@ -34,8 +34,8 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from src.gramps_mcp import codegen  # noqa: E402
 from src.gramps_mcp.schema_pin import SCHEMA_VERSION  # noqa: E402
+from tests._test_env import resolve_base_url  # noqa: E402
 
-DEFAULT_BASE_URL = "http://localhost:5055"
 DEFAULT_USERNAME = "owner"
 DEFAULT_PASSWORD = "owner"
 COMPOSE_FILE = REPO_ROOT / "docker-compose.test.yml"
@@ -89,7 +89,11 @@ def main(argv: list[str] | None = None) -> int:
     # Reason: the shell often carries GRAMPS_* credentials for the live tree;
     # the snapshot must come from the Docker test instance, so nothing here
     # reads them. Pass flags to target another server deliberately.
-    parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
+    parser.add_argument(
+        "--base-url",
+        default=None,
+        help="Gramps Web URL (default: this checkout's Docker test instance)",
+    )
     parser.add_argument("--username", default=DEFAULT_USERNAME)
     parser.add_argument("--password", default=DEFAULT_PASSWORD)
     parser.add_argument(
@@ -99,6 +103,7 @@ def main(argv: list[str] | None = None) -> int:
         help="accept a server version other than SCHEMA_VERSION (bump the pin after)",
     )
     args = parser.parse_args(argv)
+    args.base_url = resolve_base_url(args.base_url)
 
     spec_bytes, metadata = fetch(args.base_url, args.username, args.password)
     live_version = str(metadata["gramps_webapi"]["version"])

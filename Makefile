@@ -27,7 +27,7 @@ typecheck: ## Run pyright type checker
 	uv run pyright src/
 
 test: ## Run all tests (auto-starts Docker if available)
-	bash scripts/ensure_docker.sh || true
+	bash scripts/ensure_docker.sh || [ $$? -eq 75 ]
 	uv run pytest $(PYTEST_ARGS)
 
 test-unit: ## Run unit tests only (no Docker needed)

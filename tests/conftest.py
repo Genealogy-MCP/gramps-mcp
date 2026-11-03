@@ -17,15 +17,14 @@ from unittest.mock import AsyncMock
 import pytest
 
 from src.gramps_mcp.auth import AuthManager
-from tests._test_env import DEFAULT_API_URL as _DEFAULT_API_URL
-from tests._test_env import resolve_test_env
+from tests._test_env import UNREACHABLE_API_URL, local_api_url, resolve_test_env
 
 
 def _is_docker_reachable(url: str) -> bool:
     """Check if the local Gramps Web Docker instance is responding.
 
     Args:
-        url: Base URL to probe (e.g. http://localhost:5055).
+        url: Base URL to probe (e.g. http://127.0.0.1:54321).
 
     Returns:
         True if the service responds with HTTP 200.
@@ -44,20 +43,25 @@ def pytest_configure(config: pytest.Config) -> None:
     """Point the suite at a Gramps instance before collection or imports.
 
     An explicit GRAMPS_API_URL keeps its inherited credentials. Without one
-    the local Docker seed is the target, and inherited credentials are
-    dropped rather than paired with a URL they do not belong to.
+    the target is this checkout's own Docker stack, and inherited credentials
+    are dropped rather than paired with a URL they do not belong to.
     """
-    updates, ignored = resolve_test_env(os.environ)
+    named_instance = bool(os.environ.get("GRAMPS_API_URL"))
+    updates, ignored = resolve_test_env(os.environ, local_api_url)
     os.environ.update(updates)
 
     target = os.environ["GRAMPS_API_URL"]
-    is_default = target == _DEFAULT_API_URL
-    suffix = " (local Docker defaults)" if is_default else ""
+    if target == UNREACHABLE_API_URL:
+        suffix = " (no local Docker stack for this checkout, run: make test)"
+    elif not named_instance:
+        suffix = " (this checkout's local Docker stack)"
+    else:
+        suffix = ""
     print(f"\nGramps MCP Tests — targeting: {target}{suffix}\n")
     if ignored:
         print(
             f"Ignoring inherited {', '.join(ignored)}: no GRAMPS_API_URL was set, "
-            f"so the suite uses the {_DEFAULT_API_URL} seed credentials. "
+            "so the suite uses the local Docker seed credentials. "
             "Export GRAMPS_API_URL to target another instance.\n"
         )
 
@@ -69,7 +73,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list) -> None:
     Locally (default), they skip with a warning if Docker is down.
     """
     require = os.environ.get("REQUIRE_INTEGRATION", "").strip()
-    target = os.environ.get("GRAMPS_API_URL", _DEFAULT_API_URL)
+    target = os.environ["GRAMPS_API_URL"]
 
     if _is_docker_reachable(target):
         return
@@ -135,7 +139,7 @@ def mcp_server():
     import urllib.error
     import urllib.request
 
-    target = os.environ.get("GRAMPS_API_URL", _DEFAULT_API_URL)
+    target = os.environ["GRAMPS_API_URL"]
     if not _is_docker_reachable(target):
         pytest.skip("Gramps Web API unreachable -- cannot start MCP server")
 
