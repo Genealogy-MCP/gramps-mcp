@@ -14,6 +14,8 @@ API calls supported in this category:
 - GET_PERSON_TIMELINE: Get the timeline for a specific person
 """
 
+import difflib
+import json
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
@@ -54,10 +56,79 @@ class PersonReference(BaseModel):
     )
 
 
+class PersonName(BaseModel):
+    """Model for a Gramps Name: a person's primary_name or one alternate name."""
+
+    # Reason: unknown keys are rejected before the record is created (#113).
+    # Gramps Web POST stores an unknown Name key as is (a bare "surname" next
+    # to first_name), and every later PUT of that person then fails with HTTP
+    # 400 "unknown Name keys". _reject_unknown_keys does the rejection so it
+    # can hint at surname_list; extra="forbid" publishes the closed key set
+    # in the input schema.
+    model_config = {"extra": "forbid", "serialize_by_alias": True}
+
+    class_: Optional[str] = Field(
+        None, alias="_class", description="Gramps class tag, always 'Name'"
+    )
+    first_name: Optional[str] = Field(None, description="Given name(s)")
+    surname_list: Optional[List[Dict[str, Any]]] = Field(
+        None,
+        description=(
+            "Surnames, each an object such as "
+            '{"surname": "Smith", "primary": true}. A name has no bare '
+            "surname key; the surname always goes here."
+        ),
+    )
+    type: Optional[Any] = Field(
+        None, description="Name type, e.g. 'Birth Name', 'Also Known As'"
+    )
+    suffix: Optional[str] = Field(None, description="Suffix, e.g. 'Jr.'")
+    title: Optional[str] = Field(None, description="Title, e.g. 'Dr.'")
+    nick: Optional[str] = Field(None, description="Nickname")
+    call: Optional[str] = Field(None, description="Call name: the given name used")
+    famnick: Optional[str] = Field(None, description="Family nickname")
+    group_as: Optional[str] = Field(None, description="Surname to group under")
+    sort_as: Optional[int] = Field(None, description="Name sort format number")
+    display_as: Optional[int] = Field(None, description="Name display format number")
+    date: Optional[Dict[str, Any]] = Field(
+        None, description="Date object for when the name was used"
+    )
+    citation_list: Optional[List[str]] = Field(
+        None, description="Handles of citations evidencing the name"
+    )
+    note_list: Optional[List[str]] = Field(None, description="Handles of notes")
+    private: Optional[bool] = Field(None, description="Whether the name is private")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_unknown_keys(cls, data: Any) -> Any:
+        """Reject keys outside the Gramps Name schema with a corrective hint."""
+        if not isinstance(data, dict):
+            return data
+        known = sorted(f.alias or name for name, f in cls.model_fields.items())
+        unknown = [key for key in data if key not in known]
+        if not unknown:
+            return data
+        parts = []
+        for key in unknown:
+            close = difflib.get_close_matches(key, known, n=1, cutoff=0.6)
+            parts.append(
+                f"'{key}' (did you mean '{close[0]}'?)" if close else f"'{key}'"
+            )
+        hint = ""
+        if "surname" in unknown:
+            entry = json.dumps({"surname": data["surname"]})
+            hint = f" A surname goes in surname_list: [{entry}]."
+        raise ValueError(
+            f"Unknown Name key(s): {', '.join(parts)}.{hint} "
+            f"Accepted Name keys: {', '.join(known)}."
+        )
+
+
 class PersonData(BaseDataModel, NoteListField, AttributeListField, MediaListField):
     """Model for creating or updating a person in Gramps API."""
 
-    primary_name: Optional[Dict[str, Any]] = Field(
+    primary_name: Optional[PersonName] = Field(
         None,
         description=(
             "Person's primary name object with first_name and surname_list. "
@@ -92,7 +163,7 @@ class PersonData(BaseDataModel, NoteListField, AttributeListField, MediaListFiel
     parent_family_list: Optional[List[str]] = Field(
         None, description="List of handles for families of the person's parents"
     )
-    alternate_names: Optional[List[Dict[str, Any]]] = Field(
+    alternate_names: Optional[List[PersonName]] = Field(
         None,
         description=(
             "List of alternate name objects. "

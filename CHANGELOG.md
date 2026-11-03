@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.13] - 2026-11-03
+
+### Fixed
+
+- `upsert_person` now rejects a `primary_name` or `alternate_names` entry carrying a key outside the Gramps Name schema, before any API call. A bare `"surname"` next to `first_name` used to reach Gramps Web, which stored it and left `surname_list` empty, and every later update of that person failed with HTTP 400 `unknown Name keys: 'surname'`. The error now names the key and shows the `surname_list: [{"surname": ...}]` shape to use instead (#113)
+
 ## [3.15.12] - 2026-11-03
 
 ### Fixed
