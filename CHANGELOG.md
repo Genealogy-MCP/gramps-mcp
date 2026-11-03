@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.14] - 2026-11-03
+
+### Fixed
+
+- An `upsert_*` create that Gramps Web answers with HTTP 5xx no longer hides a record that was written. Gramps Web commits the record before it updates the search index, and answers 500 when that step fails, so a caller who retried made a duplicate. The create now sends a handle it chose, and on a 5xx it fetches that handle. A stored record is reported as created with its gramps_id. Otherwise the error says nothing was written and a retry is safe, or names the handle to check when the lookup fails too (#106)
+
 ## [3.15.13] - 2026-11-03
 
 ### Fixed
