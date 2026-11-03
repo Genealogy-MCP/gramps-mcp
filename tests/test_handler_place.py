@@ -112,29 +112,70 @@ class TestFormatPlace:
         assert "private:" not in result
 
     @pytest.mark.asyncio
-    async def test_place_hierarchy_from_name(self):
-        # Place with no title but name + parent
+    async def test_place_hierarchy_from_profile_in_one_call(self):
+        # Issue #122: the enclosing chain comes from profile.parent_places of a
+        # single GET, never from one GET per enclosing level.
         client = _mock_client(
             {
-                "GET_PLACE": [
-                    {
-                        "gramps_id": "P0002",
-                        "title": "",
-                        "place_type": "City",
-                        "urls": [],
-                        "name": {"value": "Springfield"},
-                        "placeref_list": [{"ref": "parent_handle"}],
+                "GET_PLACE": {
+                    "gramps_id": "P0002",
+                    "title": "",
+                    "place_type": "City",
+                    "urls": [],
+                    "name": {"value": "Springfield"},
+                    "placeref_list": [{"ref": "parent_handle"}],
+                    "profile": {
+                        "name": "Springfield",
+                        "parent_places": [
+                            {"name": "Sangamon", "type": "County"},
+                            {"name": "IL", "type": "State"},
+                            {"name": "USA", "type": "Country"},
+                        ],
                     },
-                    {
-                        "title": "Illinois, USA",
-                        "name": {"value": "Illinois"},
-                        "placeref_list": [],
-                    },
-                ]
+                }
             }
         )
         result = await format_place(client, TREE_ID, "handle123", inline=True)
-        assert "Springfield" in result
+        assert result == "Springfield, Sangamon, IL, USA"
+        client.make_api_call.assert_awaited_once()
+        assert client.make_api_call.await_args.kwargs["params"].profile == "self"
+
+    @pytest.mark.asyncio
+    async def test_placeref_cycle_stops_at_first_repeat(self):
+        # Gramps Web stops its walk on a revisited parent but never marks the
+        # starting place visited, so A -> B -> A comes back as [B, A].
+        client = _mock_client(
+            {
+                "GET_PLACE": {
+                    "gramps_id": "P0001",
+                    "title": "",
+                    "name": {"value": "A"},
+                    "profile": {
+                        "gramps_id": "P0001",
+                        "parent_places": [
+                            {"gramps_id": "P0002", "name": "B"},
+                            {"gramps_id": "P0001", "name": "A"},
+                        ],
+                    },
+                }
+            }
+        )
+        result = await format_place(client, TREE_ID, "handle123", inline=True)
+        assert result == "A, B"
+
+    @pytest.mark.asyncio
+    async def test_place_without_profile_uses_own_name(self):
+        client = _mock_client(
+            {
+                "GET_PLACE": {
+                    "title": "",
+                    "name": {"value": "Springfield"},
+                    "placeref_list": [],
+                }
+            }
+        )
+        result = await format_place(client, TREE_ID, "handle123", inline=True)
+        assert result == "Springfield"
 
     @pytest.mark.asyncio
     async def test_place_api_error_inline(self):
