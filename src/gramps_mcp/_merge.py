@@ -246,7 +246,10 @@ def merge_object(existing: dict, changes: dict, list_mode: str) -> dict:
     Returns:
         dict: The stored object with the caller's changes applied.
     """
-    merged = existing.copy()
+    # Reason: older server versions persisted the MCP-side list_mode key, and
+    # the current Gramps schema check rejects it, so a stored copy must not
+    # ride back into the PUT body (#116).
+    merged = {key: value for key, value in existing.items() if key != "list_mode"}
     for key, value in changes.items():
         stored = existing.get(key)
         # Reason: a field is a mergeable collection when BOTH sides hold a
