@@ -202,7 +202,7 @@ def poll_task(
     task_id: str,
     timeout: float,
     compose_file: str = "",
-) -> None:
+) -> dict | None:
     """
     Poll a Celery task until it reaches a terminal state.
 
@@ -212,6 +212,9 @@ def poll_task(
         task_id: Celery task ID to poll.
         timeout: Maximum seconds to wait.
         compose_file: Docker compose file for log dumping on failure.
+
+    Returns:
+        The task's decoded result object, or None if it returned nothing.
 
     Raises:
         SystemExit: If the task fails or times out.
@@ -230,7 +233,7 @@ def poll_task(
         state = data.get("state", "UNKNOWN")
         if state == "SUCCESS":
             print(f"  Task {task_id[:8]}... completed")
-            return
+            return data.get("result_object")
         if state in ("FAILURE", "REVOKED"):
             print(f"  Task {task_id[:8]}... failed: {data}", file=sys.stderr)
             if compose_file:
@@ -260,7 +263,8 @@ def import_data(
     Import the seed Gramps XML file via the Gramps Web API.
 
     Uploads the gzip-compressed seed file as raw binary to the import
-    endpoint, then polls the Celery task until completion.
+    endpoint, polls the Celery task until completion, and checks the
+    object counts the task reports against the fixture (issue #94).
 
     Args:
         compose_file: Path to docker-compose file.
@@ -270,7 +274,7 @@ def import_data(
         timeout: Maximum seconds to wait for import completion.
 
     Raises:
-        SystemExit: If the import fails.
+        SystemExit: If the import fails or reports fewer objects than the fixture.
     """
     headers = {
         "Authorization": f"Bearer {token}",
@@ -299,9 +303,15 @@ def import_data(
     data = resp.json()
     task_id = data.get("task", {}).get("id") or data.get("task_id")
     if task_id:
-        poll_task(base_url, token, task_id, timeout, compose_file)
+        result = poll_task(base_url, token, task_id, timeout, compose_file)
     else:
-        print("  Import completed (synchronous)")
+        result = data  # Reason: inline import, the body holds the counts.
+    shortfalls = count_shortfalls(import_counts(result))
+    if shortfalls:
+        print("Import task succeeded but read short of the fixture:", file=sys.stderr)
+        for line in shortfalls:
+            print(f"  {line}", file=sys.stderr)
+        sys.exit(1)
 
 
 def rebuild_search_index(base_url: str, token: str, timeout: float) -> None:
@@ -333,22 +343,20 @@ def rebuild_search_index(base_url: str, token: str, timeout: float) -> None:
         print("  Index rebuild completed (synchronous)")
 
 
-def ensure_tree_exists(base_url: str, token: str) -> None:
+def import_counts(result: dict | None) -> dict[str, int]:
     """
-    Access the people endpoint to trigger tree creation in the web process.
+    Pick the fixture collections' counts out of an import task result.
 
-    Gramps Web creates the tree database lazily on the first request that
-    accesses it. This must happen before any Celery task tries to open
-    the tree via get_db_outside_request().
+    gramps-webapi 3.24+ returns its dry run's counts; older ones fail closed.
 
     Args:
-        base_url: Gramps Web base URL.
-        token: JWT access token.
+        result: The import task's result object, or None.
+
+    Returns:
+        Mapping of collection name to count, -1 when the result lacks it.
     """
-    headers = {"Authorization": f"Bearer {token}"}
-    print("Ensuring tree exists...")
-    resp = httpx.get(f"{base_url}/api/people/?pagesize=1", headers=headers, timeout=15)
-    print(f"  Tree access: HTTP {resp.status_code}")
+    result = result or {}
+    return {name: result.get(name, -1) for name in FIXTURE_COUNTS}
 
 
 def count_shortfalls(observed: dict[str, int]) -> list[str]:
@@ -476,14 +484,6 @@ def main() -> None:
     if args.skip_if_seeded and is_already_seeded(args.base_url, token):
         print("Seed data intact (I0001 + R0000 found) -- skipping import")
         return
-
-    # Warm up: ensure tree exists in the web process, then trigger a Celery
-    # task that calls get_db_outside_request() → do_reg_plugins(). This loads
-    # ALL Gramps plugins (including the .gramps XML importer) into the
-    # BasePluginManager singleton. With --pool=solo the import task shares
-    # the same process and inherits the loaded plugins.
-    ensure_tree_exists(args.base_url, token)
-    rebuild_search_index(args.base_url, token, timeout=args.timeout)
 
     import_data(
         args.compose_file, args.base_url, token, SEED_FILE, timeout=args.timeout
