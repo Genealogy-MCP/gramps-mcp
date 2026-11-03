@@ -45,7 +45,7 @@ docker-down: ## Stop and remove test containers and volumes
 docker-seed: ## Seed the running test instance with fixture data
 	uv run python scripts/seed_test_db.py --skip-if-seeded
 
-docker-smoke: ## Build the runtime image and import the server inside it
+docker-smoke: ## Build the runtime image, import the server, probe /health inside and outside the container
 	sh scripts/docker_smoke.sh
 
 schema-fetch: docker-up docker-seed ## Refresh schema/openapi.json from the test instance and regenerate the resource table

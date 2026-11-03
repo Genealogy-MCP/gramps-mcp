@@ -20,7 +20,8 @@ dependency_scanning:
     - when: never
 
 # The shared docker-build job pushes whatever builds. This MR gate imports the
-# server inside the image so a broken runtime cannot merge (#115). The release
+# server inside the image and reaches /health from a second container, so a
+# broken runtime or a loopback-only bind cannot merge (#115, #118). The release
 # job rebuilds without this check until ci-templates#2 lands.
 docker-smoke:
   stage: test
