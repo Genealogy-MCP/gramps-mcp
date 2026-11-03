@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- The test seed now fails at the import step when the Gramps Web import task reports fewer objects than the fixture holds, instead of passing the import and failing later at verification. gramps-webapi 3.24+ returns the counts its dry run read from the file in the task result, and the seed checks them against the same floors verification uses; a task with no counts fails closed. The plugin warm-up before the import is gone: a cold import loads the full fixture on 26.6.1 and 26.10.2, because the import task registers plugins itself. The celery healthcheck now pings through the broker alone. Importing the app for the ping raced the entrypoint's tree creation and left a second, empty "Test Tree" (#94)
+- The test seed now fails at the import step when the Gramps Web import task read fewer objects from the file than the fixture holds, instead of passing the import and failing later at verification. gramps-webapi 3.24+ returns the counts its dry run read in the task result, and the seed checks them against the same floors verification uses. A task with no counts fails closed. Rows that land in the wrong tree still only fail at verification. The plugin warm-up before the import is gone. A cold import loads the full fixture on 26.6.1 and 26.10.2, and an importer the worker failed to register would now show up as zero counts at the import step. The celery healthcheck now pings through the broker alone. Importing the app for the ping raced the entrypoint's tree creation and left a second, empty "Test Tree" (#94)
 
 ## [3.15.17] - 2026-11-03
 
