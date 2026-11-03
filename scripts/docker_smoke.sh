@@ -12,10 +12,14 @@
 # A server bound to the container's loopback passes its own HEALTHCHECK but
 # not the published port (#118). Probing from a second container over the
 # bridge network fails on that bind, on a local daemon and on CI dind alike.
+#
+# The server runs on a non-default GRAMPS_MCP_PORT, so a probe that hardcodes
+# the default port fails here (#125).
 set -eu
 
 image="${1:-gramps-mcp:smoke}"
 container="gramps-mcp-smoke-$$"
+port=8123
 
 docker build -t "$image" .
 docker run --rm --entrypoint python "$image" -c \
@@ -28,6 +32,7 @@ docker run -d --name "$container" \
     -e GRAMPS_API_URL=http://127.0.0.1:9 \
     -e GRAMPS_USERNAME=smoke \
     -e GRAMPS_PASSWORD=smoke \
+    -e GRAMPS_MCP_PORT="$port" \
     "$image" >/dev/null
 probe="$(docker inspect --format '{{index .Config.Healthcheck.Test 1}}' "$image")"
 # Reason: the server needs a moment to bind; retry the probe, bounded.
@@ -52,10 +57,10 @@ fi
 ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$container")
 if docker run --rm --entrypoint python "$image" -c \
     'import sys, urllib.request; urllib.request.urlopen(sys.argv[1], timeout=5)' \
-    "http://$ip:8000/health"; then
-    echo "published port ok at $ip:8000"
+    "http://$ip:$port/health"; then
+    echo "published port ok at $ip:$port"
     exit 0
 fi
-echo "server unreachable from outside its container at $ip:8000" >&2
+echo "server unreachable from outside its container at $ip:$port" >&2
 docker logs "$container" >&2
 exit 1
