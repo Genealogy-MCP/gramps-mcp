@@ -58,7 +58,10 @@ services:
       - gramps_data:/root/.gramps
       - gramps_backups:/app/backups
     healthcheck:
-      test: ["CMD-SHELL", "celery -A gramps_webapi.celery inspect ping --timeout 5 2>/dev/null"]
+      # Broker-only ping (issue #94). `-A gramps_webapi.celery` imports the
+      # app, whose create_app() creates the tree if missing; racing the
+      # entrypoint's own create_app() it left a second, empty "Test Tree".
+      test: ["CMD-SHELL", "celery --broker=\"$$GRAMPSWEB_CELERY_CONFIG__broker_url\" inspect ping --timeout 5 2>/dev/null"]
       interval: 5s
       timeout: 10s
       retries: 10

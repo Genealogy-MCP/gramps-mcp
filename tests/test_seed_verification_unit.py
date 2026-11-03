@@ -18,6 +18,7 @@ _SPEC.loader.exec_module(seed_test_db)
 
 FIXTURE_COUNTS = seed_test_db.FIXTURE_COUNTS
 count_shortfalls = seed_test_db.count_shortfalls
+import_counts = seed_test_db.import_counts
 
 
 def test_full_import_has_no_shortfalls():
@@ -45,3 +46,14 @@ def test_unavailable_count_is_a_shortfall():
     assert count_shortfalls(observed) == [
         f"sources: count unavailable (expected {FIXTURE_COUNTS['sources']})"
     ]
+
+
+def test_import_task_payload_satisfies_floors():
+    """The import task's result object (gramps-webapi 3.24+) passes as-is (#94)."""
+    payload = dict(FIXTURE_COUNTS) | {"messages": [], "index_tasks": []}
+    assert count_shortfalls(import_counts(payload)) == []
+
+
+def test_import_task_without_counts_fails_closed():
+    """A task that reports no counts (gramps-webapi < 3.24) fails the import step."""
+    assert len(count_shortfalls(import_counts(None))) == len(FIXTURE_COUNTS)
