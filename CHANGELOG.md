@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.9] - 2026-11-03
+
+### Fixed
+
+- A container started with a non-default `GRAMPS_MCP_PORT` now turns healthy. The Dockerfile `HEALTHCHECK` probed a hardcoded port 8000, so the server ran on the configured port while every probe got `Connection refused` and the container stayed `unhealthy`. The probe now reads `GRAMPS_MCP_PORT` with the server's `8000` default, and `make docker-smoke` (the MR CI job) runs the server on port 8123 (#125)
+
 ## [3.15.8] - 2026-11-03
 
 ### Fixed
