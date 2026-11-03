@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.3] - 2026-11-02
+
+### Fixed
+
+- `docker compose ps` reports the service `healthy`. Both compose files ran `curl` as their healthcheck, but the slim Python image ships no `curl`, so the container stayed unhealthy forever. The compose overrides are gone, and the Dockerfile `HEALTHCHECK` (a Python `urllib` probe of `/health`) now applies (#119)
+
 ## [3.15.2] - 2026-11-02
 
 ### Fixed
