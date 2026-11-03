@@ -141,6 +141,29 @@ class TestFormatPlace:
         assert client.make_api_call.await_args.kwargs["params"].profile == "self"
 
     @pytest.mark.asyncio
+    async def test_placeref_cycle_stops_at_first_repeat(self):
+        # Gramps Web stops its walk on a revisited parent but never marks the
+        # starting place visited, so A -> B -> A comes back as [B, A].
+        client = _mock_client(
+            {
+                "GET_PLACE": {
+                    "gramps_id": "P0001",
+                    "title": "",
+                    "name": {"value": "A"},
+                    "profile": {
+                        "gramps_id": "P0001",
+                        "parent_places": [
+                            {"gramps_id": "P0002", "name": "B"},
+                            {"gramps_id": "P0001", "name": "A"},
+                        ],
+                    },
+                }
+            }
+        )
+        result = await format_place(client, TREE_ID, "handle123", inline=True)
+        assert result == "A, B"
+
+    @pytest.mark.asyncio
     async def test_place_without_profile_uses_own_name(self):
         client = _mock_client(
             {

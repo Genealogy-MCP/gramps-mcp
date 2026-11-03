@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Formatting a place hierarchy now costs one Gramps Web request at any depth. `format_place` read each enclosing place with its own GET, so a person born in a place six levels deep cost seven place requests in `search` output. It now reads the whole chain from the `profile=self` summary of the place itself. The old walk also had no bound and looped forever on a placeref cycle; Gramps Web's walk stops at a revisited place (#122)
+- Formatting a place hierarchy now costs one Gramps Web request at any depth. `format_place` read each enclosing place with its own GET, so a person born in a place six levels deep cost seven place requests in `search` output. It now reads the whole chain from the `profile=self` summary of the place itself. The old walk also had no bound and looped forever on a placeref cycle. A cycle now renders each place once, stops at the first repeat, and logs a warning that names the place (#122)
 
 ## [3.15.15] - 2026-11-03
 

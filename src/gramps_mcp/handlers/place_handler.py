@@ -96,8 +96,22 @@ def _build_place_hierarchy(place_data: dict) -> str:
 
     # Reason: Gramps Web walks the enclosing chain server side and stops on a
     # revisited handle, so a placeref cycle yields a finite list and the
-    # hierarchy costs one request at any depth (#122).
-    parent_places = place_data.get("profile", {}).get("parent_places", [])
+    # hierarchy costs one request at any depth (#122). Its walk never marks
+    # the starting place visited, so A -> B -> A comes back as [B, A]; stop at
+    # the first place already named.
+    profile = place_data.get("profile") or {}
+    seen = {place_data.get("gramps_id")}
     names = [place_data.get("name", {}).get("value", "")]
-    names += [parent.get("name", "") for parent in parent_places]
+    for parent in profile.get("parent_places", []):
+        # Reason: Gramps allows an empty gramps_id, which says nothing about
+        # identity, so only a non-empty repeat counts as a cycle.
+        parent_id = parent.get("gramps_id")
+        if parent_id and parent_id in seen:
+            logger.warning(
+                f"Placeref cycle at {parent_id} above place "
+                f"{place_data.get('gramps_id')}; hierarchy truncated"
+            )
+            break
+        seen.add(parent_id)
+        names.append(parent.get("name", ""))
     return ", ".join(name for name in names if name)

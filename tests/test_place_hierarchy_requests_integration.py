@@ -119,6 +119,33 @@ async def test_person_search_sends_one_place_request_per_place(monkeypatch):
         rendered = await format_person(client, tree_id, handle)
 
         place_urls = [url for url in urls if "/places/" in url]
-        assert (f"- {HIERARCHY}\n" in rendered, len(place_urls)) == (True, 1)
+        assert f"- {HIERARCHY}\n" in rendered, rendered
+        assert len(place_urls) == 1, place_urls
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_placeref_cycle_renders_each_place_once():
+    """A place enclosed by its own child renders once per place and returns."""
+    tree_id = get_settings().gramps_tree_id
+    client = GrampsWebAPIClient()
+    try:
+        outer = await _upsert(
+            "place", {"name": {"value": f"{TEST_PREFIX}CycleA"}, "place_type": "City"}
+        )
+        inner = await _upsert(
+            "place",
+            {
+                "name": {"value": f"{TEST_PREFIX}CycleB"},
+                "place_type": "County",
+                "enclosed_by": outer,
+            },
+        )
+        await _upsert("place", {"handle": outer, "enclosed_by": inner})
+
+        rendered = await format_place(client, tree_id, outer, inline=True)
+
+        assert rendered == f"{TEST_PREFIX}CycleA, {TEST_PREFIX}CycleB"
     finally:
         await client.close()
