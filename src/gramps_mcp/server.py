@@ -13,7 +13,6 @@ import asyncio
 import logging
 import os
 import sys
-from contextlib import asynccontextmanager
 from typing import Any
 
 from mcp.server import Server
@@ -41,24 +40,11 @@ logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger(__name__)
 
 
-@asynccontextmanager
-async def server_lifespan(_app):
-    """FastMCP lifespan hook -- verify API version.
-
-    Reason: with stateless_http=True FastMCP enters this lifespan once per
-    HTTP request, so it must not close the shared client (MCP-21). The
-    transport runners close it when the process stops.
-    """
-    await verify_api_on_startup()
-    yield
-
-
 # Create FastMCP app with stateless HTTP (no SSE)
 app = FastMCP(
     "gramps",
     stateless_http=True,
     json_response=True,
-    lifespan=server_lifespan,
 )
 
 
@@ -345,8 +331,13 @@ async def run_stdio_server():
 async def run_http_server():
     """Run the FastMCP server with streamable HTTP transport.
 
-    Closes the shared API client once, after the server stops.
+    Verifies the API version once, before serving, and closes the shared API
+    client once, after the server stops.
+
+    Reason: with stateless_http=True FastMCP enters its lifespan once per
+    HTTP request, so neither step can live there (MCP-21, #121).
     """
+    await verify_api_on_startup()
     try:
         await app.run_streamable_http_async()
     finally:
@@ -362,7 +353,6 @@ if __name__ == "__main__":
         asyncio.run(run_stdio_server())
     else:
         # Run the FastMCP server with streamable HTTP transport
-        # API version is verified via server_lifespan hook
         # MCP-20: default to loopback; use GRAMPS_MCP_HOST=0.0.0.0 for Docker
         app.settings.host = os.environ.get("GRAMPS_MCP_HOST", "127.0.0.1")
         app.settings.port = int(os.environ.get("GRAMPS_MCP_PORT", "8000"))

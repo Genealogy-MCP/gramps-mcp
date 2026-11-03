@@ -76,22 +76,71 @@ async def test_with_client_keeps_the_shared_client_open():
     shared.close.assert_not_awaited()
 
 
-@pytest.mark.asyncio
-async def test_lifespan_leaves_the_shared_client_open():
-    """Stateless HTTP enters the lifespan per request, so it must not close."""
-    from src.gramps_mcp.server import server_lifespan
+def _call_search_over_http() -> None:
+    """POST one stateless tools/call for the local search meta-tool."""
+    from starlette.testclient import TestClient
 
+    from src.gramps_mcp import server
+
+    call = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": "search", "arguments": {"arguments": {"query": "tag"}}},
+    }
+    headers = {"Accept": "application/json, text/event-stream"}
+    # Reason: a fresh session manager per app, because one can run only once.
+    server.app._session_manager = None
+    with TestClient(
+        server.app.streamable_http_app(), base_url="http://localhost:8000"
+    ) as http:
+        response = http.post("/mcp", json=call, headers=headers)
+    assert response.status_code == 200, response.text
+
+
+def test_http_tool_call_skips_version_check_and_keeps_client_open():
+    """Stateless HTTP enters the lifespan per request (#121, MCP-21).
+
+    So a tool call must not repeat the startup metadata/ check or close
+    the shared client.
+    """
     shared = AsyncMock()
     with (
-        patch("src.gramps_mcp.server.verify_api_on_startup", new_callable=AsyncMock),
+        patch(
+            "src.gramps_mcp.server.verify_api_on_startup", new_callable=AsyncMock
+        ) as verify,
         patch("src.gramps_mcp.server.get_client", return_value=shared),
     ):
-        async with server_lifespan(None):
-            pass
-        async with server_lifespan(None):
-            pass
+        _call_search_over_http()
+        _call_search_over_http()
 
+    verify.assert_not_awaited()
     shared.close.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_http_server_verifies_the_api_once_at_start():
+    """The HTTP runner checks the API version once, before serving."""
+    from src.gramps_mcp import server
+
+    order = []
+    with (
+        patch(
+            "src.gramps_mcp.server.verify_api_on_startup",
+            new_callable=AsyncMock,
+            side_effect=lambda: order.append("verify"),
+        ),
+        patch.object(
+            server.app,
+            "run_streamable_http_async",
+            new_callable=AsyncMock,
+            side_effect=lambda: order.append("serve"),
+        ),
+        patch("src.gramps_mcp.server.get_client", return_value=AsyncMock()),
+    ):
+        await server.run_http_server()
+
+    assert order == ["verify", "serve"]
 
 
 @pytest.mark.asyncio
@@ -101,6 +150,7 @@ async def test_http_server_closes_the_shared_client_on_exit():
 
     shared = AsyncMock()
     with (
+        patch("src.gramps_mcp.server.verify_api_on_startup", new_callable=AsyncMock),
         patch.object(server.app, "run_streamable_http_async", new_callable=AsyncMock),
         patch("src.gramps_mcp.server.get_client", return_value=shared),
     ):
