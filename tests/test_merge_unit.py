@@ -11,7 +11,9 @@ defaults) while the PUT payload is minimal; both forms must normalize equal or
 every re-PUT appends a duplicate.
 """
 
-from src.gramps_mcp._merge import _normalize_ref_item, merge_ref_items
+import pytest
+
+from src.gramps_mcp._merge import _normalize_ref_item, merge_object, merge_ref_items
 
 
 class TestNormalizeRefItem:
@@ -123,3 +125,21 @@ class TestMergeRefItemsWithoutRef:
         ]
         new = [{"type": "Web Home", "path": "https://example.org"}]
         assert merge_ref_items(existing, new) == existing
+
+
+class TestMergeObjectDropsLeakedListMode:
+    """A list_mode key an older server stored must not go back in the PUT (#116)."""
+
+    @pytest.mark.parametrize("list_mode", ["merge", "replace"])
+    def test_stored_list_mode_key_is_dropped(self, list_mode):
+        existing = {
+            "handle": "h1",
+            "list_mode": "merge",
+            "note_list": ["n1"],
+        }
+        changes = {"handle": "h1", "note_list": ["n2"]}
+        expected_notes = ["n1", "n2"] if list_mode == "merge" else ["n2"]
+        assert merge_object(existing, changes, list_mode) == {
+            "handle": "h1",
+            "note_list": expected_notes,
+        }
