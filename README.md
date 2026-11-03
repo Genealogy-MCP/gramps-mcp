@@ -108,6 +108,8 @@ The image sets `GRAMPS_MCP_HOST=0.0.0.0`, so the server listens on every contain
 
 `/mcp` accepts only a localhost `Host` header and answers any other with HTTP 421, which guards against DNS rebinding. A reverse proxy that forwards its public hostname, or a compose service calling `http://gramps-mcp:8000/mcp`, needs that host in `GRAMPS_MCP_ALLOWED_HOSTS`, a comma-separated list such as `gramps-mcp:8000,mcp.example.com`. An entry ending in `:*` matches any port.
 
+A browser client, such as MCP Inspector or a web UI served through the proxy, also sends an `Origin` header. `/mcp` accepts only a localhost origin and answers any other with HTTP 403. List the page origins in `GRAMPS_MCP_ALLOWED_ORIGINS`, a comma-separated list of `scheme://host[:port]` values such as `https://mcp.example.com`. Allowing a host does not allow its origin, so a compose service in `GRAMPS_MCP_ALLOWED_HOSTS` stays unreachable from a browser. Claude Code, Claude Desktop and other server-side clients send no `Origin` and need no entry.
+
 ### Alternative: Run Without Docker
 
 If you prefer to run the server directly with Python:

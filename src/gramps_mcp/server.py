@@ -12,6 +12,7 @@ genealogy tools for Gramps Web API integration.
 import asyncio
 import logging
 import os
+import re
 import sys
 from typing import Any
 
@@ -40,34 +41,62 @@ from .tools._identifier import normalize_identifier
 logging.basicConfig(level=logging.INFO, stream=sys.stderr)
 logger = logging.getLogger(__name__)
 
+_ORIGIN_PATTERN = re.compile(r"https?://[^/?#\s]+")
 
-def transport_security(allowed_hosts: str) -> TransportSecuritySettings:
-    """Build the /mcp DNS-rebinding guard: localhost plus extra allowed hosts.
+
+def _split_entries(raw: str) -> list[str]:
+    """Split a comma-separated env var value, dropping blank entries."""
+    return [entry.strip() for entry in raw.split(",") if entry.strip()]
+
+
+def transport_security(
+    allowed_hosts: str, allowed_origins: str
+) -> TransportSecuritySettings:
+    """Build the /mcp DNS-rebinding guard: localhost plus extra hosts and origins.
 
     Args:
         allowed_hosts (str): Comma-separated Host header values, the raw
             GRAMPS_MCP_ALLOWED_HOSTS value. ``name:*`` matches any port.
+        allowed_origins (str): Comma-separated Origin header values, the raw
+            GRAMPS_MCP_ALLOWED_ORIGINS value. ``scheme://name:*`` matches any
+            port.
 
     Returns:
         TransportSecuritySettings: Settings that reject any other Host header
-            with HTTP 421.
+            with HTTP 421 and any other Origin header with HTTP 403.
 
     Raises:
-        ValueError: If an entry is a URL instead of a bare host[:port].
+        ValueError: If a host entry is a URL, or an origin entry is not a bare
+            http(s)://host[:port].
     """
-    extra = [entry.strip() for entry in allowed_hosts.split(",") if entry.strip()]
-    for entry in extra:
+    extra_hosts = _split_entries(allowed_hosts)
+    for entry in extra_hosts:
         if "/" in entry:
             raise ValueError(
                 f"GRAMPS_MCP_ALLOWED_HOSTS entry {entry!r} is a URL; list bare "
                 "Host header values such as 'gramps-mcp:8000' or 'mcp.example.com'."
             )
+    extra_origins = _split_entries(allowed_origins)
+    for entry in extra_origins:
+        # Reason: a browser Origin is scheme://host[:port] with no path, so an
+        # entry with a path or trailing slash would never match any request.
+        if not _ORIGIN_PATTERN.fullmatch(entry):
+            raise ValueError(
+                f"GRAMPS_MCP_ALLOWED_ORIGINS entry {entry!r} is not an origin; "
+                "list values such as 'https://mcp.example.com' with no path "
+                "or trailing slash."
+            )
     # Reason: these are the MCP SDK's own localhost defaults, written out
     # because passing transport_security explicitly replaces them.
     return TransportSecuritySettings(
         enable_dns_rebinding_protection=True,
-        allowed_hosts=["127.0.0.1:*", "localhost:*", "[::1]:*", *extra],
-        allowed_origins=["http://127.0.0.1:*", "http://localhost:*", "http://[::1]:*"],
+        allowed_hosts=["127.0.0.1:*", "localhost:*", "[::1]:*", *extra_hosts],
+        allowed_origins=[
+            "http://127.0.0.1:*",
+            "http://localhost:*",
+            "http://[::1]:*",
+            *extra_origins,
+        ],
     )
 
 
@@ -374,7 +403,8 @@ def configure_http(mcp: FastMCP) -> None:
     # Reason: FastMCP fixed its Host allow-list at construction from the
     # default 127.0.0.1 host, so changing settings.host above leaves it as is.
     mcp.settings.transport_security = transport_security(
-        os.environ.get("GRAMPS_MCP_ALLOWED_HOSTS", "")
+        os.environ.get("GRAMPS_MCP_ALLOWED_HOSTS", ""),
+        os.environ.get("GRAMPS_MCP_ALLOWED_ORIGINS", ""),
     )
 
 

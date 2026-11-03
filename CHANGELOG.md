@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.8] - 2026-11-03
+
+### Fixed
+
+- A browser client behind a reverse proxy, such as MCP Inspector, can reach `/mcp`. The DNS-rebinding guard answered HTTP 403 to every non-localhost `Origin` header, and `GRAMPS_MCP_ALLOWED_HOSTS` did not change that. The new `GRAMPS_MCP_ALLOWED_ORIGINS` adds comma-separated origins such as `https://mcp.example.com` to the localhost defaults. It is separate from the host list on purpose, because a compose peer allowed by `Host` should not become a trusted browser origin (#128)
+
 ## [3.15.7] - 2026-11-03
 
 ### Fixed
