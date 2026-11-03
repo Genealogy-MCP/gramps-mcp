@@ -59,15 +59,13 @@ class PersonReference(BaseModel):
 class PersonName(BaseModel):
     """Model for a Gramps Name: a person's primary_name or one alternate name."""
 
-    # Reason: extra="forbid" (#113). Gramps Web POST stores an unknown Name
-    # key as is (a bare "surname" next to first_name), and every later PUT of
-    # that person then fails with HTTP 400 "unknown Name keys". The key has to
-    # be rejected before the record is created.
-    model_config = {
-        "extra": "forbid",
-        "populate_by_name": True,
-        "serialize_by_alias": True,
-    }
+    # Reason: unknown keys are rejected before the record is created (#113).
+    # Gramps Web POST stores an unknown Name key as is (a bare "surname" next
+    # to first_name), and every later PUT of that person then fails with HTTP
+    # 400 "unknown Name keys". _reject_unknown_keys does the rejection so it
+    # can hint at surname_list; extra="forbid" publishes the closed key set
+    # in the input schema.
+    model_config = {"extra": "forbid", "serialize_by_alias": True}
 
     class_: Optional[str] = Field(
         None, alias="_class", description="Gramps class tag, always 'Name'"
