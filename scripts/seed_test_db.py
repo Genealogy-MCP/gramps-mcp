@@ -483,12 +483,12 @@ def main() -> None:
     # BasePluginManager singleton. With --pool=solo the import task shares
     # the same process and inherits the loaded plugins.
     ensure_tree_exists(args.base_url, token)
-    rebuild_search_index(args.base_url, token, timeout=60)
+    rebuild_search_index(args.base_url, token, timeout=args.timeout)
 
     import_data(
         args.compose_file, args.base_url, token, SEED_FILE, timeout=args.timeout
     )
-    rebuild_search_index(args.base_url, token, timeout=60)
+    rebuild_search_index(args.base_url, token, timeout=args.timeout)
     verify_data(args.base_url, token)
 
     print()

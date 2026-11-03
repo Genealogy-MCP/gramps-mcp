@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.11] - 2026-11-03
+
+### Fixed
+
+- Two concurrent `make test` runs now both seed and pass. The grampsweb image defaults to 8 gunicorn workers, about 1.5 GB per test stack, so two stacks filled a 6 GB Docker VM and the kernel OOM-killed the celery worker mid-seed. Its import and index tasks then never finished and the seed died on a poll timeout. The test stack now runs 2 gunicorn workers, about 470 MB per stack. The seed's index rebuilds also honor `--timeout` instead of a hardcoded 60s (#124)
+
 ## [3.15.10] - 2026-11-03
 
 ### Fixed

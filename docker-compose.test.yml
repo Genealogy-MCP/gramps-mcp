@@ -75,7 +75,14 @@ services:
       # parallel worktree stacks never share one instance (issue #124). Read
       # it back with `docker compose -f docker-compose.test.yml port grampsweb 5000`.
       - "127.0.0.1::5000"
-    environment: *grampsweb_env
+    environment:
+      <<: *grampsweb_env
+      # The image defaults to 8 gunicorn workers at ~190 MB each. Two parallel
+      # stacks then exhaust a 6 GB Docker VM and the kernel OOM-kills celery
+      # mid-seed, so its tasks never finish (issue #124). Slow work (backups,
+      # reports, imports) runs in celery, so short API requests beyond the
+      # two workers only wait briefly in gunicorn's backlog.
+      GUNICORN_NUM_WORKERS: "2"
     volumes: *grampsweb_volumes
     healthcheck:
       test:
