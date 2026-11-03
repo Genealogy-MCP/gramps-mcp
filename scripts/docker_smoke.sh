@@ -28,5 +28,8 @@ for _ in 1 2 3 4 5 6 7 8 9 10; do
     sleep 1
 done
 echo "healthcheck failed: $probe" >&2
+# Reason: retries hide the probe's stderr; show it once so a missing binary
+# (#119) reads differently from a refused connection (#123).
+docker exec "$container" sh -c "$probe" || true
 docker logs "$container" >&2
 exit 1
