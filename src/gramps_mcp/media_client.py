@@ -96,7 +96,7 @@ class MediaClient:
             return response.content, content_type
         except httpx.HTTPStatusError as e:
             error_msg = self.client._format_http_error(e)
-            raise GrampsAPIError(error_msg) from e
+            raise GrampsAPIError(error_msg, status_code=e.response.status_code) from e
 
     async def replace_media_file(
         self,
@@ -134,4 +134,4 @@ class MediaClient:
             return response.json()
         except httpx.HTTPStatusError as e:
             error_msg = self.client._format_http_error(e)
-            raise GrampsAPIError(error_msg) from e
+            raise GrampsAPIError(error_msg, status_code=e.response.status_code) from e

@@ -144,3 +144,38 @@ class TestReplaceMediaFile401Retry:
             await mc.replace_media_file(b"data", "m1", "image/jpeg")
 
         assert api_client.auth_manager.client.request.await_count == 2
+
+
+def _resp_error(status_code: int) -> MagicMock:
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.raise_for_status = MagicMock(
+        side_effect=httpx.HTTPStatusError(
+            str(status_code),
+            request=httpx.Request("GET", "http://test/api/media/m1/file"),
+            response=httpx.Response(status_code),
+        )
+    )
+    return resp
+
+
+class TestMediaErrorStatusCode:
+    """GrampsAPIError from a failed media response carries its HTTP status."""
+
+    @pytest.mark.asyncio
+    async def test_download_error_carries_status_code(self):
+        mc = MediaClient(_api_client([_resp_error(404)]))
+
+        with pytest.raises(GrampsAPIError) as excinfo:
+            await mc.download_media_file("m1")
+
+        assert excinfo.value.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_replace_error_carries_status_code(self):
+        mc = MediaClient(_api_client([_resp_error(500)]))
+
+        with pytest.raises(GrampsAPIError) as excinfo:
+            await mc.replace_media_file(b"data", "m1", "image/jpeg")
+
+        assert excinfo.value.status_code == 500
