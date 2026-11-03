@@ -71,7 +71,10 @@ services:
       grampsweb_celery:
         condition: service_healthy
     ports:
-      - "127.0.0.1:5055:5000"
+      # Ephemeral host port: each checkout's compose project gets its own, so
+      # parallel worktree stacks never share one instance (issue #124). Read
+      # it back with `docker compose -f docker-compose.test.yml port grampsweb 5000`.
+      - "127.0.0.1::5000"
     environment: *grampsweb_env
     volumes: *grampsweb_volumes
     healthcheck:

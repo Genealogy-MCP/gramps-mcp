@@ -263,6 +263,11 @@ make docker-seed   # Seed with fixture data
 make docker-down   # Stop and remove containers
 ```
 
+Each checkout's test stack publishes Gramps Web on its own ephemeral host
+port, so parallel worktrees never share an instance. The seed script and the
+test suite find it themselves. To reach it by hand, print the address with
+`docker compose -f docker-compose.test.yml port grampsweb 5000`.
+
 ## Architecture
 
 ### Core Components

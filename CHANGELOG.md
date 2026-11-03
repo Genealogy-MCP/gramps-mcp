@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.10] - 2026-11-03
+
+### Fixed
+
+- Two worktrees can run `make test` at the same time. The test stack published grampsweb on the fixed host port 5055, so a second stack failed to bind, `make test` ignored the failure, and the suite ran against the other worktree's instance while that worktree reset and reseeded it. grampsweb now gets an ephemeral host port per compose project. The seed script, `make schema-fetch` and the test suite read it back with `docker compose port grampsweb 5000`, so they only ever reach their own checkout's stack. `make test` now fails when its stack does not start or seed, and still skips integration tests when Docker is absent. The seed's `user add` calls now wait 120s instead of 30s, which parallel stacks exceeded (#124)
+
 ## [3.15.9] - 2026-11-03
 
 ### Fixed
