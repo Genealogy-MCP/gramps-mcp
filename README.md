@@ -106,6 +106,8 @@ That's it! The MCP server will be running at `http://localhost:8000/mcp`
 
 The image sets `GRAMPS_MCP_HOST=0.0.0.0`, so the server listens on every container interface and the published port reaches it. Run outside Docker, the server binds `127.0.0.1` unless you set `GRAMPS_MCP_HOST` yourself. The server has no authentication of its own, so `docker-compose.yml` publishes the port on loopback only (`"127.0.0.1:8000:8000"`). Change it to `"8000:8000"` only behind a firewall or an authenticating reverse proxy.
 
+`/mcp` accepts only a localhost `Host` header and answers any other with HTTP 421, which guards against DNS rebinding. A reverse proxy that forwards its public hostname, or a compose service calling `http://gramps-mcp:8000/mcp`, needs that host in `GRAMPS_MCP_ALLOWED_HOSTS`, a comma-separated list such as `gramps-mcp:8000,mcp.example.com`. An entry ending in `:*` matches any port.
+
 ### Alternative: Run Without Docker
 
 If you prefer to run the server directly with Python:
