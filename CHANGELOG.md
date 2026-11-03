@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.6] - 2026-11-03
+
+### Fixed
+
+- `docker compose up` serves on the host port again. The server defaults to `127.0.0.1` (MCP-20), and nothing in the image set `GRAMPS_MCP_HOST`, so it listened only on the container's loopback and the published port 8000 reset every connection. The Dockerfile now sets `GRAMPS_MCP_HOST=0.0.0.0`, `docker-compose.yml` publishes the port on `127.0.0.1` only, since the server has no authentication, `.env.example` and the README document both, and `make docker-smoke` (the MR CI job) reaches `/health` from a second container (#118)
+
 ## [3.15.5] - 2026-11-02
 
 ### Fixed
