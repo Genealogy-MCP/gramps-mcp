@@ -36,6 +36,7 @@ from .write_hooks import (
     check_citation_source,
     check_person_refs,
     format_tag_save,
+    has_event_refs,
     upload_media,
 )
 
@@ -74,6 +75,8 @@ UploadHook = Callable[[Any, str, Any], Awaitable[str | None]]
 # ``(entity_data, operation)`` save confirmation, for entities without a
 # detail formatter.
 ResponseFormatter = Callable[[dict, str], str]
+# ``(params)`` predicate on the parsed model: re-save this create as an update.
+ResavePredicate = Callable[[Any], bool]
 
 
 @dataclass(frozen=True)
@@ -94,6 +97,9 @@ class WriteBinding:
             place of the model's own create errors.
         format_response: Builds the confirmation instead of the shared
             save formatter, or None.
+        resave_after_create: When it holds for the parsed params, a create
+            is followed by a PUT of the same fields on the new handle, so
+            Gramps Web runs the bookkeeping it does only on update.
     """
 
     model: type
@@ -102,11 +108,15 @@ class WriteBinding:
     media_upload: UploadHook | None = None
     empty_arguments_error: str | None = None
     format_response: ResponseFormatter | None = None
+    resave_after_create: ResavePredicate | None = None
 
 
 WRITE_BINDINGS: dict[str, WriteBinding] = {
     "person": WriteBinding(
-        PersonData, nudge_citation=True, reference_checks=(check_person_refs,)
+        PersonData,
+        nudge_citation=True,
+        reference_checks=(check_person_refs,),
+        resave_after_create=has_event_refs,
     ),
     "family": WriteBinding(FamilySaveParams, nudge_citation=False),
     "event": WriteBinding(EventSaveParams, nudge_citation=True),

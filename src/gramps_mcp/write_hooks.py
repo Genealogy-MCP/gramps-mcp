@@ -6,10 +6,11 @@
 Per-entity write hooks the generic upsert runs (#103, slice S4 of #99).
 
 ``write_overlays.WRITE_BINDINGS`` binds them per entity: the person and
-citation reference checks, the media file upload, and the tag summary
-line. Every hook takes ``(client, tree_id, params)`` with ``params`` the
-already parsed hand model; reference reads go through the resource table
-paths, not ``ApiCalls`` members.
+citation reference checks, the person re-save predicate, the media file
+upload, and the tag summary line. The checks and the upload take
+``(client, tree_id, params)`` with ``params`` the already parsed hand
+model; the predicate takes ``params`` alone. Reference reads go through
+the resource table paths, not ``ApiCalls`` members.
 """
 
 import asyncio
@@ -283,6 +284,23 @@ async def _check_upload(
         status_code=status,
         request_sent=True,
     ) from error
+
+
+def has_event_refs(params: Any) -> bool:
+    """
+    Tell whether a person create needs a re-save to set its event indexes.
+
+    Reason: Gramps Web runs ``set_birth_death_index`` in ``update_object``
+    but not in ``add_object`` (gramps-webapi 3.25.1), so a POSTed person
+    keeps ``birth_ref_index`` and ``death_ref_index`` at -1 (#134).
+
+    Args:
+        params (Any): Parsed ``PersonData``.
+
+    Returns:
+        bool: True when the person references any event.
+    """
+    return bool(params.event_ref_list)
 
 
 def format_tag_save(entity_data: dict, operation: str) -> str:

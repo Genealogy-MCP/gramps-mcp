@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.23] - 2026-11-03
+
+### Fixed
+
+- A person created with a Primary-role Birth or Death event in `event_ref_list` now gets `birth_ref_index` and `death_ref_index` pointing at it, so `search` and `get` show its "Born:" and "Died:" lines. Gramps Web sets both indexes when it updates a person but not when it adds one, so a person create with events now PUTs the same fields back onto the new handle in `replace` mode. That adds one GET and one PUT to such a create. If the re-save fails, the error names the stored handle so a retry updates that person instead of creating a duplicate (#134)
+
 ## [3.15.22] - 2026-11-03
 
 ### Changed
