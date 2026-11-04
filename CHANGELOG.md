@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.20] - 2026-11-03
+
+### Fixed
+
+- A create whose POST times out after it was sent now checks for the record under the handle it sent, as a 5xx already did (#106). A landed write reports success instead of a timeout, so a retry no longer makes a duplicate. When no record is found yet, the error names the handle and says the server may still be saving it, because a slow server can commit after the client gives up. A connect error, connect timeout or pool timeout never reached the server and raises as before with no lookup. `GrampsAPIError` now carries `request_sent`, which a status code implies. Media creates upload under a handle the server picks, so they get no lookup yet (#137) (#130)
+
 ## [3.15.19] - 2026-11-03
 
 ### Fixed
