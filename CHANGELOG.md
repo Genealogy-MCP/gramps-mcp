@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.21] - 2026-11-03
+
+### Fixed
+
+- A media create whose upload answers 5xx, or times out after it was sent, now checks whether the record was stored. The server picks an uploaded record's handle, so the create lists the media records holding the file's MD5 checksum before the upload and compares after a failure. One new record means the upload landed, and the create saves its fields and reports success. No new record after a 5xx means nothing was written and a retry is safe. Otherwise the error gives the GQL checksum search to run before retrying. A failed metadata PUT after a good upload names the stored handle, so a retry updates that record instead of uploading the file again. Media upload, download and replace errors now raise `GrampsAPIError` with the status and `request_sent` instead of raw `httpx` errors. Each media create makes one extra checksum lookup (#131, #137)
+
 ## [3.15.20] - 2026-11-03
 
 ### Fixed

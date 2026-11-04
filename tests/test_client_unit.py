@@ -748,7 +748,7 @@ class TestMediaClientUpload:
 
     @pytest.mark.asyncio
     async def test_413_payload_too_large(self):
-        """413 from server propagates as HTTPStatusError."""
+        """413 from server raises GrampsAPIError carrying the status (#131)."""
         api_client = GrampsWebAPIClient()
         api_client.auth_manager = MagicMock()
         api_client.auth_manager.get_token = AsyncMock()
@@ -768,12 +768,13 @@ class TestMediaClientUpload:
         api_client.auth_manager.client.request = AsyncMock(return_value=resp)
 
         media_client = MediaClient(api_client)
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(GrampsAPIError) as info:
             await media_client.upload_media_file(b"huge" * 1000, "image/png")
+        assert (info.value.status_code, info.value.request_sent) == (413, True)
 
     @pytest.mark.asyncio
     async def test_connection_error(self):
-        """ConnectError during upload propagates."""
+        """ConnectError during upload raises an unsent GrampsAPIError (#131)."""
         api_client = GrampsWebAPIClient()
         api_client.auth_manager = MagicMock()
         api_client.auth_manager.get_token = AsyncMock()
@@ -788,8 +789,28 @@ class TestMediaClientUpload:
         )
 
         media_client = MediaClient(api_client)
-        with pytest.raises(httpx.ConnectError):
+        with pytest.raises(GrampsAPIError) as info:
             await media_client.upload_media_file(b"content", "image/jpeg")
+        assert (info.value.status_code, info.value.request_sent) == (None, False)
+
+    @pytest.mark.asyncio
+    async def test_read_timeout_counts_as_sent(self):
+        """A read timeout during upload raises a sent GrampsAPIError (#131)."""
+        api_client = GrampsWebAPIClient()
+        api_client.auth_manager = MagicMock()
+        api_client.auth_manager.get_token = AsyncMock()
+        api_client.auth_manager.get_headers = MagicMock(
+            return_value={"Authorization": "Bearer test"}
+        )
+        api_client.auth_manager.client = MagicMock()
+        api_client.auth_manager.client.request = AsyncMock(
+            side_effect=httpx.ReadTimeout("read")
+        )
+
+        media_client = MediaClient(api_client)
+        with pytest.raises(GrampsAPIError) as info:
+            await media_client.upload_media_file(b"content", "image/jpeg")
+        assert (info.value.status_code, info.value.request_sent) == (None, True)
 
 
 # ---------------------------------------------------------------------------
@@ -855,14 +876,14 @@ class TestMediaClientDownload:
 
     @pytest.mark.asyncio
     async def test_connection_error_propagates(self):
-        """ConnectError during download propagates."""
+        """ConnectError during download raises GrampsAPIError (#131)."""
         api_client = self._make_api_client()
         api_client.auth_manager.client.request = AsyncMock(
             side_effect=httpx.ConnectError("Connection refused")
         )
 
         media_client = MediaClient(api_client)
-        with pytest.raises(httpx.ConnectError):
+        with pytest.raises(GrampsAPIError, match="Cannot connect"):
             await media_client.download_media_file("m1handle1")
 
 
