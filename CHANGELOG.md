@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- An empty `GRAMPS_MCP_PORT=` line in `.env` no longer crashes the HTTP server at startup. The server now falls back to port 8000, the same default the Compose port mapping and the image healthcheck already use for an empty value. An empty `GRAMPS_MCP_HOST=` falls back to `127.0.0.1` instead of binding every interface. A port that is not an integer fails with an error naming `GRAMPS_MCP_PORT` and the value it got (#135)
+- An empty `GRAMPS_MCP_PORT=` line in `.env` no longer crashes the HTTP server at startup. The server now falls back to port 8000, the same default the Compose port mapping and the image healthcheck already use for an empty value. A port that is not an integer fails with an error naming `GRAMPS_MCP_PORT` and the value it got (#135)
 
 ## [3.15.23] - 2026-11-03
 
