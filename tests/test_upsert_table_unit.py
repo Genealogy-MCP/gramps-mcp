@@ -26,6 +26,7 @@ from src.gramps_mcp.write_hooks import (
     check_citation_source,
     check_person_refs,
     format_tag_save,
+    has_event_refs,
     upload_media,
 )
 from src.gramps_mcp.write_overlays import WRITE_BINDINGS
@@ -218,27 +219,29 @@ class TestOrdering:
         assert (log, "bogus" in str(info.value)) == ([], True)
 
     async def test_bound_hooks(self, log):
-        """Person and citation check refs, media uploads, tag formats."""
-        no_hooks = ((), None, None, None)
+        """Person checks refs and re-saves, citation checks, media uploads."""
+        no_hooks = ((), None, None, None, None)
         assert {
             e: (
                 b.reference_checks,
                 b.media_upload,
                 b.empty_arguments_error,
                 b.format_response,
+                b.resave_after_create,
             )
             for e, b in WRITE_BINDINGS.items()
         } == {
             **{e: no_hooks for e in _ENTITIES},
-            "person": ((check_person_refs,), None, None, None),
-            "citation": ((check_citation_source,), None, None, None),
+            "person": ((check_person_refs,), None, None, None, has_event_refs),
+            "citation": ((check_citation_source,), None, None, None, None),
             "media": (
                 (),
                 upload_media,
                 "file_location is required to create new media.",
                 None,
+                None,
             ),
-            "tag": ((), None, None, format_tag_save),
+            "tag": ((), None, None, format_tag_save, None),
         }
 
     async def test_empty_arguments_error(self, log):
@@ -502,6 +505,69 @@ class TestCreateServerError:
         with pytest.raises(McpToolError, match=r"^Server error \(500\)"):
             await upsert_entity("event", {"handle": "h1"})
         assert client.calls == [("PUT", "events/{handle}", "h1")]
+
+
+_EVENT_REFS = [{"ref": "e1", "role": "Primary"}]
+
+
+class TestResaveAfterCreate:
+    """A person create with events is PUT back so Gramps sets its indexes (#134)."""
+
+    async def test_person_with_events_is_put_back(self, scripted):
+        """The POST is followed by a replace-mode PUT on the new handle."""
+        client = scripted(_SAVED)
+        client.script["PUT"] = {"handle": "h1", "gramps_id": "I1"}
+        result = await upsert_entity(
+            "person",
+            {"gender": 1, "primary_name": _NAME, "event_ref_list": _EVENT_REFS},
+        )
+        resave = client.models[1].to_api_payload()
+        assert (
+            result[0].text,
+            client.calls,
+            resave["list_mode"],
+            resave["event_ref_list"],
+        ) == (
+            "created I1",
+            [("POST", "people/", client.calls[0][2]), ("PUT", "people/{handle}", "h1")],
+            "replace",
+            client.models[0].to_api_payload()["event_ref_list"],
+        )
+
+    @pytest.mark.parametrize(
+        ("entity", "arguments"),
+        [
+            ("person", {"gender": 1, "primary_name": _NAME}),
+            ("event", {"type": "Birth"}),
+        ],
+    )
+    async def test_no_resave_without_event_refs(self, scripted, entity, arguments):
+        """A person without events, or another entity, is POSTed only."""
+        client = scripted(_SAVED)
+        await upsert_entity(entity, arguments)
+        assert [method for method, _, _ in client.calls] == ["POST"]
+
+    async def test_update_is_not_resaved(self, scripted):
+        """An update already runs the server's index step: one PUT."""
+        client = scripted(None)
+        client.script["PUT"] = _SAVED
+        await upsert_entity("person", {"handle": "h1", "event_ref_list": _EVENT_REFS})
+        assert client.calls == [("PUT", "people/{handle}", "h1")]
+
+    async def test_failed_resave_names_the_record(self, scripted):
+        """A failed re-save says the person is stored and how to retry."""
+        client = scripted(_SAVED)
+        client.script["PUT"] = GrampsAPIError("Server error (500).", status_code=500)
+        with pytest.raises(McpToolError) as info:
+            await upsert_entity(
+                "person",
+                {"gender": 1, "primary_name": _NAME, "event_ref_list": _EVENT_REFS},
+            )
+        assert str(info.value) == (
+            "Server error (500). The person is stored as handle `h1`, but its "
+            "birth and death indexes may not be saved. Retry with handle `h1` "
+            "to update that record, so a retry makes no duplicate."
+        )
 
 
 class TestCreateTimeout:

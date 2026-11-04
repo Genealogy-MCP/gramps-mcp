@@ -24,6 +24,10 @@ a missing record then proves nothing: the server may still be saving it.
 A media create cannot choose its handle; ``write_hooks.upload_media``
 checks a failed upload by file checksum instead, and a failed metadata PUT
 names the uploaded record so a retry updates it (#131).
+
+A binding's ``resave_after_create`` PUTs a new record's fields back onto
+it. Gramps Web derives a person's birth and death indexes only on update
+(#134); a failed re-save names the stored record the same way.
 """
 
 import logging
@@ -106,12 +110,25 @@ async def upsert_entity(
             )
             operation = "updated"
         elif uploaded:
-            result = await _save_uploaded(
-                client, entity, row, validated, tree_id, uploaded
+            result = await _save_created(
+                client, entity, row, validated, tree_id, uploaded, "file is stored"
             )
             operation = "created"
         else:
             result = await _create(client, entity, row, validated, tree_id)
+            if binding.resave_after_create and binding.resave_after_create(validated):
+                # Reason: replace re-sends the posted lists as they are, so
+                # the PUT changes nothing but what Gramps derives on update.
+                result = await _save_created(
+                    client,
+                    entity,
+                    row,
+                    validated.model_copy(update={"list_mode": "replace"}),
+                    tree_id,
+                    _extract_entity_data(result, entity)["handle"],
+                    "is stored",
+                    "its birth and death indexes",
+                )
             operation = "created"
 
         nudge = (
@@ -207,16 +224,18 @@ async def _create(
         return stored
 
 
-async def _save_uploaded(
+async def _save_created(
     client: GrampsWebAPIClient,
     entity: str,
     row: EntityResource,
     validated: Any,
     tree_id: str,
     handle: str,
+    stored: str,
+    unsaved: str = "its fields",
 ) -> Any:
     """
-    PUT the fields of a new record onto the handle its upload created.
+    PUT fields onto the handle a create or upload just made.
 
     Args:
         client (GrampsWebAPIClient): Session-wide API client.
@@ -224,14 +243,17 @@ async def _save_uploaded(
         row (EntityResource): The entity's resource row.
         validated (Any): Parsed write model without a handle.
         tree_id (str): Family tree identifier.
-        handle (str): Handle of the record the upload created.
+        handle (str): Handle of the record just made.
+        stored (str): What is already stored, for the error text
+            (``"file is stored"``).
+        unsaved (str): What the failed PUT may have left unsaved.
 
     Returns:
         Any: The PUT response.
 
     Raises:
         GrampsAPIError: The PUT failed; the message names the stored
-            record so a retry updates it instead of uploading again (#131).
+            record so a retry updates it instead of creating again (#131).
     """
     try:
         return await client.call_resource(
@@ -239,8 +261,8 @@ async def _save_uploaded(
         )
     except GrampsAPIError as error:
         raise GrampsAPIError(
-            f"{error} The {entity} file is stored as handle `{handle}`, but "
-            "its fields may not be saved. Retry with handle "
+            f"{error} The {entity} {stored} as handle `{handle}`, but "
+            f"{unsaved} may not be saved. Retry with handle "
             f"`{handle}` to update that record, so a retry makes no duplicate.",
             status_code=error.status_code,
             request_sent=error.request_sent,
