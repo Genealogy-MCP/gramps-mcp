@@ -48,18 +48,24 @@ class GrampsAPIError(Exception):
         status_code (int | None): HTTP status of the failed response, or None
             when the failure happened before a response (connection, timeout,
             parse). Lets handlers map on status instead of message text.
+        request_sent (bool): The server may have received the request:
+            any status code, or a read or write timeout (#130).
     """
 
-    def __init__(self, message: str, status_code: int | None = None) -> None:
+    def __init__(
+        self, message: str, status_code: int | None = None, request_sent: bool = False
+    ) -> None:
         """
-        Store the message and the optional HTTP status code.
+        Store the message, the optional HTTP status, and whether it was sent.
 
         Args:
             message (str): Human-readable error description.
             status_code (int | None): HTTP status of the failed response.
+            request_sent (bool): The request reached the server.
         """
         super().__init__(message)
         self.status_code = status_code
+        self.request_sent = request_sent or status_code is not None
 
 
 class GrampsWebAPIClient:
@@ -231,7 +237,9 @@ class GrampsWebAPIClient:
         except httpx.ConnectError as e:
             raise GrampsAPIError(f"Cannot connect to Gramps API: {e}") from e
         except httpx.TimeoutException as e:
-            raise GrampsAPIError(f"Request timeout: {e}") from e
+            # Reason: connect and pool timeouts fail before any byte is sent.
+            sent = not isinstance(e, (httpx.ConnectTimeout, httpx.PoolTimeout))
+            raise GrampsAPIError(f"Request timeout: {e}", request_sent=sent) from e
         except (GrampsAPIError, GrampsAuthError):
             raise
         except Exception as e:

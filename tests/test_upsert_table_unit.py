@@ -375,6 +375,7 @@ class _ScriptedClient:
 
 
 _POST_500 = GrampsAPIError("Server error (500) at /records/.", status_code=500)
+_POST_TIMEOUT = GrampsAPIError("Request timeout: read.", request_sent=True)
 
 
 @pytest.fixture
@@ -477,3 +478,38 @@ class TestCreateServerError:
         with pytest.raises(McpToolError, match=r"^Server error \(500\)"):
             await upsert_entity("event", {"handle": "h1"})
         assert client.calls == [("PUT", "events/{handle}", "h1")]
+
+
+class TestCreateTimeout:
+    """A create that times out is checked like a 5xx; a connect error is not (#130)."""
+
+    async def test_landed_write_reports_created(self, scripted):
+        """A timed-out create whose record exists is reported as a normal create."""
+        client = scripted(_POST_TIMEOUT, {"handle": "x", "gramps_id": "E9"})
+        result = await upsert_entity("event", {"type": "Birth"})
+        handle = client.calls[0][2]
+        assert (result[0].text, client.calls) == (
+            "created E9",
+            [("POST", "events/", handle), ("GET", "events/{handle}", handle)],
+        )
+
+    async def test_missing_record_says_the_save_may_still_land(self, scripted):
+        """A 404 after a timeout does not claim nothing was written."""
+        client = scripted(
+            _POST_TIMEOUT, GrampsAPIError("Record not found.", status_code=404)
+        )
+        with pytest.raises(McpToolError) as info:
+            await upsert_entity("event", {"type": "Birth"})
+        handle = client.calls[0][2]
+        assert str(info.value) == (
+            f"Request timeout: read. No event has handle `{handle}` yet, but "
+            "the server may still be saving it. Get handle "
+            f"`{handle}` before retrying, so a retry makes no duplicate."
+        )
+
+    async def test_connect_error_is_not_checked(self, scripted):
+        """A request that never left raises as is, with no GET."""
+        client = scripted(GrampsAPIError("Cannot connect to Gramps API: refused"))
+        with pytest.raises(McpToolError, match="^Cannot connect"):
+            await upsert_entity("event", {"type": "Birth"})
+        assert [method for method, _, _ in client.calls] == ["POST"]

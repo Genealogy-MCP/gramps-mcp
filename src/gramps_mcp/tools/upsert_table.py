@@ -19,6 +19,8 @@ A create POSTs under a handle chosen here (#106). Gramps Web commits the
 record before it updates the search index and usage counts, and answers
 5xx when that later step fails. The known handle lets one GET tell a
 landed write from a lost one, so a caller never retries into a duplicate.
+A POST that times out after it was sent gets the same check (#130), but
+a missing record then proves nothing: the server may still be saving it.
 """
 
 import logging
@@ -132,7 +134,10 @@ async def _create(
     tree_id: str,
 ) -> Any:
     """
-    POST a new record under a fresh handle; check the record on a 5xx.
+    POST a new record under a fresh handle; check it on an unknown outcome.
+
+    The outcome is unknown when the POST answered 5xx or timed out after
+    it was sent. A 4xx or a request that never left raises as is.
 
     Args:
         client (GrampsWebAPIClient): Session-wide API client.
@@ -143,11 +148,11 @@ async def _create(
 
     Returns:
         Any: The POST response, or the stored record when the POST
-            answered 5xx after the write landed.
+            answered 5xx or timed out after the write landed.
 
     Raises:
-        GrampsAPIError: The POST failed; on a 5xx the message says whether
-            the record was written.
+        GrampsAPIError: The POST failed; on an unknown outcome the message
+            says whether the record was written.
     """
     handle = uuid.uuid4().hex
     try:
@@ -159,14 +164,23 @@ async def _create(
             handle=handle,
         )
     except GrampsAPIError as error:
-        if error.status_code is None or error.status_code < 500:
+        status = error.status_code
+        if not error.request_sent or (status is not None and status < 500):
             raise
         try:
             stored = await client.call_resource(
                 "GET", row.item_path, tree_id=tree_id, handle=handle
             )
         except (GrampsAPIError, GrampsAuthError) as check:
-            if isinstance(check, GrampsAPIError) and check.status_code == 404:
+            missing = isinstance(check, GrampsAPIError) and check.status_code == 404
+            if missing and status is None:
+                raise GrampsAPIError(
+                    f"{error} No {entity} has handle `{handle}` yet, but the "
+                    f"server may still be saving it. Get handle `{handle}` "
+                    "before retrying, so a retry makes no duplicate.",
+                    request_sent=True,
+                ) from error
+            if missing:
                 raise GrampsAPIError(
                     f"{error} Nothing was written: no {entity} has handle "
                     f"`{handle}`, so a retry makes no duplicate.",
@@ -176,10 +190,11 @@ async def _create(
                 f"{error} The {entity} may have been written. Get handle "
                 f"`{handle}` before retrying, so a retry makes no duplicate.",
                 status_code=error.status_code,
+                request_sent=True,
             ) from error
         logger.warning(
-            f"{entity} create answered HTTP {error.status_code} but the record "
-            f"with handle {handle} is stored; reporting it as created"
+            f"{entity} create failed ({error}) but the record with handle "
+            f"{handle} is stored; reporting it as created"
         )
         return stored
 

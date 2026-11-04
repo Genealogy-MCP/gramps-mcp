@@ -318,6 +318,31 @@ class TestMakeRequest:
         assert excinfo.value.status_code is None
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("failure", "sent"),
+        [
+            (httpx.ConnectError("refused"), False),
+            (httpx.ConnectTimeout("connect"), False),
+            (httpx.PoolTimeout("pool"), False),
+            (httpx.WriteTimeout("write"), True),
+            (httpx.ReadTimeout("read"), True),
+        ],
+    )
+    async def test_transport_error_says_whether_request_was_sent(self, failure, sent):
+        """Only a read or write timeout reports the request as sent (#130)."""
+        client = self._setup_client()
+        client.auth_manager.client = MagicMock()
+        client.auth_manager.client.request = AsyncMock(side_effect=failure)
+
+        with pytest.raises(GrampsAPIError) as excinfo:
+            await client._make_request("POST", "http://test/api/people/")
+        assert (excinfo.value.status_code, excinfo.value.request_sent) == (None, sent)
+
+    def test_status_code_implies_request_sent(self):
+        """An error with an HTTP status always reports the request as sent."""
+        assert GrampsAPIError("Server error.", status_code=500).request_sent is True
+
+    @pytest.mark.asyncio
     async def test_empty_response_body(self):
         """Empty response returns {}."""
         client = self._setup_client()
