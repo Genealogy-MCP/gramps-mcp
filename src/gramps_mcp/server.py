@@ -398,8 +398,16 @@ def configure_http(mcp: FastMCP) -> None:
         mcp (FastMCP): The app to configure.
     """
     # MCP-20: default to loopback; use GRAMPS_MCP_HOST=0.0.0.0 for Docker
-    mcp.settings.host = os.environ.get("GRAMPS_MCP_HOST", "127.0.0.1")
-    mcp.settings.port = int(os.environ.get("GRAMPS_MCP_PORT", "8000"))
+    # Reason: `or` treats a set-but-empty variable as unset, matching the
+    # ${GRAMPS_MCP_PORT:-8000} fallback in Compose and the healthcheck (#135).
+    mcp.settings.host = os.environ.get("GRAMPS_MCP_HOST") or "127.0.0.1"
+    port = os.environ.get("GRAMPS_MCP_PORT") or "8000"
+    try:
+        mcp.settings.port = int(port)
+    except ValueError:
+        raise ValueError(
+            f"GRAMPS_MCP_PORT must be an integer port number such as 8000, got {port!r}"
+        ) from None
     # Reason: FastMCP fixed its Host allow-list at construction from the
     # default 127.0.0.1 host, so changing settings.host above leaves it as is.
     mcp.settings.transport_security = transport_security(
