@@ -3,7 +3,8 @@ services:
     image: registry.gitlab.com/genealogy-mcp/gramps-mcp:latest
     ports:
       # Reason: the server has no auth and can write the tree; keep it off the LAN (#118).
-      - "127.0.0.1:8000:8000"
+      # Compose reads GRAMPS_MCP_PORT from .env, the file env_file passes to the server (#129).
+      - "127.0.0.1:${GRAMPS_MCP_PORT:-8000}:${GRAMPS_MCP_PORT:-8000}"
     env_file:
       - .env
     restart: unless-stopped
