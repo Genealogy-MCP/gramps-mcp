@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.22] - 2026-11-03
+
+### Changed
+
+- A media update that replaces the stored file now spots the "same file already stored" 409 by the error's `status_code` instead of by finding "409" in the message text. Rewording the client's error message no longer turns that skip into a failed update, and a different error whose message happens to contain "409" now raises instead of being skipped (#133)
+
 ## [3.15.21] - 2026-11-03
 
 ### Fixed

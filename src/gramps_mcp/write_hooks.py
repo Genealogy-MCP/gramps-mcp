@@ -187,7 +187,7 @@ async def upload_media(client: Any, tree_id: str, params: Any) -> str | None:
                     tree_id=tree_id,
                 )
             except GrampsAPIError as e:
-                if "409" not in str(e):
+                if e.status_code != 409:
                     raise
                 logger.warning(
                     "File already exists (409 Conflict) for handle %s, "
