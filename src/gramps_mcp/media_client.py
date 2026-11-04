@@ -10,6 +10,8 @@ Provides specialized methods for uploading and replacing media files.
 import httpx
 
 from .client import GrampsAPIError
+from .models.parameters.base_params import BaseGetMultipleParams
+from .resource_table import ENTITY_RESOURCES
 
 
 class MediaClient:
@@ -25,8 +27,39 @@ class MediaClient:
         """Send a media request, retrying once after a 401 with token refresh.
 
         Mirrors GrampsWebAPIClient._make_request: on a 401, the stale bearer
-        token is refreshed and the request is re-issued exactly once. Returns
-        the raw httpx.Response; callers handle response shaping and errors.
+        token is refreshed and the request is re-issued exactly once. An
+        error status or a timeout raises GrampsAPIError with the status and
+        whether the request was sent (#131); callers shape the response.
+
+        Raises:
+            GrampsAPIError: The response had an error status or timed out.
+        """
+        try:
+            response = await self._request(method, url, content, content_type)
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            error_msg = self.client._format_http_error(e)
+            raise GrampsAPIError(error_msg, status_code=e.response.status_code) from e
+        except httpx.ConnectError as e:
+            raise GrampsAPIError(f"Cannot connect to Gramps API: {e}") from e
+        except httpx.TimeoutException as e:
+            # Reason: same rule as GrampsWebAPIClient._make_request; connect
+            # and pool timeouts fail before any byte is sent.
+            sent = not isinstance(e, (httpx.ConnectTimeout, httpx.PoolTimeout))
+            raise GrampsAPIError(f"Request timeout: {e}", request_sent=sent) from e
+        return response
+
+    async def _request(self, method, url, content, content_type):
+        """Send one request, and resend it once after a 401.
+
+        Args:
+            method: HTTP verb.
+            url: Full request URL.
+            content: Raw request body, or None.
+            content_type: Content-Type header value, or None.
+
+        Returns:
+            The last httpx.Response.
         """
         headers = await self.client._get_headers()
         if content_type:
@@ -67,8 +100,32 @@ class MediaClient:
         response = await self._send_with_auth_retry(
             "POST", url, content=file_content, content_type=mime_type
         )
-        response.raise_for_status()
         return response.json()
+
+    async def handles_with_checksum(
+        self, checksum: str, tree_id: str = "default"
+    ) -> set[str]:
+        """List the handles of the media records whose file has one checksum.
+
+        Args:
+            checksum: MD5 hex digest Gramps Web stores for an uploaded file.
+            tree_id: Tree identifier.
+
+        Returns:
+            The matching handles.
+
+        Raises:
+            GrampsAPIError: If the API call fails.
+        """
+        records = await self.client.call_resource(
+            "GET",
+            ENTITY_RESOURCES["media"].collection_path,
+            BaseGetMultipleParams.model_validate(
+                {"gql": f'checksum = "{checksum}"', "keys": "handle"}
+            ),
+            tree_id=tree_id,
+        )
+        return {record["handle"] for record in records}
 
     async def download_media_file(
         self, handle: str, tree_id: str = "default"
@@ -87,16 +144,9 @@ class MediaClient:
         """
         url = self.client._build_url(tree_id, f"media/{handle}/file")
 
-        try:
-            response = await self._send_with_auth_retry("GET", url)
-            response.raise_for_status()
-            content_type = response.headers.get(
-                "content-type", "application/octet-stream"
-            )
-            return response.content, content_type
-        except httpx.HTTPStatusError as e:
-            error_msg = self.client._format_http_error(e)
-            raise GrampsAPIError(error_msg, status_code=e.response.status_code) from e
+        response = await self._send_with_auth_retry("GET", url)
+        content_type = response.headers.get("content-type", "application/octet-stream")
+        return response.content, content_type
 
     async def replace_media_file(
         self,
@@ -124,14 +174,9 @@ class MediaClient:
         """
         url = self.client._build_url(tree_id, f"media/{handle}/file")
 
-        try:
-            response = await self._send_with_auth_retry(
-                "PUT", url, content=file_content, content_type=mime_type
-            )
-            response.raise_for_status()
-            if not response.text.strip():
-                return {}
-            return response.json()
-        except httpx.HTTPStatusError as e:
-            error_msg = self.client._format_http_error(e)
-            raise GrampsAPIError(error_msg, status_code=e.response.status_code) from e
+        response = await self._send_with_auth_retry(
+            "PUT", url, content=file_content, content_type=mime_type
+        )
+        if not response.text.strip():
+            return {}
+        return response.json()

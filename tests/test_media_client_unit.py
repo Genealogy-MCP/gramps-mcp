@@ -100,7 +100,7 @@ class TestUploadMediaFile401Retry:
         api_client = _api_client([_resp_401(), _resp_401()])
         mc = MediaClient(api_client)
 
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(GrampsAPIError):
             await mc.upload_media_file(b"data", "image/jpeg")
 
         assert api_client.auth_manager.client.request.await_count == 2

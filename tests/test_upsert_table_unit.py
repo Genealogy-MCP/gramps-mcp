@@ -174,6 +174,30 @@ class TestOrdering:
             ("format", "event", "created", True),
         ]
 
+    async def test_failed_put_after_upload_names_the_record(self, log):
+        """A PUT failing after the upload says to retry on the stored handle."""
+        log.fail_with = GrampsAPIError("Server error (500).", status_code=500)
+        bindings = {
+            "event": replace(
+                WRITE_BINDINGS["event"],
+                media_upload=_hook(log, "upload", returns="new1"),
+            )
+        }
+        with pytest.raises(McpToolError) as info:
+            await upsert_entity("event", {"type": "Birth"}, bindings=bindings)
+        assert str(info.value) == (
+            "Server error (500). The event file is stored as handle `new1`, but "
+            "its fields may not be saved. Retry with handle `new1` to update "
+            "that record, so a retry makes no duplicate."
+        )
+
+    async def test_failed_update_put_raises_as_is(self, log):
+        """A PUT failing on an update keeps the plain error."""
+        log.fail_with = GrampsAPIError("Server error (500).", status_code=500)
+        with pytest.raises(McpToolError) as info:
+            await upsert_entity("event", {"handle": "h1", "type": "Birth"})
+        assert str(info.value) == "Server error (500)."
+
     async def test_failed_check_blocks_write(self, log):
         """No write or upload happens when a reference check fails."""
         bindings = {

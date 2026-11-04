@@ -21,6 +21,9 @@ record before it updates the search index and usage counts, and answers
 landed write from a lost one, so a caller never retries into a duplicate.
 A POST that times out after it was sent gets the same check (#130), but
 a missing record then proves nothing: the server may still be saving it.
+A media create cannot choose its handle; ``write_hooks.upload_media``
+checks a failed upload by file checksum instead, and a failed metadata PUT
+names the uploaded record so a retry updates it (#131).
 """
 
 import logging
@@ -93,15 +96,20 @@ async def upsert_entity(
             else None
         )
 
-        if validated.handle or uploaded:
+        if validated.handle:
             result = await client.call_resource(
                 "PUT",
                 row.item_path,
                 validated,
                 tree_id=tree_id,
-                handle=validated.handle or uploaded,
+                handle=validated.handle,
             )
-            operation = "updated" if validated.handle else "created"
+            operation = "updated"
+        elif uploaded:
+            result = await _save_uploaded(
+                client, entity, row, validated, tree_id, uploaded
+            )
+            operation = "created"
         else:
             result = await _create(client, entity, row, validated, tree_id)
             operation = "created"
@@ -197,6 +205,46 @@ async def _create(
             f"{handle} is stored; reporting it as created"
         )
         return stored
+
+
+async def _save_uploaded(
+    client: GrampsWebAPIClient,
+    entity: str,
+    row: EntityResource,
+    validated: Any,
+    tree_id: str,
+    handle: str,
+) -> Any:
+    """
+    PUT the fields of a new record onto the handle its upload created.
+
+    Args:
+        client (GrampsWebAPIClient): Session-wide API client.
+        entity (str): Entity key, for the error text.
+        row (EntityResource): The entity's resource row.
+        validated (Any): Parsed write model without a handle.
+        tree_id (str): Family tree identifier.
+        handle (str): Handle of the record the upload created.
+
+    Returns:
+        Any: The PUT response.
+
+    Raises:
+        GrampsAPIError: The PUT failed; the message names the stored
+            record so a retry updates it instead of uploading again (#131).
+    """
+    try:
+        return await client.call_resource(
+            "PUT", row.item_path, validated, tree_id=tree_id, handle=handle
+        )
+    except GrampsAPIError as error:
+        raise GrampsAPIError(
+            f"{error} The {entity} file is stored as handle `{handle}`, but "
+            "its fields may not be saved. Retry with handle "
+            f"`{handle}` to update that record, so a retry makes no duplicate.",
+            status_code=error.status_code,
+            request_sent=error.request_sent,
+        ) from error
 
 
 def make_upsert_handler(entity: str) -> UpsertHandler:

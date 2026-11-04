@@ -13,6 +13,7 @@ paths, not ``ApiCalls`` members.
 """
 
 import asyncio
+import hashlib
 import logging
 import mimetypes
 import os
@@ -20,6 +21,7 @@ from typing import Any
 
 from mcp_codemode import McpToolError
 
+from .auth import GrampsAuthError
 from .client import GrampsAPIError
 from .media_client import MediaClient
 from .resource_table import ENTITY_RESOURCES
@@ -149,6 +151,13 @@ async def upload_media(client: Any, tree_id: str, params: Any) -> str | None:
     stored file is replaced first; a 409 (same file already stored) is
     logged and skipped so the metadata update still runs.
 
+    Reason: the server picks the handle of an uploaded record, so a create
+    cannot be checked by handle the way ``upsert_table._create`` checks the
+    other entities (#131). Gramps Web stores the file's MD5 as the record's
+    checksum, so the handles with that checksum are listed before the
+    upload, and an upload that answers 5xx or times out is checked against
+    the handles that appeared since.
+
     Args:
         client (Any): Gramps Web API client.
         tree_id (str): Active tree identifier.
@@ -162,7 +171,8 @@ async def upload_media(client: Any, tree_id: str, params: Any) -> str | None:
         ValueError: Create without file_location.
         FileNotFoundError: file_location names no file.
         GrampsAPIError: The upload failed, or a replace failed with a
-            status other than 409.
+            status other than 409. On an unknown upload outcome the message
+            says whether a record was written.
     """
     media_client = MediaClient(client)
 
@@ -189,12 +199,90 @@ async def upload_media(client: Any, tree_id: str, params: Any) -> str | None:
     if not params.file_location:
         raise ValueError("file_location is required to create new media.")
     content, mime_type = _read_upload(params.file_location)
-    upload_result = await media_client.upload_media_file(content, mime_type, tree_id)
+    checksum = hashlib.md5(content, usedforsecurity=False).hexdigest()
+    before = await media_client.handles_with_checksum(checksum, tree_id)
+    try:
+        upload_result = await media_client.upload_media_file(
+            content, mime_type, tree_id
+        )
+    except GrampsAPIError as error:
+        return await _check_upload(media_client, error, checksum, before, tree_id)
     if not (
         upload_result and isinstance(upload_result, list) and "new" in upload_result[0]
     ):
         raise GrampsAPIError("Media upload did not return the expected new object.")
     return upload_result[0]["new"]["handle"]
+
+
+async def _check_upload(
+    media_client: MediaClient,
+    error: GrampsAPIError,
+    checksum: str,
+    before: set[str],
+    tree_id: str,
+) -> str:
+    """
+    Find the record a failed upload may have made.
+
+    Args:
+        media_client (MediaClient): Media client the upload went through.
+        error (GrampsAPIError): The upload failure.
+        checksum (str): MD5 hex digest of the uploaded file.
+        before (set[str]): Handles with that checksum before the upload.
+        tree_id (str): Active tree identifier.
+
+    Returns:
+        str: Handle of the one record the upload made.
+
+    Raises:
+        GrampsAPIError: The upload failed with a 4xx or never left, or no
+            single new record was found; the message then says whether a
+            retry is safe and how to check.
+    """
+    status = error.status_code
+    if not error.request_sent or (status is not None and status < 500):
+        raise error
+    check = (
+        "Search media with GQL "
+        f'`checksum = "{checksum}"` before retrying, so a retry makes no '
+        "duplicate."
+    )
+    try:
+        new = await media_client.handles_with_checksum(checksum, tree_id) - before
+    except (GrampsAPIError, GrampsAuthError) as lookup:
+        raise GrampsAPIError(
+            f"{error} The media may have been written. {check}",
+            status_code=status,
+            request_sent=True,
+        ) from lookup
+    if len(new) == 1:
+        handle = new.pop()
+        logger.warning(
+            "media upload failed (%s) but the record with handle %s is stored; "
+            "saving its fields",
+            error,
+            handle,
+        )
+        return handle
+    if not new and status is None:
+        raise GrampsAPIError(
+            f"{error} No new media has this file yet, but the server may "
+            f"still be saving it. {check}",
+            request_sent=True,
+        ) from error
+    if not new:
+        raise GrampsAPIError(
+            f"{error} Nothing was written: no new media has this file, so a "
+            "retry makes no duplicate.",
+            status_code=status,
+        ) from error
+    # Reason: another upload of the same file ran meanwhile; which new
+    # record is this one cannot be told apart.
+    raise GrampsAPIError(
+        f"{error} The media may have been written. {check}",
+        status_code=status,
+        request_sent=True,
+    ) from error
 
 
 def format_tag_save(entity_data: dict, operation: str) -> str:
