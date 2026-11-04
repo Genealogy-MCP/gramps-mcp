@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.19] - 2026-11-03
+
+### Fixed
+
+- `docker-compose.yml` now publishes the port set in `GRAMPS_MCP_PORT`. The mapping was fixed at `127.0.0.1:8000:8000`, so a server moved to another port stayed healthy but the host could not reach it. Compose reads `GRAMPS_MCP_PORT` from the same `.env` it passes to the server and uses it for both sides of the mapping, still on loopback, with 8000 as the default. The README and `.env.example` now document the variable (#129)
+
 ## [3.15.18] - 2026-11-03
 
 ### Fixed

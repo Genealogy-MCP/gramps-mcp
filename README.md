@@ -104,7 +104,9 @@ docker-compose up -d
 
 That's it! The MCP server will be running at `http://localhost:8000/mcp`
 
-The image sets `GRAMPS_MCP_HOST=0.0.0.0`, so the server listens on every container interface and the published port reaches it. Run outside Docker, the server binds `127.0.0.1` unless you set `GRAMPS_MCP_HOST` yourself. The server has no authentication of its own, so `docker-compose.yml` publishes the port on loopback only (`"127.0.0.1:8000:8000"`). Change it to `"8000:8000"` only behind a firewall or an authenticating reverse proxy.
+The image sets `GRAMPS_MCP_HOST=0.0.0.0`, so the server listens on every container interface and the published port reaches it. Run outside Docker, the server binds `127.0.0.1` unless you set `GRAMPS_MCP_HOST` yourself. The server has no authentication of its own, so `docker-compose.yml` publishes the port on loopback only (`"127.0.0.1:${GRAMPS_MCP_PORT:-8000}:${GRAMPS_MCP_PORT:-8000}"`). Drop the `127.0.0.1:` prefix only behind a firewall or an authenticating reverse proxy.
+
+The server listens on port 8000. Set `GRAMPS_MCP_PORT` in `.env` to move it. Compose reads the same `.env` to fill in the port mapping, so the host port, the container port and the image's healthcheck all follow the one value, and the URL becomes `http://localhost:<port>/mcp`. A `GRAMPS_MCP_PORT` exported in your shell overrides `.env` for the mapping but never reaches the server, so set it in `.env` only.
 
 `/mcp` accepts only a localhost `Host` header and answers any other with HTTP 421, which guards against DNS rebinding. A reverse proxy that forwards its public hostname, or a compose service calling `http://gramps-mcp:8000/mcp`, needs that host in `GRAMPS_MCP_ALLOWED_HOSTS`, a comma-separated list such as `gramps-mcp:8000,mcp.example.com`. An entry ending in `:*` matches any port.
 
