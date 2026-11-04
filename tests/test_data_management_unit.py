@@ -848,16 +848,14 @@ class TestUpsertMediaTool:
     async def test_update_media_409_skips_upload(
         self, _settings, mock_client_cls, tmp_path
     ):
-        """409 Conflict on file replace should skip upload and proceed."""
+        """A 409 status on file replace skips the upload and proceeds (#133)."""
         # Create a real temp file so os.path.isfile passes
         test_file = tmp_path / "photo.jpg"
         test_file.write_bytes(b"\xff\xd8\xff\xe0")
 
         mock_media_client = AsyncMock()
         mock_media_client.replace_media_file = AsyncMock(
-            side_effect=GrampsAPIError(
-                "Request failed with status 409 at /media/h1/file"
-            )
+            side_effect=GrampsAPIError("Conflict at /media/h1/file", status_code=409)
         )
 
         client_inst = AsyncMock()
@@ -894,14 +892,15 @@ class TestUpsertMediaTool:
     async def test_update_media_non_409_error_propagates(
         self, _settings, mock_client_cls, tmp_path
     ):
-        """Non-409 errors from file replace should propagate."""
+        """A non-409 status propagates even when the message text says 409."""
         test_file = tmp_path / "photo.jpg"
         test_file.write_bytes(b"\xff\xd8\xff\xe0")
 
         mock_media_client = AsyncMock()
         mock_media_client.replace_media_file = AsyncMock(
             side_effect=GrampsAPIError(
-                "Request failed with status 500 at /media/h1/file"
+                "Request failed with status 409 at /media/h409/file",
+                status_code=500,
             )
         )
 
