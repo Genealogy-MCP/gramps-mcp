@@ -9,6 +9,12 @@ import pytest
 from dotenv import load_dotenv
 from mcp.types import TextContent
 
+from src.gramps_mcp.client import get_client
+from src.gramps_mcp.config import get_settings
+from src.gramps_mcp.models.api_calls import ApiCalls
+from src.gramps_mcp.models.parameters.transactions_params import (
+    TransactionHistoryParams,
+)
 from src.gramps_mcp.tools._errors import McpToolError
 from src.gramps_mcp.tools.analysis import (
     get_ancestors_tool,
@@ -16,6 +22,7 @@ from src.gramps_mcp.tools.analysis import (
     get_recent_changes_tool,
     get_tree_stats_tool,
 )
+from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS
 
 # Load environment variables from .env file
 load_dotenv()
@@ -137,6 +144,22 @@ class TestGetRecentChangesTool:
             assert has_gramps_id or has_deleted, (
                 "Should show gramps IDs or (deleted) annotation"
             )
+
+    @pytest.mark.asyncio
+    async def test_server_applies_default_limit(self):
+        """The default query stops the server returning the full history (#140)."""
+        for suffix in ("A", "B", "C"):
+            await UPSERT_HANDLERS["tag"]({"name": f"MCP_TEST_History_{suffix}"})
+
+        # Reason: call the client directly. The tool also slices the response,
+        # which would hide a server that ignored the limit.
+        history = await get_client().make_api_call(
+            api_call=ApiCalls.GET_TRANSACTIONS_HISTORY,
+            params=TransactionHistoryParams(pagesize=2, sort="-id"),
+            tree_id=get_settings().gramps_tree_id,
+        )
+
+        assert len(history) == 2
 
 
 class TestGetTreeInfoTool:
