@@ -25,7 +25,11 @@ from .handlers.citation_handler import format_citation
 from .handlers.event_handler import format_event
 from .handlers.family_handler import format_family
 from .handlers.media_handler import format_media
-from .handlers.note_handler import format_note
+from .handlers.note_handler import (
+    MAX_NOTE_PREVIEW_LENGTH,
+    format_note,
+    format_note_summary,
+)
 from .handlers.person_handler import format_person
 from .handlers.place_handler import format_place
 from .handlers.repository_handler import format_repository
@@ -67,12 +71,15 @@ class ReadOverlay:
             typed-enum rewrite (``"people"``, ``"media files"``, ...).
         formatter: Async ``(client, tree_id, handle)`` summary formatter.
         empty_detail: Text ``get`` shows when the formatter returns "".
+        detail_formatter: Async formatter ``get`` uses when the summary
+            leaves content out, or None to use ``formatter``.
     """
 
     params_class: type
     label: str
     formatter: Callable
     empty_detail: str = ""
+    detail_formatter: Callable | None = None
 
 
 # Entity -> read overlay. Person and family get their detail formatters
@@ -89,7 +96,9 @@ READ_OVERLAYS: dict[str, ReadOverlay] = {
     "repository": ReadOverlay(RepositoriesParams, "repositories", format_repository),
     "media": ReadOverlay(MediaSearchParams, "media files", format_media),
     "citation": ReadOverlay(GetCitationsParams, "citations", format_citation),
-    "note": ReadOverlay(NotesParams, "notes", format_note),
+    "note": ReadOverlay(
+        NotesParams, "notes", format_note_summary, detail_formatter=format_note
+    ),
 }
 
 
@@ -262,6 +271,9 @@ def table_overlays() -> tuple[OpOverlay, ...]:
                 "Places: name.value (NOT 'name'), place_type.string (NOT 'type'). "
                 "Events/Families/Repositories: type.string. "
                 "Notes: text.string (NOT 'text'). "
+                f"Note text over {MAX_NOTE_PREVIEW_LENGTH} characters is cut; "
+                "the result then has truncated: true and full_length. Use get "
+                "for the whole text, always before editing a note. "
                 "Type-name filters are rewritten to the integer form "
                 "(`.value` in place of `.string`) before querying; custom type "
                 "names are not translated yet and return no results. "

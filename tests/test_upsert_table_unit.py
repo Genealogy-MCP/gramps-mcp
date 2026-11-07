@@ -24,6 +24,7 @@ from src.gramps_mcp.tools._errors import McpToolError
 from src.gramps_mcp.tools.upsert_table import UPSERT_HANDLERS, upsert_entity
 from src.gramps_mcp.write_hooks import (
     check_citation_source,
+    check_note_text,
     check_person_refs,
     format_tag_save,
     has_event_refs,
@@ -234,6 +235,7 @@ class TestOrdering:
             **{e: no_hooks for e in _ENTITIES},
             "person": ((check_person_refs,), None, None, None, has_event_refs),
             "citation": ((check_citation_source,), None, None, None, None),
+            "note": ((check_note_text,), None, None, None, None),
             "media": (
                 (),
                 upload_media,

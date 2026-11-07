@@ -24,6 +24,7 @@ from mcp_codemode import McpToolError
 
 from .auth import GrampsAuthError
 from .client import GrampsAPIError
+from .handlers.note_handler import ELISION, has_elided_read
 from .media_client import MediaClient
 from .resource_table import ENTITY_RESOURCES
 
@@ -119,6 +120,33 @@ async def check_citation_source(client: Any, tree_id: str, params: Any) -> None:
         raise McpToolError(missing)
     if not source:
         raise McpToolError(missing)
+
+
+async def check_note_text(client: Any, tree_id: str, params: Any) -> None:
+    """
+    Reject a note update built on a shortened read of the stored text (#139).
+
+    Args:
+        client (Any): Gramps Web API client.
+        tree_id (str): Active tree identifier.
+        params (Any): Parsed ``NoteSaveParams``.
+
+    Raises:
+        McpToolError: The write would delete the stored text after the cut.
+    """
+    if not params.handle or ELISION not in (params.text or ""):
+        return
+
+    note = await _get_record(client, tree_id, "note", params.handle)
+    stored = ((note or {}).get("text") or {}).get("string") or ""
+    if has_elided_read(params.text, stored):
+        raise McpToolError(
+            f"Note '{params.handle}' was not saved: its text has a '{ELISION}' at "
+            "a point where the stored note continues with text this update "
+            "drops, so saving would delete it. Use get for the full text, apply "
+            "the edit to that, and save again. To shorten the note on purpose, "
+            f"remove the '{ELISION}'."
+        )
 
 
 def _read_upload(file_location: str) -> tuple[bytes, str]:

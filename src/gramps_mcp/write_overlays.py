@@ -34,6 +34,7 @@ from .resource_rows import EntityResource
 from .resource_table import ENTITY_RESOURCES
 from .write_hooks import (
     check_citation_source,
+    check_note_text,
     check_person_refs,
     format_tag_save,
     has_event_refs,
@@ -89,7 +90,8 @@ class WriteBinding:
         nudge_citation: Append the "add a source" reminder when a record
             is created without a citation_list.
         reference_checks: Hooks that raise McpToolError when a referenced
-            record is missing; all run before any write.
+            record is missing or the write would lose stored data; all run
+            before any write.
         media_upload: Hook run after the checks and before the write. A
             returned handle turns the write into a PUT on that record.
         empty_arguments_error: Message raised (as ValueError, so it gets
@@ -125,7 +127,9 @@ WRITE_BINDINGS: dict[str, WriteBinding] = {
     "citation": WriteBinding(
         CitationData, nudge_citation=False, reference_checks=(check_citation_source,)
     ),
-    "note": WriteBinding(NoteSaveParams, nudge_citation=False),
+    "note": WriteBinding(
+        NoteSaveParams, nudge_citation=False, reference_checks=(check_note_text,)
+    ),
     "media": WriteBinding(
         MediaSaveParams,
         nudge_citation=True,
@@ -200,7 +204,9 @@ _UPSERT_TEXT: dict[str, tuple[str, str, str]] = {
     "upsert_note": (
         "note",
         "Create or update a textual note",
-        "Create or update textual note including object associations",
+        "Create or update textual note including object associations. "
+        "To edit text, start from get, not from a search result: an update "
+        "built on a shortened read is refused.",
     ),
     "upsert_media": (
         "media",
