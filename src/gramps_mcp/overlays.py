@@ -290,8 +290,13 @@ def table_overlays() -> tuple[OpOverlay, ...]:
         ),
         OpOverlay(
             name="list_tags",
-            summary="List all tags in the family tree",
-            description="List all tags in the family tree",
+            summary="List the tags in the family tree",
+            description=(
+                "List the tags in the family tree by name. Use it to find a "
+                "tag's handle or to check that a tag exists before creating "
+                "it. Returns one page, 100 tags by default and at most 100, "
+                "and names the next page when more tags exist."
+            ),
             category="search",
             params_schema=TagSearchParams,
             handler=list_tags_tool,

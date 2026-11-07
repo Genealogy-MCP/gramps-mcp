@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.26] - 2026-11-06
+
+### Fixed
+
+- `search` and `list_tags` now always send `page`. Gramps Web applies `pagesize` only when `page` is present, so these calls downloaded every matching row and `max_results` only limited what the tool showed. `search` reads the total for "Found N (showing M)" from the `X-Total-Count` header. A `search` on a custom type name such as `type.string = "LVG"` still fetches every Custom-typed row, because the name is matched on the client and a server page would hide later matches. `list_tags` now returns one page, 100 tags by default and at most 100, reports the total, and names the next page when more tags exist. Explicit nulls for `page` or `pagesize` are rejected. `resolve_gramps_id` needed no change: a `gramps_id` filter returns one row before paging runs (#141)
+
 ## [3.15.25] - 2026-11-06
 
 ### Fixed
