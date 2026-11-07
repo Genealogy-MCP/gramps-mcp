@@ -13,7 +13,7 @@ from .date_handler import format_date
 from .event_handler import format_event
 from .family_handler import format_family
 from .media_handler import format_media
-from .note_handler import format_note
+from .note_handler import format_note, format_note_summary
 from .person_handler import format_person
 from .place_handler import format_place
 from .repository_handler import format_repository
@@ -28,6 +28,7 @@ __all__ = [
     "format_media",
     "format_date",
     "format_note",
+    "format_note_summary",
     "format_repository",
     "format_citation",
 ]

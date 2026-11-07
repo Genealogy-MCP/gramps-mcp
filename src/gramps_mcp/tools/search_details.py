@@ -90,6 +90,7 @@ def _make_get_tool(entity: str) -> Callable:
         Callable: ``with_client``-wrapped async handler taking ``{"handle"}``.
     """
     overlay = READ_OVERLAYS[entity]
+    formatter = overlay.detail_formatter or overlay.formatter
 
     async def get_entity(client, arguments: Dict) -> List[TextContent]:
         """Get one entity's details by handle."""
@@ -98,7 +99,7 @@ def _make_get_tool(entity: str) -> Callable:
             if not handle:
                 raise ValueError("handle is required")
             settings = get_settings()
-            formatted = await overlay.formatter(client, settings.gramps_tree_id, handle)
+            formatted = await formatter(client, settings.gramps_tree_id, handle)
             return [TextContent(type="text", text=formatted or overlay.empty_detail)]
         except Exception as e:
             raise_tool_error(
