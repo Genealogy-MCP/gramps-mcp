@@ -543,6 +543,25 @@ class TestRecentChangesBounds:
 
         assert client.make_api_call.await_count == 1 + 3 * 5
         assert result[0].text.count("• **") == 5
+        assert "Request page 2" in result[0].text
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
+    @patch(
+        "src.gramps_mcp.tools.analysis.get_settings",
+        return_value=_mock_settings("tree1"),
+    )
+    async def test_short_page_has_no_next_page_hint(self, _settings, mock_get_client):
+        """A page below pagesize is the last one, so nothing points further."""
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(
+            side_effect=[self._history(2)] + [{"gramps_id": "I0001"}] * 6
+        )
+        mock_get_client.return_value = client
+
+        result = await get_recent_changes_tool({"pagesize": 5})
+
+        assert "Request page" not in result[0].text
 
     @pytest.mark.parametrize("pagesize", [0, 101, None])
     def test_pagesize_out_of_bounds_rejected(self, pagesize):

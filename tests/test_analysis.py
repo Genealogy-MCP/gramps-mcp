@@ -146,8 +146,8 @@ class TestGetRecentChangesTool:
             )
 
     @pytest.mark.asyncio
-    async def test_server_applies_default_limit(self):
-        """The default query stops the server returning the full history (#140)."""
+    async def test_server_limits_when_page_defaulted(self):
+        """The default page makes the server honour pagesize (#140)."""
         for suffix in ("A", "B", "C"):
             await UPSERT_HANDLERS["tag"]({"name": f"MCP_TEST_History_{suffix}"})
 
