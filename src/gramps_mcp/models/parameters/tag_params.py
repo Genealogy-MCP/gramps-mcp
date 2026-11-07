@@ -23,11 +23,14 @@ class TagSearchParams(BaseModel):
     # Reason: extra="forbid" (#95), see BaseGetMultipleParams.
     model_config = {"extra": "forbid"}
 
-    page: Optional[int] = Field(
-        None, description="Page number for pagination (1-based)", ge=1
-    )
-    pagesize: Optional[int] = Field(
-        None, description="Number of results per page", ge=1, le=100
+    # Reason: not Optional (#141). Gramps Web applies a limit only when page and
+    # pagesize are both sent. A missing page returns every tag.
+    page: int = Field(1, description="Page number (1-based). Defaults to 1", ge=1)
+    pagesize: int = Field(
+        100,
+        description="Number of results per page. Defaults to 100, maximum 100",
+        ge=1,
+        le=100,
     )
     sort: Optional[List[str]] = Field(None, description="Sort order for results")
 
