@@ -56,6 +56,7 @@ _SAMPLE_VALUES = {
     "child_handles": ["child_handle"],
     "family_type": "Married",
     "file_location": "/nonexistent/upload.jpg",
+    "allow_shortening": True,
 }
 
 
@@ -198,6 +199,7 @@ class TestPayloadOnlyAllowlist:
             + [("FamilySaveParams", "child_handles")]
             + [("FamilySaveParams", "family_type")]
             + [("MediaSaveParams", "file_location")]
+            + [("NoteSaveParams", "allow_shortening")]
         )
 
     @pytest.mark.parametrize(

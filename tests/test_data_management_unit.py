@@ -1134,7 +1134,12 @@ class TestExtractArguments:
         result = extract_arguments(None, params)
         assert isinstance(result["text"], str)
         assert result["text"] == "hello"
-        assert result == {"text": "hello", "type": "General", "list_mode": "merge"}
+        assert result == {
+            "text": "hello",
+            "type": "General",
+            "list_mode": "merge",
+            "allow_shortening": False,
+        }
 
     def test_dict_input_returns_dict(self):
         """Dict input is returned as-is."""

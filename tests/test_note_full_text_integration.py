@@ -85,3 +85,16 @@ async def test_write_back_of_a_cut_read_changes_nothing():
     with pytest.raises(McpToolError, match="Use get for the full text"):
         await UPSERT_HANDLERS["note"]({"handle": handle, "text": cut_read})
     assert _LONG_TEXT in await _read_note(handle)
+
+
+@pytest.mark.asyncio
+async def test_allow_shortening_saves_the_short_text():
+    """An explicit shorten replaces the long text with the short one."""
+    handle = await _create_long_note()
+    short = f"{TEST_PREFIX}summary... rest moved to the source"
+    await UPSERT_HANDLERS["note"](
+        {"handle": handle, "text": short, "allow_shortening": True}
+    )
+    text = await _read_note(handle)
+    assert short in text
+    assert "check register entry 499" not in text

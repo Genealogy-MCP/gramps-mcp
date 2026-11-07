@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.27] - 2026-11-06
+
+### Fixed
+
+- `upsert_note` no longer refuses short notes that hold a real `...`, such as `Research is ongoing...`. It now refuses an update that repeats a note's 50-character person or family view word for word, and an update to a note over 500 characters when the new text has a `...`, is shorter than the stored note and has lost its ending or keeps it only before its last `...`. The check cannot tell every real `...` from a cut. It can still refuse a real edit, and it misses an edited shortened read of a note of 500 characters or fewer and a read that grew past the stored length (#142)
+
+### Added
+
+- `upsert_note` takes `allow_shortening` (default false). Pass true to skip the shortened-read check after reading the full text with `get` (#142)
+
 ## [3.15.26] - 2026-11-06
 
 ### Fixed
