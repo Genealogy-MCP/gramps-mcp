@@ -88,8 +88,8 @@ async def test_write_back_of_a_cut_read_changes_nothing():
 
 
 @pytest.mark.asyncio
-async def test_allow_shortening_saves_and_stays_out_of_the_note():
-    """An explicit shorten saves the short text and leaves no MCP field behind."""
+async def test_allow_shortening_saves_the_short_text():
+    """An explicit shorten replaces the long text with the short one."""
     handle = await _create_long_note()
     short = f"{TEST_PREFIX}summary... rest moved to the source"
     await UPSERT_HANDLERS["note"](

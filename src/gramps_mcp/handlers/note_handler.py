@@ -34,11 +34,13 @@ def has_elided_read(text: str, stored: str) -> bool:
     Tell whether new note text was built on a shortened read of the stored text.
 
     A write to a note longer than a preview counts as cut when it has a "...",
-    is shorter than the stored note, and has lost the stored ending (#139).
-    Reason: this compares what the write keeps, not where the cut fell, so edits
-    anywhere in the read do not hide it. It is a heuristic. It misses a read
-    that grew past the stored length, and it refuses some real edits to a note
-    holding "...", so callers can pass ``allow_shortening``.
+    is shorter than the stored note, and has lost the stored ending, or keeps it
+    only before its last "..." (#139). Reason: this compares what the write
+    keeps, not where the cut fell, so edits to the read do not hide it. It is a
+    heuristic. It misses a read of a note at or under the preview length, a
+    50-character person or family view, and a read that grew past the stored
+    length. It refuses some real edits to a note holding "...", so callers can
+    pass ``allow_shortening``.
 
     Args:
         text (str): Note text about to be written.
@@ -57,7 +59,7 @@ def has_elided_read(text: str, stored: str) -> bool:
     ending = stored[-STORED_ENDING_LENGTH:]
     kept_at = text.rfind(ending)
     # Reason: a copy of the ending before the elision came from the read itself.
-    return kept_at < 0 or kept_at + len(ending) <= text.index(ELISION)
+    return kept_at < 0 or kept_at + len(ending) <= text.rindex(ELISION)
 
 
 async def format_note(client, tree_id: str, handle: str) -> str:

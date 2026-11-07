@@ -19,6 +19,8 @@ _LONG = "[x] Parish register\n" + "".join(
     f"[ ] Census {year} for the Rome line\n" for year in range(1800, 1830)
 )
 _CUT = _LONG[:497] + "..."
+_REPEATING_LINE = "[ ] Census 1851 for the Rome line today\n"
+_REPEATING = "Wait... list\n" + _REPEATING_LINE * 40
 
 
 class _Client:
@@ -44,6 +46,12 @@ class TestHasElidedRead:
             pytest.param("New heading\n" + _CUT, _LONG, id="prepended"),
             pytest.param(_CUT.replace("[x]", "[ ]"), _LONG, id="edit-at-start"),
             pytest.param(_LONG[:496] + "Z...", _LONG, id="edit-at-the-cut"),
+            pytest.param(_REPEATING[:497] + "...", _REPEATING, id="real-dots-in-read"),
+            pytest.param(
+                "Heading...\n" + _REPEATING[:497] + "...",
+                _REPEATING,
+                id="real-dots-added-to-read",
+            ),
             pytest.param("A" * 497 + "...", "A" * 600, id="ending-inside-the-read"),
             pytest.param(
                 "a" * 494 + "..." + "a" * 3,
@@ -75,6 +83,14 @@ class TestHasElidedRead:
             ),
             pytest.param(
                 _LONG.strip().replace("[x]", "...", 1), _LONG, id="stored-whitespace"
+            ),
+            pytest.param(
+                "Intro\n" + _REPEATING_LINE + "Wait...\n" + _REPEATING_LINE,
+                _REPEATING,
+                id="ending-kept-after-the-dots",
+            ),
+            pytest.param(
+                "x" * 37 + "...", "A" * 600 + "x" * 37 + "...", id="just-the-ending"
             ),
             pytest.param(_LONG[:-5], _LONG, id="trim-without-elision"),
             pytest.param("A" * 400 + "...", "A" * 500, id="at-the-preview-limit"),
