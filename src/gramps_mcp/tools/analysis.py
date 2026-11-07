@@ -415,7 +415,15 @@ async def get_recent_changes_tool(client, arguments: Dict) -> List[TextContent]:
             api_call=ApiCalls.GET_TRANSACTIONS_HISTORY, params=params, tree_id=tree_id
         )
 
-        formatted_changes = await _format_recent_changes(changes, client, tree_id)
+        # Reason: the formatter sends up to 3 lookups per transaction, so the
+        # response is cut to pagesize even if a server ignores the limit (#140).
+        shown = changes[: params.pagesize]
+        formatted_changes = await _format_recent_changes(shown, client, tree_id)
+        if len(shown) == params.pagesize:
+            formatted_changes += (
+                f"More changes may exist. Repeat this call with page "
+                f"{params.page + 1} and pagesize {params.pagesize} to see them.\n"
+            )
         return [TextContent(type="text", text=formatted_changes)]
 
     except Exception as e:

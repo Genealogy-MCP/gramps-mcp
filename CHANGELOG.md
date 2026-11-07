@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.24] - 2026-11-06
+
+### Fixed
+
+- `get_recent_changes` now always sends `page` (default 1) and `pagesize` (default 20, maximum 100). Gramps Web applies a limit only when both are present, so a call with `pagesize` alone, or with neither, fetched the tree's entire transaction history and sent up to three lookups per transaction. A call now returns at most `pagesize` transactions and sends at most `3 * pagesize` lookups, even if a server returns more than asked. A full page ends with a pointer to the next page. `pagesize` values outside 1 to 100 and explicit nulls for `page` or `pagesize` are now rejected (#140)
+
 ## [3.15.23] - 2026-11-03
 
 ### Fixed
