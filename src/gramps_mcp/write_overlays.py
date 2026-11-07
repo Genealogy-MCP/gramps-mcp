@@ -66,6 +66,7 @@ PAYLOAD_ONLY_FIELDS: tuple[tuple[type, str], ...] = (
     (FamilySaveParams, "child_handles"),
     (FamilySaveParams, "family_type"),
     (MediaSaveParams, "file_location"),
+    (NoteSaveParams, "allow_shortening"),
 )
 
 # Async ``(client, tree_id, params)`` hook run before the write.

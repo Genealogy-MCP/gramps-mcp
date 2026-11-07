@@ -33,11 +33,12 @@ def has_elided_read(text: str, stored: str) -> bool:
     """
     Tell whether new note text was built on a shortened read of the stored text.
 
-    Only a note longer than a preview can be read short. Such a write has a
-    "...", is shorter than the stored note, and has lost the stored ending
-    (#139). Reason: this compares what the write keeps, not where the cut fell,
-    so edits anywhere in the read do not hide it, and a note that really holds
-    "..." saves as long as its ending or its length survives.
+    A write to a note longer than a preview counts as cut when it has a "...",
+    is shorter than the stored note, and has lost the stored ending (#139).
+    Reason: this compares what the write keeps, not where the cut fell, so edits
+    anywhere in the read do not hide it. It is a heuristic. It misses a read
+    that grew past the stored length, and it refuses some real edits to a note
+    holding "...", so callers can pass ``allow_shortening``.
 
     Args:
         text (str): Note text about to be written.

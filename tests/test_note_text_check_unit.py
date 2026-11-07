@@ -100,6 +100,23 @@ class TestCheckNoteText:
         await check_note_text(client, "tree", params)
         assert client.gets == [("GET", "h1")]
 
+    @pytest.mark.asyncio
+    async def test_refusal_names_the_way_through(self):
+        params = NoteSaveParams(handle="h1", text=_CUT)
+        with pytest.raises(McpToolError, match="allow_shortening: true"):
+            await check_note_text(_Client(), "tree", params)
+
+    @pytest.mark.asyncio
+    async def test_allow_shortening_saves_without_a_get(self):
+        client = _Client()
+        params = NoteSaveParams(handle="h1", text=_CUT, allow_shortening=True)
+        await check_note_text(client, "tree", params)
+        assert client.gets == []
+
+    def test_allow_shortening_stays_out_of_the_payload(self):
+        params = NoteSaveParams(handle="h1", text="x", allow_shortening=True)
+        assert "allow_shortening" not in params.to_api_payload()
+
     @pytest.mark.parametrize(
         "params",
         [

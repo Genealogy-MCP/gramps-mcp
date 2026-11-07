@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.27] - 2026-11-06
+
+### Fixed
+
+- `upsert_note` no longer refuses short notes that hold a real `...`, such as `Research is ongoing...`. It now refuses only an update to a note over 500 characters when the new text has a `...`, is shorter than the stored note and has lost its ending, wherever the caller edited. The check cannot tell every real `...` from a cut, so it can still refuse a real edit, and it misses a read that grew past the stored length (#142)
+
+### Added
+
+- `upsert_note` takes `allow_shortening` (default false). Pass true to skip the shortened-read check after reading the full text with `get` (#142)
+
 ## [3.15.26] - 2026-11-06
 
 ### Fixed
@@ -17,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `get` on a note now returns the whole text. It used to cut anything past 500 characters and end the body with `...`, so a caller that read a note, edited it and wrote it back through `upsert_note` deleted the rest. `search`, `search_text` and save confirmations still cut long notes to 500 characters, and now report it with `truncated: true` and `full_length` below the text. `upsert_note` refuses an update to a note over 500 characters when the new text has a `...`, is shorter than the stored note and has lost its ending, wherever the caller edited, and the stored note stays as it was. Notes of 500 characters or fewer are never refused, and neither is a longer note that keeps its length or its ending. An update whose text contains `...` makes one extra GET (#139)
+- `get` on a note now returns the whole text. It used to cut anything past 500 characters and end the body with `...`, so a caller that read a note, edited it and wrote it back through `upsert_note` deleted the rest. `search`, `search_text` and save confirmations still cut long notes to 500 characters, and now report it with `truncated: true` and `full_length` below the text. `upsert_note` refuses an update whose text has a `...` at a point where the stored note continues with text the update drops, edits elsewhere in the note included, and the stored note stays as it was. A note that really ends in `...` still saves. An update whose text contains `...` makes one extra GET (#139)
 
 ## [3.15.24] - 2026-11-06
 

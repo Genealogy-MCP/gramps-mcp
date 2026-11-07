@@ -134,7 +134,11 @@ async def check_note_text(client: Any, tree_id: str, params: Any) -> None:
     Raises:
         McpToolError: The write would delete the stored text after the cut.
     """
-    if not params.handle or ELISION not in (params.text or ""):
+    if (
+        not params.handle
+        or params.allow_shortening
+        or ELISION not in (params.text or "")
+    ):
         return
 
     note = await _get_record(client, tree_id, "note", params.handle)
@@ -145,7 +149,8 @@ async def check_note_text(client: Any, tree_id: str, params: Any) -> None:
             "is shorter than the stored note, and has lost the stored ending, "
             "so it looks like a shortened read and saving would delete the "
             "rest. Use get for the full text, apply the edit to that, and save "
-            f"again. To shorten the note on purpose, remove the '{ELISION}'."
+            "again. If you read the full text and want it shorter, save with "
+            "allow_shortening: true."
         )
 
 
