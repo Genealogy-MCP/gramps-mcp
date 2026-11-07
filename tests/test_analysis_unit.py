@@ -539,11 +539,11 @@ class TestRecentChangesBounds:
         )
         mock_get_client.return_value = client
 
-        result = await get_recent_changes_tool({"pagesize": 5})
+        result = await get_recent_changes_tool({"page": 2, "pagesize": 5})
 
         assert client.make_api_call.await_count == 1 + 3 * 5
         assert result[0].text.count("• **") == 5
-        assert "Request page 2" in result[0].text
+        assert "with page 3 and pagesize 5" in result[0].text
 
     @pytest.mark.asyncio
     @patch("src.gramps_mcp.tools.search_basic.get_client")

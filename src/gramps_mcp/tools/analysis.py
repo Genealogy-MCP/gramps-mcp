@@ -421,7 +421,8 @@ async def get_recent_changes_tool(client, arguments: Dict) -> List[TextContent]:
         formatted_changes = await _format_recent_changes(shown, client, tree_id)
         if len(shown) == params.pagesize:
             formatted_changes += (
-                f"More changes may exist. Request page {params.page + 1} to see them.\n"
+                f"More changes may exist. Repeat this call with page "
+                f"{params.page + 1} and pagesize {params.pagesize} to see them.\n"
             )
         return [TextContent(type="text", text=formatted_changes)]
 

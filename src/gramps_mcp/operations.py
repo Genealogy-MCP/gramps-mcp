@@ -175,7 +175,8 @@ _HANDWRITTEN: dict[str, OperationEntry] = {
         description=(
             "Get recent changes/modifications to the family tree, newest first. "
             "Returns one page of transactions, 20 by default and at most 100, "
-            "naming up to 3 changed objects each. Use page for older changes."
+            "naming up to 3 changed objects each. Use page for older changes "
+            "and keep pagesize the same between pages."
         ),
         category="analysis",
         params_schema=TransactionHistoryParams,
