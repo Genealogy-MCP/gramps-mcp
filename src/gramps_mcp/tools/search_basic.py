@@ -135,20 +135,22 @@ async def _search_entities(
     # names add a client-side post filter on the returned rows (#85).
     arguments, post_filters = await rewrite_search_args(client, entity_type, arguments)
 
+    # Reason: Gramps Web applies pagesize only when page is also sent (#141).
+    # Custom names match client-side, so a server page would hide matches
+    # behind other Custom rows; those queries fetch every Custom row instead.
+    if not post_filters:
+        arguments = {"page": 1, **arguments}
+
     try:
         params = parse_params(params_class, arguments)
         tree_id = get_settings().gramps_tree_id
 
-        response = await client.make_api_call(
-            api_call=api_call, params=params, tree_id=tree_id
+        response, headers = await client.make_api_call(
+            api_call=api_call, params=params, tree_id=tree_id, with_headers=True
         )
 
-        if isinstance(response, list):
-            results = response
-            total_count = len(results)
-        else:
-            results = response.get("data", [])
-            total_count = response.get("total_count", len(results))
+        results = response if isinstance(response, list) else response.get("data", [])
+        total_count = int(headers.get("x-total-count", len(results)))
 
         if post_filters:
             # Server total counts every Custom-typed row; recount post-match.
@@ -162,8 +164,6 @@ async def _search_entities(
                 msg += f"\n\nHint: {hint}"
             formatted_results = msg
         else:
-            actual_total = total_count if total_count is not None else len(results)
-
             results_to_display = (
                 results[: params.pagesize] if params.pagesize else results
             )
@@ -185,8 +185,8 @@ async def _search_entities(
 
             # Header is built after formatting so it reflects what was actually shown
             shown = len(formatted_items)
-            if actual_total > shown:
-                header = f"Found {actual_total} {entity_type} (showing {shown}):\n\n"
+            if total_count > shown:
+                header = f"Found {total_count} {entity_type} (showing {shown}):\n\n"
             else:
                 header = f"Found {shown} {entity_type}:\n\n"
 
@@ -236,7 +236,7 @@ def _make_search_tool(entity: str) -> Callable:
 @with_client
 async def list_tags_tool(client, arguments: Dict) -> List[TextContent]:
     """
-    List all tags in the family tree.
+    List one page of the tags in the family tree.
 
     Args:
         client: Gramps API client instance
@@ -250,8 +250,11 @@ async def list_tags_tool(client, arguments: Dict) -> List[TextContent]:
         settings = get_settings()
         tree_id = settings.gramps_tree_id
 
-        response = await client.make_api_call(
-            api_call=collection_call("tag"), params=params, tree_id=tree_id
+        response, headers = await client.make_api_call(
+            api_call=collection_call("tag"),
+            params=params,
+            tree_id=tree_id,
+            with_headers=True,
         )
 
         results = response if isinstance(response, list) else response.get("data", [])
@@ -259,7 +262,13 @@ async def list_tags_tool(client, arguments: Dict) -> List[TextContent]:
         if not results:
             return [TextContent(type="text", text="No tags found.")]
 
-        formatted = f"Found {len(results)} tags:\n\n"
+        shown = len(results)
+        total = int(headers.get("x-total-count", shown))
+        formatted = (
+            f"Found {total} tags (showing {shown}):\n\n"
+            if total > shown
+            else f"Found {total} tags:\n\n"
+        )
         for tag in results:
             name = tag.get("name", "Unknown")
             handle = tag.get("handle", "N/A")
@@ -267,6 +276,12 @@ async def list_tags_tool(client, arguments: Dict) -> List[TextContent]:
             priority = tag.get("priority", 0)
             formatted += (
                 f"- **{name}** [{handle}] (color: {color}, priority: {priority})\n"
+            )
+
+        if params.page * params.pagesize < total:
+            formatted += (
+                f"\nMore tags exist. Repeat this call with page "
+                f"{params.page + 1} and pagesize {params.pagesize} to see them.\n"
             )
 
         return [TextContent(type="text", text=formatted)]

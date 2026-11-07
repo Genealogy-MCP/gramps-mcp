@@ -11,6 +11,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from mcp.types import TextContent
 
+from src.gramps_mcp.models.api_calls import ApiCalls
+from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
+from src.gramps_mcp.models.parameters.event_params import EventSearchParams
 from src.gramps_mcp.tools._errors import McpToolError
 
 # ---------------------------------------------------------------------------
@@ -29,9 +32,14 @@ def _mock_settings():
 def _mock_client_instance():
     """Return a pre-configured mock client for tool tests."""
     client = AsyncMock()
-    client.make_api_call = AsyncMock(return_value=[])
+    client.make_api_call = AsyncMock(return_value=([], {}))
     client.close = AsyncMock()
     return client
+
+
+def _sent_params(client) -> dict:
+    """Return the query the last make_api_call would send."""
+    return client.make_api_call.call_args.kwargs["params"].model_dump(exclude_none=True)
 
 
 # ============================================================================
@@ -160,7 +168,7 @@ class TestSearchEntities:
         from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
-        client.make_api_call = AsyncMock(return_value=[])
+        client.make_api_call = AsyncMock(return_value=([], {}))
         handler = AsyncMock(return_value="* result\n")
 
         result = await _search_entities(
@@ -176,7 +184,7 @@ class TestSearchEntities:
 
         client = AsyncMock()
         items = [{"handle": "h1"}, {"handle": "h2"}]
-        client.make_api_call = AsyncMock(return_value=items)
+        client.make_api_call = AsyncMock(return_value=(items, {}))
         handler = AsyncMock(return_value="* item\n")
 
         result = await _search_entities(
@@ -187,16 +195,18 @@ class TestSearchEntities:
 
     @pytest.mark.asyncio
     async def test_dict_response(self):
-        """Dict response with 'data' key and total_count."""
+        """Dict response with 'data' key takes its total from the header."""
         from src.gramps_mcp.models.parameters.base_params import BaseGetMultipleParams
         from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
         client.make_api_call = AsyncMock(
-            return_value={
-                "data": [{"handle": "h1"}],
-                "total_count": 50,
-            }
+            return_value=(
+                {
+                    "data": [{"handle": "h1"}],
+                },
+                {"x-total-count": "50"},
+            )
         )
         handler = AsyncMock(return_value="* item\n")
 
@@ -213,7 +223,9 @@ class TestSearchEntities:
         from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
-        client.make_api_call = AsyncMock(return_value=["not_a_dict", {"handle": "h1"}])
+        client.make_api_call = AsyncMock(
+            return_value=(["not_a_dict", {"handle": "h1"}], {})
+        )
         handler = AsyncMock(return_value="* item\n")
 
         await _search_entities(
@@ -228,7 +240,7 @@ class TestSearchEntities:
         from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
-        client.make_api_call = AsyncMock(return_value=[{"gramps_id": "I1"}])
+        client.make_api_call = AsyncMock(return_value=([{"gramps_id": "I1"}], {}))
         handler = AsyncMock(return_value="* item\n")
 
         await _search_entities(
@@ -244,7 +256,7 @@ class TestSearchEntities:
 
         client = AsyncMock()
         client.make_api_call = AsyncMock(
-            return_value=[{"object": {"handle": "h1"}, "object_type": "person"}]
+            return_value=([{"object": {"handle": "h1"}, "object_type": "person"}], {})
         )
         handler = AsyncMock(return_value="* item\n")
 
@@ -302,10 +314,23 @@ class TestFindTagsTool:
 
         client_inst = _mock_client_instance()
         client_inst.make_api_call = AsyncMock(
-            return_value=[
-                {"name": "ToDo", "handle": "tag1", "color": "#FF0000", "priority": 1},
-                {"name": "Done", "handle": "tag2", "color": "#00FF00", "priority": 0},
-            ]
+            return_value=(
+                [
+                    {
+                        "name": "ToDo",
+                        "handle": "tag1",
+                        "color": "#FF0000",
+                        "priority": 1,
+                    },
+                    {
+                        "name": "Done",
+                        "handle": "tag2",
+                        "color": "#00FF00",
+                        "priority": 0,
+                    },
+                ],
+                {},
+            )
         )
         mock_client_cls.return_value = client_inst
 
@@ -324,16 +349,19 @@ class TestFindTagsTool:
 
         client_inst = _mock_client_instance()
         client_inst.make_api_call = AsyncMock(
-            return_value={
-                "data": [
-                    {
-                        "name": "Review",
-                        "handle": "tag3",
-                        "color": "#0000FF",
-                        "priority": 2,
-                    }
-                ]
-            }
+            return_value=(
+                {
+                    "data": [
+                        {
+                            "name": "Review",
+                            "handle": "tag3",
+                            "color": "#0000FF",
+                            "priority": 2,
+                        }
+                    ]
+                },
+                {},
+            )
         )
         mock_client_cls.return_value = client_inst
 
@@ -422,6 +450,87 @@ class TestFindTypeTool:
         params_model = call_kwargs.kwargs.get("params") or call_kwargs[1].get("params")
         params_dict = params_model.model_dump(exclude_none=True)
         assert params_dict.get("pagesize") == 5
+
+    @pytest.mark.asyncio
+    @patch(_CLIENT_PATCH)
+    @patch(_SETTINGS_PATCH, return_value=_mock_settings())
+    async def test_sends_page_with_pagesize(self, _settings, mock_client_cls):
+        """The server cuts a list response only when page is sent (#141)."""
+        from src.gramps_mcp.tools.search_basic import search_tool
+
+        client_inst = _mock_client_instance()
+        mock_client_cls.return_value = client_inst
+
+        await search_tool({"type": "person", "gql": "gender = 1", "max_results": 5})
+
+        assert _sent_params(client_inst) == {
+            "gql": "gender = 1",
+            "page": 1,
+            "pagesize": 5,
+        }
+
+    @pytest.mark.asyncio
+    @patch(_CLIENT_PATCH)
+    @patch(_SETTINGS_PATCH, return_value=_mock_settings())
+    async def test_header_total_comes_from_response_header(
+        self, _settings, mock_client_cls
+    ):
+        """A cut page keeps the server's total in the result header (#141)."""
+        from src.gramps_mcp.tools.search_basic import _search_entities
+
+        client_inst = _mock_client_instance()
+        client_inst.make_api_call = AsyncMock(
+            return_value=([{"handle": "h1"}, {"handle": "h2"}], {"x-total-count": "57"})
+        )
+        mock_client_cls.return_value = client_inst
+
+        result = await _search_entities(
+            client_inst,
+            {"gql": "gender = 1", "pagesize": 2},
+            BaseGetMultipleParams,
+            ApiCalls.GET_PEOPLE,
+            "people",
+            AsyncMock(return_value="* person\n"),
+        )
+
+        assert result[0].text == "Found 57 people (showing 2):\n\n* person\n* person\n"
+
+    @pytest.mark.asyncio
+    @patch(_CLIENT_PATCH)
+    @patch(_SETTINGS_PATCH, return_value=_mock_settings())
+    async def test_custom_name_fetches_all_rows_and_caps_display(
+        self, _settings, mock_client_cls
+    ):
+        """Custom names match client-side, so a server page would miss rows (#141)."""
+        from src.gramps_mcp.tools import _gql_type_rewrite
+        from src.gramps_mcp.tools._gql_type_rewrite import PostFilter, TypeRewrite
+        from src.gramps_mcp.tools.search_basic import _search_entities
+
+        rows = [{"handle": "other", "type": "LVG"}] + [
+            {"handle": f"h{i}", "type": "Rare"} for i in range(3)
+        ]
+        client_inst = _mock_client_instance()
+        client_inst.make_api_call = AsyncMock(
+            return_value=(rows, {"x-total-count": "4"})
+        )
+        mock_client_cls.return_value = client_inst
+        format_handler = AsyncMock(return_value="* event\n")
+        rewrite = TypeRewrite("type.value = 0", (PostFilter("type", "Rare"),))
+
+        with patch.object(
+            _gql_type_rewrite, "maybe_rewrite_gql", AsyncMock(return_value=rewrite)
+        ):
+            result = await _search_entities(
+                client_inst,
+                {"gql": 'type = "Rare"', "pagesize": 1},
+                EventSearchParams,
+                ApiCalls.GET_EVENTS,
+                "events",
+                format_handler,
+            )
+
+        assert _sent_params(client_inst) == {"gql": "type.value = 0", "pagesize": 1}
+        assert result[0].text == "Found 3 events (showing 1):\n\n* event\n"
 
     @pytest.mark.asyncio
     async def test_missing_gql_raises(self):
@@ -919,7 +1028,7 @@ class TestSearchEntitiesGqlHint:
         from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
-        client.make_api_call = AsyncMock(return_value=[])
+        client.make_api_call = AsyncMock(return_value=([], {}))
         handler = AsyncMock()
 
         result = await _search_entities(
@@ -942,7 +1051,7 @@ class TestSearchEntitiesGqlHint:
         from src.gramps_mcp.tools.search_basic import _search_entities
 
         client = AsyncMock()
-        client.make_api_call = AsyncMock(return_value=[])
+        client.make_api_call = AsyncMock(return_value=([], {}))
         handler = AsyncMock()
 
         result = await _search_entities(
@@ -1307,3 +1416,79 @@ class TestGetToolEmptyResponseStub:
             search_details.GET_HANDLERS["note"] = original_get
 
         assert result[0].text == "real content"
+
+
+# ============================================================================
+# list_tags_tool
+# ============================================================================
+
+
+class TestListTagsPaging:
+    """list_tags always sends page and reports what a page left out (#141)."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_settings(self):
+        with patch(_SETTINGS_PATCH, return_value=_mock_settings()):
+            yield
+
+    @staticmethod
+    def _tags(count: int) -> list:
+        return [
+            {"name": f"t{i}", "handle": f"h{i}", "color": "#000", "priority": i}
+            for i in range(count)
+        ]
+
+    @pytest.mark.asyncio
+    @patch(_CLIENT_PATCH)
+    async def test_defaults_send_page_and_pagesize(self, mock_client_cls):
+        from src.gramps_mcp.tools.search_basic import list_tags_tool
+
+        client_inst = _mock_client_instance()
+        mock_client_cls.return_value = client_inst
+
+        await list_tags_tool({})
+
+        assert _sent_params(client_inst) == {"page": 1, "pagesize": 100}
+
+    @pytest.mark.asyncio
+    @patch(_CLIENT_PATCH)
+    async def test_whole_list_has_no_next_page_pointer(self, mock_client_cls):
+        from src.gramps_mcp.tools.search_basic import list_tags_tool
+
+        client_inst = _mock_client_instance()
+        client_inst.make_api_call = AsyncMock(
+            return_value=(self._tags(2), {"x-total-count": "2"})
+        )
+        mock_client_cls.return_value = client_inst
+
+        result = await list_tags_tool({"pagesize": 2})
+
+        assert result[0].text.splitlines()[0] == "Found 2 tags:"
+        assert "Repeat this call" not in result[0].text
+
+    @pytest.mark.asyncio
+    @patch(_CLIENT_PATCH)
+    async def test_cut_page_reports_total_and_next_page(self, mock_client_cls):
+        from src.gramps_mcp.tools.search_basic import list_tags_tool
+
+        client_inst = _mock_client_instance()
+        client_inst.make_api_call = AsyncMock(
+            return_value=(self._tags(2), {"x-total-count": "5"})
+        )
+        mock_client_cls.return_value = client_inst
+
+        result = await list_tags_tool({"page": 2, "pagesize": 2})
+
+        lines = result[0].text.splitlines()
+        assert lines[0] == "Found 5 tags (showing 2):"
+        assert lines[-1] == (
+            "More tags exist. Repeat this call with page 3 and pagesize 2 to see them."
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("field", ["page", "pagesize"])
+    async def test_null_paging_field_rejected(self, field):
+        from src.gramps_mcp.tools.search_basic import list_tags_tool
+
+        with pytest.raises(McpToolError, match=field):
+            await list_tags_tool({field: None})
