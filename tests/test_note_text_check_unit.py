@@ -8,6 +8,7 @@ Unit tests for the note read and write paths that lost text in #139. No Docker.
 import pytest
 from conftest import _mock_client
 
+from src.gramps_mcp.handlers.note_handler import has_elided_read
 from src.gramps_mcp.models.parameters.note_params import NoteSaveParams
 from src.gramps_mcp.tools import search_basic
 from src.gramps_mcp.tools._errors import McpToolError
@@ -27,6 +28,46 @@ class _Client:
         """Return the stored note, logging the handle read."""
         self.gets.append((method, handle))
         return {"text": {"_class": "StyledText", "string": _STORED}}
+
+
+_CHECKLIST = "[x] Parish register\n" + "[ ] Census 1851 for the Rome line\n" * 20
+_CUT = _CHECKLIST[:497] + "..."
+
+
+class TestHasElidedRead:
+    """A cut read is recognised at the cut, whatever changed around it."""
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            _CUT,
+            _CUT + "\nnew section",
+            "New heading\n" + _CUT,
+            _CUT.replace("[x] Parish", "[ ] Parish"),
+            "A" * 497 + "...",
+        ],
+    )
+    def test_cut_read_loses_the_tail(self, text):
+        stored = "A" * 600 if text.startswith("AAA") else _CHECKLIST
+        assert has_elided_read(text, stored)
+
+    def test_preview_repeating_the_tail_does_not_hide_the_cut(self):
+        preview = ("the old world and far " * 23)[:497]
+        assert has_elided_read(preview + "...", preview + "ld far")
+
+    @pytest.mark.parametrize(
+        ("text", "stored"),
+        [
+            ("Rewritten and unfinished...", _STORED),
+            ("alpha beta... gamma", "alpha beta... gamma"),
+            ("alpha... beta gamma", "alpha beta gamma"),
+            ("...", _STORED),
+            (_STORED + " and more...", _STORED),
+            ("the same line\nthe same line... kept", "the same line\nthe same line..."),
+        ],
+    )
+    def test_text_keeping_the_stored_tail_is_not_a_cut_read(self, text, stored):
+        assert not has_elided_read(text, stored)
 
 
 class TestCheckNoteText:

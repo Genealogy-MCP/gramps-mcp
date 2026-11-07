@@ -9,7 +9,7 @@ Provides clean, direct formatting of note data from handles.
 """
 
 import logging
-import os
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +18,10 @@ MAX_NOTE_PREVIEW_LENGTH = 500
 
 # What a shortened read ends in where the note text was cut.
 ELISION = "..."
+
+# Characters before an elision that locate the cut in the stored note. Short, so
+# an edit near the cut still leaves a match.
+ANCHOR_LENGTH = 12
 
 # Body placeholder for a note that exists but carries no text (issue #79).
 # Returning "" here would be indistinguishable from a lookup failure.
@@ -31,25 +35,30 @@ def has_elided_read(text: str, stored: str) -> bool:
     """
     Tell whether new note text was built on a shortened read of the stored text.
 
-    Such text matches the stored text up to the cut, has the elision there,
-    and has lost what the stored text held after the cut (#139). Reason: an
-    ending of "..." alone proves nothing, since real notes end that way.
+    Each elision in the text is checked by the characters just before it. When
+    those appear in the stored note, followed there by more text that the new
+    text does not carry after the elision, the write would lose that text (#139).
+    Reason: an ending of "..." alone proves nothing, since real notes end that
+    way, and comparing from the start of the note misses any edit before the cut.
 
     Args:
         text (str): Note text about to be written.
         stored (str): Note text on the server.
 
     Returns:
-        bool: True when writing ``text`` would delete the stored remainder.
+        bool: True when writing ``text`` would delete stored text after a cut.
     """
     stored = stored.strip()
-    cut = len(os.path.commonprefix([text, stored]).rstrip("."))
-    return (
-        cut > 0
-        and text.startswith(ELISION, cut)
-        and not stored.startswith(ELISION, cut)
-        and stored[cut:] not in text
-    )
+    for elision in re.finditer(r"\.{3,}", text):
+        anchor = text[max(0, elision.start() - ANCHOR_LENGTH) : elision.start()]
+        if not anchor.strip() or anchor not in stored:
+            continue
+        resume = stored.index(anchor) + len(anchor)
+        if f"{anchor}{ELISION}" not in stored and (
+            stored[resume:] not in text[elision.end() :]
+        ):
+            return True
+    return False
 
 
 async def format_note(client, tree_id: str, handle: str) -> str:
