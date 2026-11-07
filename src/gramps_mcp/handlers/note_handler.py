@@ -9,7 +9,6 @@ Provides clean, direct formatting of note data from handles.
 """
 
 import logging
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +18,8 @@ MAX_NOTE_PREVIEW_LENGTH = 500
 # What a shortened read ends in where the note text was cut.
 ELISION = "..."
 
-# Characters before an elision that locate the cut in the stored note. Short, so
-# an edit near the cut still leaves a match.
-ANCHOR_LENGTH = 12
+# Characters at the end of a stored note that a whole-text write still carries.
+STORED_ENDING_LENGTH = 40
 
 # Body placeholder for a note that exists but carries no text (issue #79).
 # Returning "" here would be indistinguishable from a lookup failure.
@@ -35,30 +33,30 @@ def has_elided_read(text: str, stored: str) -> bool:
     """
     Tell whether new note text was built on a shortened read of the stored text.
 
-    Each elision in the text is checked by the characters just before it. When
-    those appear in the stored note, followed there by more text that the new
-    text does not carry after the elision, the write would lose that text (#139).
-    Reason: an ending of "..." alone proves nothing, since real notes end that
-    way, and comparing from the start of the note misses any edit before the cut.
+    Only a note longer than a preview can be read short. Such a write has a
+    "...", is shorter than the stored note, and has lost the stored ending
+    (#139). Reason: this compares what the write keeps, not where the cut fell,
+    so edits anywhere in the read do not hide it, and a note that really holds
+    "..." saves as long as its ending or its length survives.
 
     Args:
         text (str): Note text about to be written.
         stored (str): Note text on the server.
 
     Returns:
-        bool: True when writing ``text`` would delete stored text after a cut.
+        bool: True when writing ``text`` would delete the stored remainder.
     """
     stored = stored.strip()
-    for elision in re.finditer(r"\.{3,}", text):
-        anchor = text[max(0, elision.start() - ANCHOR_LENGTH) : elision.start()]
-        if not anchor.strip() or anchor not in stored:
-            continue
-        resume = stored.index(anchor) + len(anchor)
-        if f"{anchor}{ELISION}" not in stored and (
-            stored[resume:] not in text[elision.end() :]
-        ):
-            return True
-    return False
+    if (
+        len(stored) <= MAX_NOTE_PREVIEW_LENGTH
+        or ELISION not in text
+        or len(text) >= len(stored)
+    ):
+        return False
+    ending = stored[-STORED_ENDING_LENGTH:]
+    kept_at = text.rfind(ending)
+    # Reason: a copy of the ending before the elision came from the read itself.
+    return kept_at < 0 or kept_at + len(ending) <= text.index(ELISION)
 
 
 async def format_note(client, tree_id: str, handle: str) -> str:

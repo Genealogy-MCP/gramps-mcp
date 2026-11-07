@@ -141,11 +141,11 @@ async def check_note_text(client: Any, tree_id: str, params: Any) -> None:
     stored = ((note or {}).get("text") or {}).get("string") or ""
     if has_elided_read(params.text, stored):
         raise McpToolError(
-            f"Note '{params.handle}' was not saved: its text has a '{ELISION}' at "
-            "a point where the stored note continues with text this update "
-            "drops, so saving would delete it. Use get for the full text, apply "
-            "the edit to that, and save again. To shorten the note on purpose, "
-            f"remove the '{ELISION}'."
+            f"Note '{params.handle}' was not saved: its text has a '{ELISION}', "
+            "is shorter than the stored note, and has lost the stored ending, "
+            "so it looks like a shortened read and saving would delete the "
+            "rest. Use get for the full text, apply the edit to that, and save "
+            f"again. To shorten the note on purpose, remove the '{ELISION}'."
         )
 
 
