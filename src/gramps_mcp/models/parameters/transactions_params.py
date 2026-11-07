@@ -19,9 +19,9 @@ class TransactionHistoryParams(BaseModel):
             change
         new (Optional[bool]): Whether to include the raw object data after the
             change
-        page (Optional[int]): Page number representing a subset of results to
-            be returned
-        pagesize (Optional[int]): The number of items that constitute a page
+        page (int): Page number representing a subset of results to be
+            returned
+        pagesize (int): The number of items that constitute a page
         sort (Optional[str]): Sort the transactions. Can be 'id' to sort
             ascending, '-id' to sort descending
         before (Optional[float]): Unix timestamp. Only return transactions
@@ -43,15 +43,22 @@ class TransactionHistoryParams(BaseModel):
     new: Optional[bool] = Field(
         None, description="Whether to include the raw object data after the change"
     )
-    page: Optional[int] = Field(
-        None,
+    # Reason: not Optional (#140). Gramps Web applies a limit only when page and
+    # pagesize are both sent. A missing page returns the entire history.
+    page: int = Field(
+        1,
         ge=1,
         description=(
-            "Page number (1-based) representing a subset of results to be returned"
+            "Page number (1-based) representing a subset of results to be returned."
+            " Defaults to 1"
         ),
     )
-    pagesize: Optional[int] = Field(
-        None, description="The number of items that constitute a page"
+    pagesize: int = Field(
+        20,
+        ge=1,
+        le=100,
+        description="The number of items that constitute a page. Defaults to 20, "
+        "maximum 100",
     )
     sort: Optional[str] = Field(
         None,

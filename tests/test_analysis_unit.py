@@ -9,9 +9,13 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from src.gramps_mcp.auth import GrampsAuthError
-from src.gramps_mcp.client import GrampsAPIError
+from src.gramps_mcp.client import GrampsAPIError, GrampsWebAPIClient
+from src.gramps_mcp.models.parameters.transactions_params import (
+    TransactionHistoryParams,
+)
 from src.gramps_mcp.tools._errors import McpToolError
 from src.gramps_mcp.tools.analysis import (
     _fetch_report_with_retry,
@@ -473,6 +477,102 @@ class TestGetRecentChangesTool:
 
         result = await get_recent_changes_tool({})
         assert "No recent changes" in result[0].text
+
+
+class TestRecentChangesBounds:
+    """A call stays bounded however much history the tree holds (#140)."""
+
+    @staticmethod
+    def _history(transactions: int) -> list:
+        """Build transactions that each change more objects than are shown."""
+        return [
+            {
+                "description": f"Edit {index}",
+                "changes": [
+                    {"obj_class": "Person", "obj_handle": f"h{index}x{change}"}
+                    for change in range(5)
+                ],
+            }
+            for index in range(transactions)
+        ]
+
+    @pytest.mark.parametrize(
+        ("arguments", "expected_query"),
+        [
+            ({}, {"page": 1, "pagesize": 20, "sort": "-id"}),
+            ({"pagesize": 5}, {"page": 1, "pagesize": 5, "sort": "-id"}),
+            ({"page": 3, "pagesize": 5}, {"page": 3, "pagesize": 5, "sort": "-id"}),
+        ],
+    )
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
+    @patch(
+        "src.gramps_mcp.tools.analysis.get_settings",
+        return_value=_mock_settings("tree1"),
+    )
+    async def test_outgoing_query_always_pages(
+        self, _settings, mock_get_client, arguments, expected_query
+    ):
+        """Gramps Web applies a limit only when page and pagesize are both set."""
+        client = GrampsWebAPIClient()
+        client.base_url = "http://gramps.test/api"
+        mock_get_client.return_value = client
+
+        with patch.object(
+            client, "_make_request", new_callable=AsyncMock, return_value=[]
+        ) as request:
+            await get_recent_changes_tool(arguments)
+
+        assert request.await_args.kwargs["params"] == expected_query
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
+    @patch(
+        "src.gramps_mcp.tools.analysis.get_settings",
+        return_value=_mock_settings("tree1"),
+    )
+    async def test_lookups_bounded_by_pagesize(self, _settings, mock_get_client):
+        """A server that returns too much still costs 3 * pagesize lookups."""
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(
+            side_effect=[self._history(50)] + [{"gramps_id": "I0001"}] * 15
+        )
+        mock_get_client.return_value = client
+
+        result = await get_recent_changes_tool({"page": 2, "pagesize": 5})
+
+        assert client.make_api_call.await_count == 1 + 3 * 5
+        assert result[0].text.count("• **") == 5
+        assert "with page 3 and pagesize 5" in result[0].text
+
+    @pytest.mark.asyncio
+    @patch("src.gramps_mcp.tools.search_basic.get_client")
+    @patch(
+        "src.gramps_mcp.tools.analysis.get_settings",
+        return_value=_mock_settings("tree1"),
+    )
+    async def test_short_page_has_no_next_page_hint(self, _settings, mock_get_client):
+        """A page below pagesize is the last one, so nothing points further."""
+        client = AsyncMock()
+        client.make_api_call = AsyncMock(
+            side_effect=[self._history(2)] + [{"gramps_id": "I0001"}] * 6
+        )
+        mock_get_client.return_value = client
+
+        result = await get_recent_changes_tool({"pagesize": 5})
+
+        assert "Request page" not in result[0].text
+
+    @pytest.mark.parametrize("pagesize", [0, 101, None])
+    def test_pagesize_out_of_bounds_rejected(self, pagesize):
+        """Neither an explicit null nor a huge value can reach the server."""
+        with pytest.raises(ValidationError):
+            TransactionHistoryParams(pagesize=pagesize)
+
+    def test_explicit_null_page_rejected(self):
+        """A null page would serialize away and return the whole history."""
+        with pytest.raises(ValidationError):
+            TransactionHistoryParams(page=None)
 
 
 # ---------------------------------------------------------------------------
