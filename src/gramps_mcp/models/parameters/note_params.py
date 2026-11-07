@@ -50,6 +50,15 @@ class NoteSaveParams(BaseDataModel):
         description="Text format: 0=flowed (default), 1=preformatted",
     )
 
+    allow_shortening: bool = Field(
+        False,
+        description=(
+            "Set true only to shorten a note on purpose after reading its full "
+            "text with get. Skips the check that refuses text built on a "
+            "shortened read. Default false."
+        ),
+    )
+
     @model_validator(mode="after")
     def _validate_create_required(self) -> "NoteSaveParams":
         """Enforce required fields when creating (no handle = new entity)."""
@@ -61,8 +70,9 @@ class NoteSaveParams(BaseDataModel):
         return self
 
     def to_api_payload(self) -> dict[str, Any]:
-        """Return API-ready dict with text wrapped in StyledText format."""
+        """Return API-ready dict: StyledText text, no ``allow_shortening``."""
         data = super().to_api_payload()
+        data.pop("allow_shortening", None)
         if "text" in data and isinstance(data["text"], str):
             data["text"] = {
                 "_class": "StyledText",

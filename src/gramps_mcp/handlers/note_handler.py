@@ -9,19 +9,20 @@ Provides clean, direct formatting of note data from handles.
 """
 
 import logging
-import re
 
 logger = logging.getLogger(__name__)
 
 # Longest note text a search result or save confirmation shows; get never cuts.
 MAX_NOTE_PREVIEW_LENGTH = 500
 
+# Longest note text a person or family view shows.
+NOTE_SNIPPET_LENGTH = 50
+
 # What a shortened read ends in where the note text was cut.
 ELISION = "..."
 
-# Characters before an elision that locate the cut in the stored note. Short, so
-# an edit near the cut still leaves a match.
-ANCHOR_LENGTH = 12
+# Characters at the end of a stored note that a whole-text write still carries.
+STORED_ENDING_LENGTH = 40
 
 # Body placeholder for a note that exists but carries no text (issue #79).
 # Returning "" here would be indistinguishable from a lookup failure.
@@ -35,30 +36,34 @@ def has_elided_read(text: str, stored: str) -> bool:
     """
     Tell whether new note text was built on a shortened read of the stored text.
 
-    Each elision in the text is checked by the characters just before it. When
-    those appear in the stored note, followed there by more text that the new
-    text does not carry after the elision, the write would lose that text (#139).
-    Reason: an ending of "..." alone proves nothing, since real notes end that
-    way, and comparing from the start of the note misses any edit before the cut.
+    A shorter write counts as cut when it repeats a person or family view word
+    for word. On a note longer than a preview it also counts when it has a "..."
+    and has lost the stored ending, or keeps it only before its last "..."
+    (#139). Reason: this compares what the write keeps, not where the cut fell,
+    so edits to the read do not hide it. It is a heuristic. It misses an edited
+    read of a note at or under the preview length, and a read that grew past the
+    stored length. It refuses some real edits to a note holding "...", so
+    callers can pass ``allow_shortening``.
 
     Args:
         text (str): Note text about to be written.
         stored (str): Note text on the server.
 
     Returns:
-        bool: True when writing ``text`` would delete stored text after a cut.
+        bool: True when writing ``text`` would delete the stored remainder.
     """
+    snippet = stored[:NOTE_SNIPPET_LENGTH] + ELISION
     stored = stored.strip()
-    for elision in re.finditer(r"\.{3,}", text):
-        anchor = text[max(0, elision.start() - ANCHOR_LENGTH) : elision.start()]
-        if not anchor.strip() or anchor not in stored:
-            continue
-        resume = stored.index(anchor) + len(anchor)
-        if f"{anchor}{ELISION}" not in stored and (
-            stored[resume:] not in text[elision.end() :]
-        ):
-            return True
-    return False
+    if ELISION not in text or len(text) >= len(stored):
+        return False
+    if text == snippet:
+        return True
+    if len(stored) <= MAX_NOTE_PREVIEW_LENGTH:
+        return False
+    ending = stored[-STORED_ENDING_LENGTH:]
+    kept_at = text.rfind(ending)
+    # Reason: a copy of the ending before the elision came from the read itself.
+    return kept_at < 0 or kept_at + len(ending) <= text.rindex(ELISION)
 
 
 async def format_note(client, tree_id: str, handle: str) -> str:

@@ -203,17 +203,10 @@ class TestHasElidedRead:
     @pytest.mark.parametrize(
         ("text", "stored", "expected"),
         [
-            ("alpha beta...", "alpha beta gamma delta", True),
-            ("alpha beta...\nnew section", "alpha beta gamma delta", True),
-            ("alpha...", "alpha.beta gamma", True),
-            ("alpha....", "alpha.beta gamma", True),
-            ("alpha beta...", "alpha beta", False),
-            ("alpha beta... gamma", "alpha beta gamma", False),
-            ("Maybe...tomorrow", "Maybe...later on", False),
-            ("Maybe... and more", "Maybe...", False),
-            ("something else...", "alpha beta gamma", False),
+            ("He...", "He was born in Rome in 1850.", False),
+            ("Research is ongoing...", "Research is ongoing.", False),
+            ("Wait... now", "Wait.. now", False),
             ("...", "", False),
-            ("...rewritten from scratch", "alpha beta gamma", False),
             ("alpha beta gamma", "alpha beta gamma delta", False),
         ],
     )

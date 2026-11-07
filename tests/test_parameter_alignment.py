@@ -426,6 +426,7 @@ class TestParameterAlignment:
             "private",
             "change",
             "list_mode",
+            "allow_shortening",
         }
         allowed_fields = guide_fields | system_fields
         actual_fields = set(fields.keys())

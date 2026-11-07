@@ -14,6 +14,7 @@ from ..models.parameters.people_params import PersonTimelineParams
 from ..utils import gather_bounded
 from .date_handler import format_date
 from .name_utils import join_surnames
+from .note_handler import NOTE_SNIPPET_LENGTH
 from .place_handler import format_place
 from .timeline_events import prefetch_timeline_events
 from .timeline_events import resolve_event_date as _resolve_event_date
@@ -342,8 +343,8 @@ async def format_person_detail(client, tree_id: str, handle: str) -> str:
             # Handle StyledText format
             if isinstance(note_text_raw, dict):
                 note_text_raw = note_text_raw.get("string", "")
-            note_text = note_text_raw[:50]
-            if len(note_text_raw) > 50:
+            note_text = note_text_raw[:NOTE_SNIPPET_LENGTH]
+            if len(note_text_raw) > NOTE_SNIPPET_LENGTH:
                 note_text += "..."
             result += f"- {note_type}: {note_text} ({note_id})\n"
 

@@ -15,7 +15,12 @@ from src.gramps_mcp.tools._errors import McpToolError
 from src.gramps_mcp.tools.search_details import GET_HANDLERS
 from src.gramps_mcp.write_hooks import check_note_text
 
-_STORED = "alpha beta gamma delta epsilon"
+_LONG = "[x] Parish register\n" + "".join(
+    f"[ ] Census {year} for the Rome line\n" for year in range(1800, 1830)
+)
+_CUT = _LONG[:497] + "..."
+_REPEATING_LINE = "[ ] Census 1851 for the Rome line today\n"
+_REPEATING = "Wait... list\n" + _REPEATING_LINE * 40
 
 
 class _Client:
@@ -27,46 +32,74 @@ class _Client:
     async def call_resource(self, method, path, tree_id=None, handle=None):
         """Return the stored note, logging the handle read."""
         self.gets.append((method, handle))
-        return {"text": {"_class": "StyledText", "string": _STORED}}
-
-
-_CHECKLIST = "[x] Parish register\n" + "[ ] Census 1851 for the Rome line\n" * 20
-_CUT = _CHECKLIST[:497] + "..."
+        return {"text": {"_class": "StyledText", "string": _LONG}}
 
 
 class TestHasElidedRead:
-    """A cut read is recognised at the cut, whatever changed around it."""
-
-    @pytest.mark.parametrize(
-        "text",
-        [
-            _CUT,
-            _CUT + "\nnew section",
-            "New heading\n" + _CUT,
-            _CUT.replace("[x] Parish", "[ ] Parish"),
-            "A" * 497 + "...",
-        ],
-    )
-    def test_cut_read_loses_the_tail(self, text):
-        stored = "A" * 600 if text.startswith("AAA") else _CHECKLIST
-        assert has_elided_read(text, stored)
-
-    def test_preview_repeating_the_tail_does_not_hide_the_cut(self):
-        preview = ("the old world and far " * 23)[:497]
-        assert has_elided_read(preview + "...", preview + "ld far")
+    """A cut read is refused wherever it was edited; other writes save."""
 
     @pytest.mark.parametrize(
         ("text", "stored"),
         [
-            ("Rewritten and unfinished...", _STORED),
-            ("alpha beta... gamma", "alpha beta... gamma"),
-            ("alpha... beta gamma", "alpha beta gamma"),
-            ("...", _STORED),
-            (_STORED + " and more...", _STORED),
-            ("the same line\nthe same line... kept", "the same line\nthe same line..."),
+            pytest.param(_CUT, _LONG, id="verbatim"),
+            pytest.param(_CUT + "\nnew section", _LONG, id="appended"),
+            pytest.param("New heading\n" + _CUT, _LONG, id="prepended"),
+            pytest.param(_CUT.replace("[x]", "[ ]"), _LONG, id="edit-at-start"),
+            pytest.param(_LONG[:496] + "Z...", _LONG, id="edit-at-the-cut"),
+            pytest.param("B" * 50 + "...", "B" * 320, id="person-view-of-short-note"),
+            pytest.param(_REPEATING[:497] + "...", _REPEATING, id="real-dots-in-read"),
+            pytest.param(
+                "Heading...\n" + _REPEATING[:497] + "...",
+                _REPEATING,
+                id="real-dots-added-to-read",
+            ),
+            pytest.param("A" * 497 + "...", "A" * 600, id="ending-inside-the-read"),
+            pytest.param(
+                "a" * 494 + "..." + "a" * 3,
+                "a" * 494 + "..." + "b" * 200,
+                id="stored-elision-at-the-cut",
+            ),
+            pytest.param(
+                "He...", "He " + "was born in Rome. " * 40, id="long-note-short-read"
+            ),
         ],
     )
-    def test_text_keeping_the_stored_tail_is_not_a_cut_read(self, text, stored):
+    def test_cut_read_is_recognised(self, text, stored):
+        assert has_elided_read(text, stored)
+
+    @pytest.mark.parametrize(
+        ("text", "stored"),
+        [
+            pytest.param(_LONG + "Checked...", _LONG, id="append"),
+            pytest.param(
+                "No." + _LONG[3:] + "...", _LONG[:-1] + "...", id="stored-ends-in-dots"
+            ),
+            pytest.param(
+                _LONG[:200] + "..." + _LONG[-60:], _LONG, id="abridged-keeps-ending"
+            ),
+            pytest.param(
+                _LONG.strip()[:-9] + "x... rome",
+                _LONG.strip(),
+                id="same-length-ending-edit",
+            ),
+            pytest.param(
+                _LONG.strip().replace("[x]", "...", 1), _LONG, id="stored-whitespace"
+            ),
+            pytest.param(
+                "Intro\n" + _REPEATING_LINE + "Wait...\n" + _REPEATING_LINE,
+                _REPEATING,
+                id="ending-kept-after-the-dots",
+            ),
+            pytest.param(
+                "x" * 37 + "...", "A" * 600 + "x" * 37 + "...", id="just-the-ending"
+            ),
+            pytest.param("B" * 49 + "...", "B" * 320, id="not-quite-a-person-view"),
+            pytest.param("B" * 50 + "...", "B" * 53, id="person-view-no-shorter"),
+            pytest.param(_LONG[:-5], _LONG, id="trim-without-elision"),
+            pytest.param("A" * 400 + "...", "A" * 500, id="at-the-preview-limit"),
+        ],
+    )
+    def test_other_write_is_not_a_cut_read(self, text, stored):
         assert not has_elided_read(text, stored)
 
 
@@ -75,16 +108,33 @@ class TestCheckNoteText:
 
     @pytest.mark.asyncio
     async def test_cut_read_is_refused(self):
-        params = NoteSaveParams(handle="h1", text="alpha beta...\nnew section")
+        params = NoteSaveParams(handle="h1", text=_CUT + "\nnew section")
         with pytest.raises(McpToolError, match="Use get for the full text"):
             await check_note_text(_Client(), "tree", params)
 
     @pytest.mark.asyncio
-    async def test_edit_ending_in_dots_is_saved(self):
+    async def test_edit_with_dots_is_saved(self):
         client = _Client()
-        params = NoteSaveParams(handle="h1", text="Rewritten and unfinished...")
+        params = NoteSaveParams(handle="h1", text=_LONG + "Unfinished...")
         await check_note_text(client, "tree", params)
         assert client.gets == [("GET", "h1")]
+
+    @pytest.mark.asyncio
+    async def test_refusal_names_the_way_through(self):
+        params = NoteSaveParams(handle="h1", text=_CUT)
+        with pytest.raises(McpToolError, match="allow_shortening: true"):
+            await check_note_text(_Client(), "tree", params)
+
+    @pytest.mark.asyncio
+    async def test_allow_shortening_saves_without_a_get(self):
+        client = _Client()
+        params = NoteSaveParams(handle="h1", text=_CUT, allow_shortening=True)
+        await check_note_text(client, "tree", params)
+        assert client.gets == []
+
+    def test_allow_shortening_stays_out_of_the_payload(self):
+        params = NoteSaveParams(handle="h1", text="x", allow_shortening=True)
+        assert "allow_shortening" not in params.to_api_payload()
 
     @pytest.mark.parametrize(
         "params",

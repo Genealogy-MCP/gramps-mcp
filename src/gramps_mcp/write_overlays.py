@@ -66,6 +66,7 @@ PAYLOAD_ONLY_FIELDS: tuple[tuple[type, str], ...] = (
     (FamilySaveParams, "child_handles"),
     (FamilySaveParams, "family_type"),
     (MediaSaveParams, "file_location"),
+    (NoteSaveParams, "allow_shortening"),
 )
 
 # Async ``(client, tree_id, params)`` hook run before the write.
@@ -205,8 +206,9 @@ _UPSERT_TEXT: dict[str, tuple[str, str, str]] = {
         "note",
         "Create or update a textual note",
         "Create or update textual note including object associations. "
-        "To edit text, start from get, not from a search result: an update "
-        "built on a shortened read is refused.",
+        "To edit text, start from get, not from a search result or a person "
+        "or family view. An update built on a shortened read of a note over "
+        "500 characters is refused, but not every such update is caught.",
     ),
     "upsert_media": (
         "media",
