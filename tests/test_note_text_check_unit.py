@@ -46,6 +46,7 @@ class TestHasElidedRead:
             pytest.param("New heading\n" + _CUT, _LONG, id="prepended"),
             pytest.param(_CUT.replace("[x]", "[ ]"), _LONG, id="edit-at-start"),
             pytest.param(_LONG[:496] + "Z...", _LONG, id="edit-at-the-cut"),
+            pytest.param("B" * 50 + "...", "B" * 320, id="person-view-of-short-note"),
             pytest.param(_REPEATING[:497] + "...", _REPEATING, id="real-dots-in-read"),
             pytest.param(
                 "Heading...\n" + _REPEATING[:497] + "...",
@@ -92,6 +93,8 @@ class TestHasElidedRead:
             pytest.param(
                 "x" * 37 + "...", "A" * 600 + "x" * 37 + "...", id="just-the-ending"
             ),
+            pytest.param("B" * 49 + "...", "B" * 320, id="not-quite-a-person-view"),
+            pytest.param("B" * 50 + "...", "B" * 53, id="person-view-no-shorter"),
             pytest.param(_LONG[:-5], _LONG, id="trim-without-elision"),
             pytest.param("A" * 400 + "...", "A" * 500, id="at-the-preview-limit"),
         ],

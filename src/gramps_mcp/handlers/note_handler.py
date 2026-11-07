@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 # Longest note text a search result or save confirmation shows; get never cuts.
 MAX_NOTE_PREVIEW_LENGTH = 500
 
+# Longest note text a person or family view shows.
+NOTE_SNIPPET_LENGTH = 50
+
 # What a shortened read ends in where the note text was cut.
 ELISION = "..."
 
@@ -33,14 +36,14 @@ def has_elided_read(text: str, stored: str) -> bool:
     """
     Tell whether new note text was built on a shortened read of the stored text.
 
-    A write to a note longer than a preview counts as cut when it has a "...",
-    is shorter than the stored note, and has lost the stored ending, or keeps it
-    only before its last "..." (#139). Reason: this compares what the write
-    keeps, not where the cut fell, so edits to the read do not hide it. It is a
-    heuristic. It misses a read of a note at or under the preview length, a
-    50-character person or family view, and a read that grew past the stored
-    length. It refuses some real edits to a note holding "...", so callers can
-    pass ``allow_shortening``.
+    A shorter write counts as cut when it repeats a person or family view word
+    for word. On a note longer than a preview it also counts when it has a "..."
+    and has lost the stored ending, or keeps it only before its last "..."
+    (#139). Reason: this compares what the write keeps, not where the cut fell,
+    so edits to the read do not hide it. It is a heuristic. It misses an edited
+    read of a note at or under the preview length, and a read that grew past the
+    stored length. It refuses some real edits to a note holding "...", so
+    callers can pass ``allow_shortening``.
 
     Args:
         text (str): Note text about to be written.
@@ -49,12 +52,13 @@ def has_elided_read(text: str, stored: str) -> bool:
     Returns:
         bool: True when writing ``text`` would delete the stored remainder.
     """
+    snippet = stored[:NOTE_SNIPPET_LENGTH] + ELISION
     stored = stored.strip()
-    if (
-        len(stored) <= MAX_NOTE_PREVIEW_LENGTH
-        or ELISION not in text
-        or len(text) >= len(stored)
-    ):
+    if ELISION not in text or len(text) >= len(stored):
+        return False
+    if text == snippet:
+        return True
+    if len(stored) <= MAX_NOTE_PREVIEW_LENGTH:
         return False
     ending = stored[-STORED_ENDING_LENGTH:]
     kept_at = text.rfind(ending)
