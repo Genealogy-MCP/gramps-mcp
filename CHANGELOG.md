@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.28] - 2026-11-18
+
+### Changed
+
+- CI include now points at `genealogy-mcp/ci` after the project rename
+
 ## [3.15.27] - 2026-11-06
 
 ### Fixed
