@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.15.28] - 2026-11-18
+
+### Security
+
+- Bump `soupsieve` to 4.1.2 (CVE-2026-126190, CVE-2026-126191, CVE-2026-126193)
+
 ## [3.15.27] - 2026-11-06
 
 ### Fixed
