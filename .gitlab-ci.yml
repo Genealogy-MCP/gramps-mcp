@@ -1,5 +1,5 @@
 include:
-  - project: genealogy-mcp/ci-templates
+  - project: genealogy-mcp/ci
     ref: main
     file: /pipelines/default.yml
 
